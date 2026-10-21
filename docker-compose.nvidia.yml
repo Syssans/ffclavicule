@@ -1,0 +1,14 @@
+# Ajouté automatiquement par ./ffclavicule sur un serveur NVIDIA (setup --nvidia).
+# Prérequis : pilote >= 530.30.02, NVIDIA Container Toolkit >= 1.16.0, nvidia-drm.modeset=1.
+services:
+  wolf:
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

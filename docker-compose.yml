@@ -1,0 +1,26 @@
+# Wolf : serveur de streaming Moonlight. Il démarre un conteneur de jeu par joueur connecté.
+# Ne pas lancer directement : utiliser « sudo ./ffclavicule setup » puis « start » / « stop ».
+name: ffclavicule
+
+services:
+  wolf:
+    image: ${WOLF_IMAGE:-ghcr.io/games-on-whales/wolf:stable}
+    container_name: ffclavicule-wolf
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - WOLF_LOG_LEVEL=INFO
+      # API locale utilisée par ./ffclavicule (appairage, joueurs, sessions)
+      - WOLF_SOCKET_PATH=/var/run/wolf/wolf.sock
+    volumes:
+      - ${FFCLAVICULE_DATA:-/srv/ffclavicule}/wolf:/etc/wolf:rw
+      - /var/run/wolf:/var/run/wolf:rw
+      - /var/run/docker.sock:/var/run/docker.sock:rw
+      - /dev/:/dev/:rw
+      - /run/udev:/run/udev:rw
+    device_cgroup_rules:
+      - 'c 13:* rmw'
+    devices:
+      - /dev/dri
+      - /dev/uinput
+      - /dev/uhid
