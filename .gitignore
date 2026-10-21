@@ -1,8 +1,0 @@
-# Fichiers générés sur le serveur, jamais versionnés
-.env
-.nvidia
-__pycache__/
-
-# Ancienne version (streaming depuis un PC Windows)
-config/config.json
-*.pem
