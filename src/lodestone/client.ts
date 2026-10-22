@@ -239,3 +239,27 @@ export async function getClassJobs(region: LodestoneRegion, id: number): Promise
 export function lodestoneProfileUrl(region: LodestoneRegion, id: number): string {
   return `${baseUrl(region)}/character/${id}/`;
 }
+
+// ---------------------------------------------------------------------------
+// Diagnostic
+// ---------------------------------------------------------------------------
+
+export interface LodestoneProbe {
+  /** La page ressemble à la version ordinateur du Lodestone, celle que l'appli sait lire. */
+  recognized: boolean;
+  results: number;
+  bytes: number;
+  title: string | null;
+}
+
+/** Lit une page de recherche et dit si l'appli la reconnaît. */
+export async function probeLodestone(region: LodestoneRegion): Promise<LodestoneProbe> {
+  const html = await fetchPage(`${baseUrl(region)}/character/?${new URLSearchParams({ q: 'Warrior' })}`);
+  const title = /<title>([^<]*)<\/title>/i.exec(html)?.[1]?.trim() ?? null;
+  return {
+    recognized: html.includes('ldst__window'),
+    results: parseCharacterSearch(html).results.length,
+    bytes: html.length,
+    title,
+  };
+}

@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ApiError } from '@/api/http';
 import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -108,11 +109,17 @@ export function Loading({ label = 'Chargement…' }: { label?: string }) {
 export function ErrorBox({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const theme = useTheme();
   const message = error instanceof Error ? error.message : 'Une erreur est survenue.';
+  const detail = error instanceof ApiError ? error.detail : null;
   return (
     <Card style={{ borderColor: theme.danger, borderWidth: 1 }}>
       <ThemedText type="small" style={{ color: theme.danger }}>
         {message}
       </ThemedText>
+      {detail ? (
+        <ThemedText type="small" themeColor="textSecondary" selectable>
+          {detail}
+        </ThemedText>
+      ) : null}
       {onRetry ? <Button label="Réessayer" variant="secondary" onPress={onRetry} /> : null}
     </Card>
   );

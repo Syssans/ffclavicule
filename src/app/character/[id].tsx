@@ -251,14 +251,19 @@ function CollectionsTab({ id, data }: { id: number; data: Awaited<ReturnType<typ
             <View style={styles.jobLine}>
               <ThemedText type="small">{c.label}</ThemedText>
               <ThemedText type="smallBold">
-                {c.isPublic ? `${formatNumber(c.count)} / ${formatNumber(c.total)} (${percent(c.count, c.total)} %)` : 'Privé'}
+                {!c.isPublic
+                  ? 'Privé'
+                  : c.count === 0
+                    ? 'Non renseigné'
+                    : `${formatNumber(c.count)} / ${formatNumber(c.total)} (${percent(c.count, c.total)} %)`}
               </ThemedText>
             </View>
-            {c.isPublic ? <ProgressBar value={c.total ? c.count / c.total : 0} /> : null}
+            {c.isPublic && c.count > 0 ? <ProgressBar value={c.total ? c.count / c.total : 0} /> : null}
           </View>
         ))}
       </Card>
       <Empty>
+        « Non renseigné » : collection que le Lodestone ne publie pas, à cocher soi-même sur FFXIV Collect.{'\n'}
         Source : FFXIV Collect{data.lastParsed ? `, mis à jour le ${new Date(data.lastParsed).toLocaleDateString('fr-FR')}` : ''}.
       </Empty>
     </>

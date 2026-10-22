@@ -5,9 +5,19 @@ export class ApiError extends Error {
     message: string,
     readonly source: string,
     readonly status?: number,
+    /** Détail technique (adresse, code, erreur réseau d'origine), pour le diagnostic. */
+    readonly detail?: string,
   ) {
     super(message);
     this.name = 'ApiError';
+  }
+}
+
+function host(url: string): string {
+  try {
+    return new URL(url).host;
+  } catch {
+    return url;
   }
 }
 
@@ -32,12 +42,19 @@ export async function request(url: string, { source, headers, timeoutMs = 15000 
   let response: Response;
   try {
     response = await fetch(url, { headers, signal: controller.signal });
-  } catch {
-    throw new ApiError(`Impossible de joindre ${source}. Vérifie ta connexion.`, source);
+  } catch (error) {
+    const reason = controller.signal.aborted
+      ? `pas de réponse en ${timeoutMs / 1000} s`
+      : error instanceof Error
+        ? error.message
+        : String(error);
+    throw new ApiError(`Impossible de joindre ${source}. Vérifie ta connexion.`, source, undefined, `${host(url)} : ${reason}`);
   } finally {
     clearTimeout(timer);
   }
-  if (!response.ok) throw new ApiError(messageForStatus(response.status, source), source, response.status);
+  if (!response.ok) {
+    throw new ApiError(messageForStatus(response.status, source), source, response.status, `${host(url)} : HTTP ${response.status}`);
+  }
   return response;
 }
 
@@ -46,7 +63,7 @@ export async function getJson<T>(url: string, options: RequestOptions): Promise<
   try {
     return (await response.json()) as T;
   } catch {
-    throw new ApiError(`Réponse illisible de ${options.source}.`, options.source, response.status);
+    throw new ApiError(`Réponse illisible de ${options.source}.`, options.source, response.status, `${host(url)} : JSON invalide`);
   }
 }
 

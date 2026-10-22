@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Card, ErrorBox, Loading, Screen, Section, Segmented } from '@/components/ui';
+import { Button, Card, ErrorBox, Loading, Screen, Section, Segmented } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
+import { RUNNING_IN_BROWSER, runDiagnostics, type ProbeResult } from '@/api/diagnostics';
 import { getDataCenters, getWorlds, regionLabel, type DataCenter } from '@/api/universalis';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/store/app-store';
@@ -83,6 +84,8 @@ export default function SettingsScreen() {
         ) : null}
       </Section>
 
+      <Diagnostics />
+
       <Section title="Sources">
         <Card>
           {SOURCES.map((s) => (
@@ -100,6 +103,48 @@ export default function SettingsScreen() {
         </ThemedText>
       </Section>
     </Screen>
+  );
+}
+
+function Diagnostics() {
+  const region = useAppStore((s) => s.region);
+  const test = useMutation({ mutationFn: () => runDiagnostics(region) });
+  return (
+    <Section title="Diagnostic">
+      <ThemedText type="small" themeColor="textSecondary">
+        Vérifie que l’appli arrive à joindre chaque site, et affiche l’erreur exacte sinon.
+      </ThemedText>
+      {RUNNING_IN_BROWSER ? (
+        <ThemedText type="small" themeColor="textSecondary">
+          Tu utilises la version navigateur : le Lodestone y est toujours bloqué par le navigateur. Teste sur ton téléphone avec Expo Go.
+        </ThemedText>
+      ) : null}
+      <Button label={test.isPending ? 'Test en cours…' : 'Tester l’accès aux sources'} onPress={() => test.mutate()} disabled={test.isPending} />
+      {test.data ? (
+        <Card>
+          {test.data.map((r) => (
+            <ProbeRow key={r.source} result={r} />
+          ))}
+        </Card>
+      ) : null}
+    </Section>
+  );
+}
+
+function ProbeRow({ result }: { result: ProbeResult }) {
+  const theme = useTheme();
+  return (
+    <View style={styles.probe} accessible accessibilityLabel={`${result.source} : ${result.ok ? 'OK' : 'échec'}. ${result.summary}`}>
+      <ThemedText type="smallBold" style={{ color: result.ok ? theme.success : theme.danger }}>
+        {result.ok ? '✓' : '✗'} {result.source} · {result.ms} ms
+      </ThemedText>
+      <ThemedText type="small">{result.summary}</ThemedText>
+      {result.detail ? (
+        <ThemedText type="small" themeColor="textSecondary" selectable>
+          {result.detail}
+        </ThemedText>
+      ) : null}
+    </View>
   );
 }
 
@@ -132,4 +177,5 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   chip: { minHeight: 36, paddingHorizontal: Spacing.three, borderRadius: 18, justifyContent: 'center' },
   source: { paddingVertical: Spacing.one },
+  probe: { paddingVertical: Spacing.one, gap: Spacing.half },
 });
