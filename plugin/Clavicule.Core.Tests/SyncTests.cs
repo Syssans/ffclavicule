@@ -34,44 +34,64 @@ public class LodestoneSearchTests
 }
 
 /// <summary>
-/// Tests de bout en bout contre un service lancé avec « npm run dev » dans server/
-/// (clés de server/.dev.vars : écriture « ecriture-anton »). Ignorés si CLAVICULE_SYNC_URL n'est pas défini.
+/// Tests de bout en bout contre un service neuf lancé avec « npx wrangler dev --persist-to $(mktemp -d) » dans server/.
+/// Ignorés si CLAVICULE_SYNC_URL n'est pas défini.
 /// </summary>
 public class SyncClientTests
 {
     private static readonly string? Url = Environment.GetEnvironmentVariable("CLAVICULE_SYNC_URL");
 
     [Fact]
-    public void Complete_l_adresse()
+    public void Complete_l_adresse_et_genere_des_secrets_uniques()
     {
         Assert.Equal("https://a.workers.dev", SyncClient.NormalizeUrl(" a.workers.dev/ "));
         Assert.Equal("http://localhost:8787", SyncClient.NormalizeUrl("http://localhost:8787/"));
+        var secret = SyncClient.NewSecret();
+        Assert.Equal(43, secret.Length);
+        Assert.DoesNotContain('+', secret);
+        Assert.NotEqual(secret, SyncClient.NewSecret());
     }
 
     [Fact]
     public async Task Service_injoignable_donne_un_message_clair()
     {
         var client = new SyncClient(new HttpClient { Timeout = TimeSpan.FromSeconds(5) });
-        var result = await client.CheckAsync("http://127.0.0.1:9", "x");
+        var result = await client.CheckAsync("http://127.0.0.1:9");
         Assert.False(result.Ok);
         Assert.StartsWith("Service injoignable", result.Message);
     }
 
     [Fact]
-    public async Task Envoie_un_modele_au_service_local()
+    public async Task Premier_envoi_lie_le_personnage_puis_un_autre_PC_doit_le_confirmer()
     {
         if (Url == null) return;
         var client = new SyncClient(new HttpClient());
-        Assert.True((await client.CheckAsync(Url, "ecriture-anton")).Ok);
-        Assert.False((await client.CheckAsync(Url, "mauvaise-cle")).Ok);
+        Assert.True((await client.CheckAsync(Url)).Ok);
 
         var glb = new byte[64];
         "glTF"u8.CopyTo(glb);
         glb[4] = 2;
-        var ok = await client.UploadAsync(Url, "ecriture-anton", 123456, glb, "Test Été", "Moogle", "abc");
-        Assert.True(ok.Ok, ok.Message);
-        var refused = await client.UploadAsync(Url, "mauvaise-cle", 123456, glb, "Test", "Moogle", "abc");
-        Assert.False(refused.Ok);
-        Assert.Contains("refusée", refused.Message);
+        var pc1 = SyncClient.NewSecret();
+        var pc2 = SyncClient.NewSecret();
+
+        var first = await client.UploadAsync(Url, pc1, 39451459, glb, "Six Clavicule", "Moogle", "abc");
+        Assert.True(first.Ok, first.Message);
+
+        var other = await client.UploadAsync(Url, pc2, 39451459, glb, "Six Clavicule", "Moogle", "abc");
+        Assert.False(other.Ok);
+        Assert.True(other.IsClaimedElsewhere, other.Code);
+
+        var (challenge, started) = await client.StartClaimAsync(Url, pc2, 39451459);
+        Assert.True(started.Ok, started.Message);
+        Assert.StartsWith("CLAVICULE-", challenge!.Code);
+        Assert.Contains("/lodestone/character/39451459/", challenge.ProfileUrl);
+
+        // Le code n'est pas dans la présentation : refus avec un message clair.
+        var verify = await client.VerifyClaimAsync(Url, pc2, 39451459);
+        Assert.False(verify.Ok);
+        Assert.Contains(verify.Code, new[] { "code-not-found", "lodestone-down" });
+
+        Assert.False((await client.DeleteAsync(Url, pc2, 39451459)).Ok);
+        Assert.True((await client.DeleteAsync(Url, pc1, 39451459)).Ok);
     }
 }

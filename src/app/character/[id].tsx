@@ -8,7 +8,7 @@ import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { getCollections, isBrowsable, profileUrl } from '@/api/ffxivcollect';
 import { loadModel } from '@/api/model-cache';
-import { getModelInfo, isSyncConfigured } from '@/api/sync';
+import { getModelInfo, isSyncAvailable } from '@/api/sync';
 import { gameIconUrl } from '@/api/xivapi';
 import { CharacterViewer } from '@/components/character-viewer';
 import { ThemedText } from '@/components/themed-text';
@@ -131,17 +131,16 @@ export default function CharacterScreen() {
 /** Grand portrait du Lodestone (ou modèle 3D synchronisé), avec le nom et le job actif par-dessus. */
 function Hero({ profile }: { profile: CharacterProfile }) {
   const image = profile.portrait ?? profile.avatar;
-  const sync = useAppStore((s) => s.sync);
   const [show3d, setShow3d] = useState(false);
   const info = useQuery({
-    queryKey: ['sync', 'info', sync.url, profile.id],
-    queryFn: () => getModelInfo(sync, profile.id),
-    enabled: isSyncConfigured(sync),
+    queryKey: ['sync', 'info', profile.id],
+    queryFn: () => getModelInfo(profile.id),
+    enabled: isSyncAvailable(),
     retry: false,
   });
   const model = useQuery({
-    queryKey: ['sync', 'model', sync.url, profile.id, info.data?.updatedAt],
-    queryFn: () => loadModel(sync, profile.id),
+    queryKey: ['sync', 'model', profile.id, info.data?.updatedAt],
+    queryFn: () => loadModel(profile.id),
     enabled: show3d && Boolean(info.data),
     staleTime: Infinity,
     gcTime: 60_000,

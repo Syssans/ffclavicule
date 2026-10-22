@@ -5,7 +5,6 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { downloadModel } from '@/api/sync';
-import type { SyncSettings } from '@/store/app-store';
 
 function folder(): Directory {
   const dir = new Directory(Paths.cache, 'models');
@@ -18,7 +17,7 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 }
 
 /** Le .glb du personnage (depuis le cache s'il est à jour), ou null s'il n'a pas de modèle. */
-export async function loadModel(settings: SyncSettings, characterId: number): Promise<ArrayBuffer | null> {
+export async function loadModel(characterId: number): Promise<ArrayBuffer | null> {
   const dir = folder();
   const glb = new File(dir, `${characterId}.glb`);
   const tag = new File(dir, `${characterId}.etag`);
@@ -26,7 +25,7 @@ export async function loadModel(settings: SyncSettings, characterId: number): Pr
 
   let result;
   try {
-    result = await downloadModel(settings, characterId, cachedTag);
+    result = await downloadModel(characterId, cachedTag);
   } catch (error) {
     // Hors ligne : on montre la dernière version connue.
     if (glb.exists) return toArrayBuffer(await glb.bytes());

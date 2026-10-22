@@ -5,16 +5,26 @@ Envoie automatiquement l’apparence 3D de ton personnage à l’appli Clavicule
 1. À la connexion, puis toutes les 2 secondes, le plugin calcule une empreinte de l’apparence (visage, corps, équipement, teintures, armes, lunettes).
 2. Si elle a changé depuis le dernier envoi et reste stable 6 secondes, il attend que le personnage soit au repos. Au repos veut dire : à pied, hors combat, arme rangée, pas d’emote ni de cinématique.
 3. Il reconstruit alors le modèle avec le code de [Meddle](https://github.com/PassiveModding/Meddle), en sous-module dans `vendor/Meddle`. Les couleurs du jeu (peau, cheveux, yeux, teintures) sont « cuites » dans des textures standard.
-4. Il envoie le `.glb` au service de synchro du groupe (dossier `server/` du dépôt). L’identifiant Lodestone du personnage est trouvé tout seul.
+4. Il envoie le `.glb` au service Clavicule Sync (dossier `server/` du dépôt), dont l’adresse est intégrée au plugin.
+   - L’identifiant Lodestone du personnage est trouvé tout seul.
+   - Un secret propre au personnage, généré automatiquement, empêche quelqu’un d’autre de remplacer son modèle.
 
-## Installation (amis du groupe)
+Aucune clé ni adresse à saisir.
+
+## Installation
 
 1. Télécharge `latest.zip` depuis l’onglet **Actions** du dépôt : dernier passage de « Plugin Dalamud », artefact `Clavicule-plugin`. Décompresse-le dans un dossier, par exemple `C:\Clavicule`.
 2. En jeu, tape `/xlsettings`. Dans **Experimental → Dev Plugin Locations**, ajoute le chemin vers `Clavicule.dll`, puis sauvegarde.
 3. Tape `/xlplugins`, onglet **Dev Tools → Installed Dev Plugins**, et active **Clavicule**.
-4. Tape `/clavicule` et renseigne :
-   - l’adresse du service et ta clé d’écriture personnelle (fournies par la personne qui a déployé `server/`) ;
-   - « Tester la connexion », puis « Envoyer maintenant » pour un premier essai.
+4. C’est tout : l’envoi est automatique. `/clavicule` montre l’état, et « Envoyer maintenant » permet un premier essai immédiat.
+
+**Changement de PC ou réinstallation** : le service reconnaît que ce n’est plus le même ordinateur. `/clavicule` guide alors en 3 clics :
+
+1. obtenir un code ;
+2. le coller dans ta présentation Lodestone ;
+3. vérifier.
+
+Tu peux retirer le code ensuite.
 
 Commandes :
 
@@ -23,10 +33,11 @@ Commandes :
 
 Le modèle apparaît ensuite dans l’appli : fiche du personnage, bouton **3D**.
 
-Réglages utiles :
+Options (facultatives) :
 
 - **Taille des textures** : 1024 par défaut, environ 10 à 20 Mo par personnage. 512 si l’envoi est lent.
 - **Inclure les armes** et **Relief des textures** se désactivent pour alléger.
+- **Retirer mon modèle de l’appli** le supprime du service et coupe l’envoi automatique.
 
 ## Limites connues (première version)
 
@@ -43,7 +54,7 @@ dotnet test Clavicule.Core.Tests          # cuisson des matériaux, Lodestone, e
 dotnet build Clavicule.Plugin -c Release  # produit Clavicule.Plugin/bin/Release/Clavicule/latest.zip
 ```
 
-Pour tester l’envoi contre un service local (`npm run dev` dans `server/`), exporte `CLAVICULE_SYNC_URL=http://localhost:8787` avant `dotnet test`.
+Pour tester l’envoi contre un service local, lance `npx wrangler dev --persist-to $(mktemp -d)` dans `server/`, puis exporte `CLAVICULE_SYNC_URL=http://localhost:8787` avant `dotnet test`.
 
 Organisation :
 

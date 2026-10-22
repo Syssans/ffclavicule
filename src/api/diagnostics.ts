@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { probeLodestone, type LodestoneRegion } from '@/lodestone/client';
 
 import { ApiError, getJson } from './http';
+import { checkSync, isSyncAvailable } from './sync';
 import { getDataCenters } from './universalis';
 import { searchItems } from './xivapi';
 
@@ -62,6 +63,14 @@ export function runDiagnostics(region: LodestoneRegion): Promise<ProbeResult[]> 
       const mount = await getJson<{ name?: string }>('https://ffxivcollect.com/api/mounts/1', { source: 'FFXIV Collect' });
       return { ok: Boolean(mount.name), summary: `Monture n° 1 : ${mount.name ?? 'illisible'}.` };
     }),
+    ...(isSyncAvailable()
+      ? [
+          probe('Modèles 3D', async () => {
+            await checkSync();
+            return { ok: true, summary: 'Service des modèles 3D joignable.' };
+          }),
+        ]
+      : []),
   ]);
 }
 

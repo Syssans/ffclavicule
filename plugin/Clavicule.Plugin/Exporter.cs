@@ -80,7 +80,7 @@ public sealed class Exporter : IDisposable
         if (character->DrawObject == null) return;
 
         var current = CurrentCharacter();
-        if (current == null) return;
+        if (current == null || current.Value.state.NeedsLodestoneProof) return;
         var hash = Appearance.Hash(character, config.IncludeWeapons);
         if (hash == current.Value.state.LastHash)
         {
@@ -108,7 +108,7 @@ public sealed class Exporter : IDisposable
             if (busy) return;
             if (!config.IsReady)
             {
-                Status = "Renseigne d’abord l’adresse du service et ta clé d’écriture.";
+                Status = "Aucun service de synchro n’est configuré dans cette version du plugin.";
                 return;
             }
             if (objects.LocalPlayer is not IPlayerCharacter player)
@@ -151,7 +151,7 @@ public sealed class Exporter : IDisposable
     {
         var options = new BakeOptions { MaxTextureSize = config.MaxTextureSize, Normals = config.Normals };
         var serviceUrl = config.ServiceUrl;
-        var writeKey = config.WriteKey;
+        var secret = state.EnsureSecret();
         var token = disposing.Token;
         Task.Run(async () =>
         {
@@ -170,7 +170,16 @@ public sealed class Exporter : IDisposable
             }
 
             Status = $"Envoi du modèle ({built.Glb.Length / 1024 / 1024.0:0.0} Mo)…";
-            var result = await sync.UploadAsync(serviceUrl, writeKey, lodestoneId.Value, built.Glb, state.Name, state.World, hash, token);
+            var result = await sync.UploadAsync(serviceUrl, secret, lodestoneId.Value, built.Glb, state.Name, state.World, hash, token);
+            if (result.IsClaimedElsewhere)
+            {
+                await framework.RunOnFrameworkThread(() =>
+                {
+                    state.NeedsLodestoneProof = true;
+                    pluginInterface.SavePluginConfig(config);
+                });
+                throw new UserFacingException("Ce personnage est déjà lié à un autre ordinateur. Ouvre /clavicule pour le confirmer avec ton Lodestone.");
+            }
             if (!result.Ok) throw new UserFacingException(result.Message);
 
             await framework.RunOnFrameworkThread(() =>
@@ -215,9 +224,56 @@ public sealed class Exporter : IDisposable
         }
     }
 
-    public async Task<string> TestConnection()
+    public async Task<string> TestConnection() => (await sync.CheckAsync(config.ServiceUrl)).Message;
+
+    /// <summary>Étape 1 de la confirmation : obtenir le code à coller dans la présentation Lodestone.</summary>
+    public async Task<string> RequestProofCode(CharacterState state)
     {
-        var result = await sync.CheckAsync(config.ServiceUrl, config.WriteKey);
+        var id = state.LodestoneId ?? await LodestoneSearch.FindAsync(http, state.Name, state.World);
+        if (id == null) return "Personnage introuvable sur le Lodestone : renseigne son identifiant.";
+        state.LodestoneId = id;
+        var (challenge, result) = await sync.StartClaimAsync(config.ServiceUrl, state.EnsureSecret(), id.Value);
+        if (challenge == null) return result.Message;
+        await framework.RunOnFrameworkThread(() =>
+        {
+            state.ProofCode = challenge.Code;
+            pluginInterface.SavePluginConfig(config);
+        });
+        return "Code obtenu : colle-le dans ta présentation Lodestone, enregistre, puis clique sur Vérifier.";
+    }
+
+    /// <summary>Étape 2 : le service lit la présentation ; si le code y est, ce PC reprend la main et renvoie le modèle.</summary>
+    public async Task<string> VerifyProofCode(CharacterState state)
+    {
+        if (state.LodestoneId is not { } id) return "Demande d’abord un code.";
+        var result = await sync.VerifyClaimAsync(config.ServiceUrl, state.EnsureSecret(), id);
+        if (!result.Ok) return result.Message;
+        await framework.RunOnFrameworkThread(() =>
+        {
+            state.NeedsLodestoneProof = false;
+            state.ProofCode = null;
+            state.LastHash = null;
+            pluginInterface.SavePluginConfig(config);
+        });
+        SendNow();
+        return $"{result.Message} Tu peux retirer le code de ta présentation.";
+    }
+
+    /// <summary>Retire le modèle du service (il ne sera plus visible dans l'appli).</summary>
+    public async Task<string> DeleteModel(CharacterState state)
+    {
+        if (state.LodestoneId is not { } id || state.Secret.Length == 0) return "Aucun modèle envoyé depuis ce PC.";
+        var result = await sync.DeleteAsync(config.ServiceUrl, state.Secret, id);
+        if (result.Ok)
+        {
+            await framework.RunOnFrameworkThread(() =>
+            {
+                config.AutoUpload = false;
+                state.LastHash = null;
+                pluginInterface.SavePluginConfig(config);
+            });
+            return "Modèle supprimé. L’envoi automatique est désactivé.";
+        }
         return result.Message;
     }
 

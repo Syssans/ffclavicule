@@ -21,13 +21,13 @@ Tout est lu directement depuis le téléphone : pas de serveur à héberger, pas
 
 ## Apparence 3D (facultatif)
 
-La fiche d'un personnage peut afficher son **modèle 3D**, à faire tourner du doigt, avec un cadrage corps ou visage. Pour cela, trois pièces travaillent ensemble :
+La fiche d'un personnage peut afficher son **modèle 3D**, à faire tourner du doigt, avec un cadrage corps ou visage. Aucun réglage pour les joueurs :
 
-1. **Le plugin Dalamud** (`plugin/`) : il exporte le personnage automatiquement, à la connexion et à chaque changement de tenue, puis l'envoie au service.
-2. **Le service de synchro** (`server/`) : il est hébergé gratuitement sur Cloudflare et stocke un modèle par personnage.
-3. **L'appli** : dans Réglages → Modèles 3D, renseigne l'adresse du service et la clé de lecture du groupe. Sur la fiche, le bouton **3D** apparaît dès qu'un modèle existe.
+1. **Le plugin Dalamud** (`plugin/`) exporte le personnage automatiquement, à la connexion et à chaque changement de tenue, puis l'envoie au service.
+2. **Le service Clavicule Sync** (`server/`, sur Cloudflare) stocke un modèle par personnage. La lecture est publique ; l'écriture est protégée par un secret généré par le plugin.
+3. **L'appli** affiche le bouton **3D** sur la fiche dès qu'un modèle existe, pour n'importe quel personnage.
 
-Mise en place : [server/README.md](server/README.md), puis [plugin/README.md](plugin/README.md).
+Mise en ligne du service (une fois, par l'éditeur de l'appli) : [server/README.md](server/README.md). Installation du plugin : [plugin/README.md](plugin/README.md).
 
 ## Essayer sur ton téléphone
 

@@ -1,25 +1,30 @@
 /**
  * Logique du service (séparée de src/index.ts : un Worker ne peut exporter que ses gestionnaires).
  *
- * Clavicule Sync : stockage des modèles 3D des personnages, sur Cloudflare (Worker + R2).
+ * Clavicule Sync : modèles 3D des personnages, sur Cloudflare (Worker + R2). Aucune clé à configurer :
  *
- * - Le plugin Dalamud envoie le modèle (.glb) d'un personnage avec une clé d'écriture personnelle.
- * - L'appli lit les modèles avec la clé de lecture du groupe d'amis.
+ * - Lecture publique : l'apparence d'un personnage est déjà publique en jeu et sur le Lodestone.
+ * - Écriture protégée par un secret que le plugin génère seul pour chaque personnage. Le premier envoi
+ *   « réclame » le personnage ; ensuite, seul ce secret peut le modifier.
+ * - Secret perdu (nouveau PC) : le plugin demande un code, le joueur le colle dans sa présentation Lodestone,
+ *   le service le vérifie et accepte le nouveau secret.
  *
  * Routes :
- *   GET  /health
- *   GET  /v1/characters                    liste des personnages qui ont un modèle   (lecture)
- *   GET  /v1/characters/:id/model/info     infos du modèle                           (lecture)
- *   GET  /v1/characters/:id/model          le fichier .glb (ETag, 304)               (lecture)
- *   PUT  /v1/characters/:id/model          envoi du fichier .glb                     (écriture)
+ *   GET    /health
+ *   GET    /v1/characters/:id/model/info       infos du modèle
+ *   GET    /v1/characters/:id/model            le fichier .glb (ETag, 304)
+ *   PUT    /v1/characters/:id/model            envoi du .glb                    (secret du personnage)
+ *   DELETE /v1/characters/:id/model            suppression du modèle            (secret, ou clé d'admin)
+ *   POST   /v1/characters/:id/claim            demande d'un code Lodestone      (nouveau secret)
+ *   POST   /v1/characters/:id/claim/verify     vérification du code             (nouveau secret)
  */
 
 export interface Env {
   MODELS: R2Bucket;
-  /** Clé de lecture partagée par le groupe (secret Cloudflare). */
-  READ_TOKEN: string;
-  /** Clés d'écriture, une par personne : {"anton": "…", "amie": "…"} (secret Cloudflare). */
-  WRITE_TOKENS: string;
+  /** Facultatif : clé de modération (supprimer un modèle, libérer un personnage). */
+  ADMIN_TOKEN?: string;
+  /** Facultatif : autre adresse du Lodestone (tests). */
+  LODESTONE_URL?: string;
 }
 
 export interface ModelInfo {
@@ -28,19 +33,34 @@ export interface ModelInfo {
   world: string | null;
   /** Empreinte de l'apparence (visage, tenue, teintures) au moment de l'export. */
   appearanceHash: string | null;
-  uploadedBy: string | null;
   size: number;
   updatedAt: string;
 }
 
-/** Limite d'une requête sur l'offre gratuite de Cloudflare Workers : 100 Mo. */
-export const MAX_MODEL_BYTES = 95 * 1024 * 1024;
+interface Owner {
+  secretHash: string;
+  claimedAt: string;
+  via: 'premier-envoi' | 'lodestone';
+}
+
+interface PendingClaim {
+  code: string;
+  secretHash: string;
+  expiresAt: string;
+}
+
+/** Un personnage exporté pèse 10 à 20 Mo ; au-delà, c'est anormal. */
+export const MAX_MODEL_BYTES = 50 * 1024 * 1024;
+/** Délai minimal entre deux envois pour un même personnage. */
+export const MIN_UPLOAD_INTERVAL_MS = 30_000;
+const CLAIM_TTL_MS = 60 * 60 * 1000;
+const MIN_SECRET_LENGTH = 32;
 const GLB_MAGIC = 0x46546c67; // « glTF » en little-endian, début de tout fichier .glb
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type, If-None-Match, X-Appearance-Hash, X-Character-Name, X-Character-World',
-  'Access-Control-Allow-Methods': 'GET, HEAD, PUT, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, HEAD, PUT, POST, DELETE, OPTIONS',
   'Access-Control-Expose-Headers': 'ETag, X-Appearance-Hash, Last-Modified',
 };
 
@@ -51,11 +71,12 @@ function json(data: unknown, status = 200, headers: Record<string, string> = {})
   });
 }
 
-export function error(status: number, message: string): Response {
-  return json({ error: message }, status);
+/** Erreur lisible, avec un code stable que le plugin et l'appli peuvent tester. */
+export function error(status: number, message: string, code = 'error'): Response {
+  return json({ error: message, code }, status);
 }
 
-/** Comparaison en temps constant, pour ne rien révéler des clés par le temps de réponse. */
+/** Comparaison en temps constant, pour ne rien révéler par le temps de réponse. */
 function safeEqual(a: string, b: string): boolean {
   const ea = new TextEncoder().encode(a);
   const eb = new TextEncoder().encode(b);
@@ -64,40 +85,43 @@ function safeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
+async function sha256(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 function bearer(request: Request): string | null {
-  const header = request.headers.get('Authorization') ?? '';
-  const match = /^Bearer\s+(.+)$/i.exec(header);
+  const match = /^Bearer\s+(.+)$/i.exec(request.headers.get('Authorization') ?? '');
   return match ? match[1].trim() : null;
 }
 
-function writeTokens(env: Env): Record<string, string> {
+function isAdmin(request: Request, env: Env): boolean {
+  const token = bearer(request);
+  return Boolean(env.ADMIN_TOKEN && token && safeEqual(token, env.ADMIN_TOKEN));
+}
+
+/** Secret du personnage, s'il est assez long pour être sérieux. */
+function secretOf(request: Request): string | null {
+  const token = bearer(request);
+  return token && token.length >= MIN_SECRET_LENGTH && token.length <= 256 ? token : null;
+}
+
+const modelKey = (id: number) => `models/${id}.glb`;
+const ownerKey = (id: number) => `owners/${id}.json`;
+const claimKey = (id: number) => `claims/${id}.json`;
+
+async function readJson<T>(env: Env, key: string): Promise<T | null> {
+  const object = await env.MODELS.get(key);
+  if (!object) return null;
   try {
-    const parsed = JSON.parse(env.WRITE_TOKENS || '{}') as unknown;
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {};
+    return (await object.json()) as T;
   } catch {
-    return {};
+    return null;
   }
 }
 
-/** Nom de la personne propriétaire de la clé d'écriture, ou null. */
-function writer(request: Request, env: Env): string | null {
-  const token = bearer(request);
-  if (!token) return null;
-  for (const [name, value] of Object.entries(writeTokens(env))) {
-    if (value && safeEqual(token, value)) return name;
-  }
-  return null;
-}
-
-/** Lecture autorisée avec la clé du groupe ou avec n'importe quelle clé d'écriture. */
-function canRead(request: Request, env: Env): boolean {
-  const token = bearer(request);
-  if (!token) return false;
-  return (Boolean(env.READ_TOKEN) && safeEqual(token, env.READ_TOKEN)) || writer(request, env) !== null;
-}
-
-function modelKey(id: number): string {
-  return `models/${id}.glb`;
+async function writeJson(env: Env, key: string, value: unknown): Promise<void> {
+  await env.MODELS.put(key, JSON.stringify(value), { httpMetadata: { contentType: 'application/json' } });
 }
 
 function toInfo(id: number, object: R2Object): ModelInfo {
@@ -107,7 +131,6 @@ function toInfo(id: number, object: R2Object): ModelInfo {
     name: meta.name ?? null,
     world: meta.world ?? null,
     appearanceHash: meta.appearanceHash ?? null,
-    uploadedBy: meta.uploadedBy ?? null,
     size: object.size,
     updatedAt: object.uploaded.toISOString(),
   };
@@ -130,27 +153,87 @@ function header(request: Request, name: string): string | undefined {
   return value.replace(/[\u0000-\u001f]/g, '').slice(0, 64) || undefined;
 }
 
+// ------------------------------------------------------------------ Lodestone
+
+function lodestoneBase(env: Env): string {
+  return (env.LODESTONE_URL || 'https://eu.finalfantasyxiv.com').replace(/\/+$/, '');
+}
+
+export function lodestoneProfileUrl(env: Env, id: number): string {
+  return `${lodestoneBase(env)}/lodestone/character/${id}/`;
+}
+
+/** Page de profil Lodestone : texte, null si le personnage n'existe pas, « indisponible » sinon. */
+async function fetchProfile(env: Env, id: number): Promise<string | null | 'indisponible'> {
+  try {
+    const res = await fetch(lodestoneProfileUrl(env, id), {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ClaviculeSync/1.0)' },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) return 'indisponible';
+    return await res.text();
+  } catch {
+    return 'indisponible';
+  }
+}
+
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function pageMentions(page: string, text: string): boolean {
+  return page.includes(text) || page.includes(escapeHtml(text));
+}
+
+/** Code à coller dans la présentation : facile à lire, sans caractères ambigus. */
+function newCode(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return `CLAVICULE-${[...bytes].map((b) => alphabet[b % alphabet.length]).join('')}`;
+}
+
+// ------------------------------------------------------------------ routes
+
 async function putModel(request: Request, env: Env, id: number): Promise<Response> {
+  const secret = secretOf(request);
+  if (!secret) return error(401, 'Secret du personnage absent.', 'unauthorized');
+
+  const declared = Number(request.headers.get('Content-Length') ?? '0');
+  if (declared > MAX_MODEL_BYTES) return error(413, 'Modèle trop lourd.', 'too-large');
+  const body = await request.arrayBuffer();
+  if (body.byteLength > MAX_MODEL_BYTES) return error(413, 'Modèle trop lourd.', 'too-large');
+  if (body.byteLength < 12 || new DataView(body).getUint32(0, true) !== GLB_MAGIC) {
+    return error(415, 'Ce n’est pas un fichier .glb (glTF binaire).', 'not-glb');
+  }
+
   const name = header(request, 'X-Character-Name');
   const world = header(request, 'X-Character-World');
   const appearanceHash = header(request, 'X-Appearance-Hash');
-  const who = writer(request, env);
-  if (!who) return error(401, 'Clé d’écriture absente ou invalide.');
+  const secretHash = await sha256(secret);
+  const owner = await readJson<Owner>(env, ownerKey(id));
 
-  const declared = Number(request.headers.get('Content-Length') ?? '0');
-  if (declared > MAX_MODEL_BYTES) return error(413, `Modèle trop lourd (${declared} octets, maximum ${MAX_MODEL_BYTES}).`);
+  if (owner) {
+    if (!safeEqual(owner.secretHash, secretHash)) {
+      return error(403, 'Ce personnage est déjà lié à un autre ordinateur. Confirme-le avec le code Lodestone.', 'claimed');
+    }
+  } else {
+    // Premier envoi : on vérifie que le personnage existe (et porte ce nom) avant de le lier.
+    const page = await fetchProfile(env, id);
+    if (page === null) return error(422, 'Personnage introuvable sur le Lodestone.', 'unknown-character');
+    if (page !== 'indisponible' && name && !pageMentions(page, name)) {
+      return error(422, 'Le nom ne correspond pas à ce personnage sur le Lodestone.', 'unknown-character');
+    }
+    await writeJson(env, ownerKey(id), { secretHash, claimedAt: new Date().toISOString(), via: 'premier-envoi' } satisfies Owner);
+  }
 
-  const body = await request.arrayBuffer();
-  if (body.byteLength === 0) return error(400, 'Fichier vide.');
-  if (body.byteLength > MAX_MODEL_BYTES) return error(413, 'Modèle trop lourd.');
-  if (body.byteLength < 12 || new DataView(body).getUint32(0, true) !== GLB_MAGIC) {
-    return error(415, 'Ce n’est pas un fichier .glb (glTF binaire).');
+  const previous = await env.MODELS.head(modelKey(id));
+  if (previous && Date.now() - previous.uploaded.getTime() < MIN_UPLOAD_INTERVAL_MS) {
+    return error(429, 'Envois trop rapprochés, réessaie dans une minute.', 'rate-limited');
   }
 
   const object = await env.MODELS.put(modelKey(id), body, {
     httpMetadata: { contentType: 'model/gltf-binary' },
     customMetadata: {
-      uploadedBy: who,
       ...(name ? { name } : {}),
       ...(world ? { world } : {}),
       ...(appearanceHash ? { appearanceHash } : {}),
@@ -159,15 +242,59 @@ async function putModel(request: Request, env: Env, id: number): Promise<Respons
   return json(toInfo(id, object), 201);
 }
 
+async function deleteModel(request: Request, env: Env, id: number): Promise<Response> {
+  if (!isAdmin(request, env)) {
+    const secret = secretOf(request);
+    const owner = await readJson<Owner>(env, ownerKey(id));
+    if (!secret || !owner || !safeEqual(owner.secretHash, await sha256(secret))) {
+      return error(403, 'Seul l’ordinateur lié à ce personnage peut supprimer son modèle.', 'claimed');
+    }
+  }
+  await env.MODELS.delete(modelKey(id));
+  // L'admin libère aussi le personnage (en cas d'abus).
+  if (isAdmin(request, env)) await env.MODELS.delete([ownerKey(id), claimKey(id)]);
+  return new Response(null, { status: 204, headers: CORS });
+}
+
+async function startClaim(request: Request, env: Env, id: number): Promise<Response> {
+  const secret = secretOf(request);
+  if (!secret) return error(401, 'Secret du personnage absent.', 'unauthorized');
+  const claim: PendingClaim = {
+    code: newCode(),
+    secretHash: await sha256(secret),
+    expiresAt: new Date(Date.now() + CLAIM_TTL_MS).toISOString(),
+  };
+  await writeJson(env, claimKey(id), claim);
+  return json({ code: claim.code, expiresAt: claim.expiresAt, profileUrl: lodestoneProfileUrl(env, id) });
+}
+
+async function verifyClaim(request: Request, env: Env, id: number): Promise<Response> {
+  const secret = secretOf(request);
+  if (!secret) return error(401, 'Secret du personnage absent.', 'unauthorized');
+  const claim = await readJson<PendingClaim>(env, claimKey(id));
+  const secretHash = await sha256(secret);
+  if (!claim || !safeEqual(claim.secretHash, secretHash) || Date.parse(claim.expiresAt) < Date.now()) {
+    return error(404, 'Aucune demande en cours (ou elle a expiré) : demande un nouveau code.', 'no-claim');
+  }
+  const page = await fetchProfile(env, id);
+  if (page === null) return error(422, 'Personnage introuvable sur le Lodestone.', 'unknown-character');
+  if (page === 'indisponible') return error(503, 'Le Lodestone ne répond pas, réessaie dans un moment.', 'lodestone-down');
+  if (!page.includes(claim.code)) {
+    return error(409, 'Code introuvable dans ta présentation Lodestone. Le Lodestone peut mettre quelques minutes à se mettre à jour.', 'code-not-found');
+  }
+  await writeJson(env, ownerKey(id), { secretHash, claimedAt: new Date().toISOString(), via: 'lodestone' } satisfies Owner);
+  await env.MODELS.delete(claimKey(id));
+  return json({ ok: true });
+}
+
 async function getModel(request: Request, env: Env, id: number): Promise<Response> {
-  if (!canRead(request, env)) return error(401, 'Clé de lecture absente ou invalide.');
   const object = await env.MODELS.get(modelKey(id), { onlyIf: request.headers });
-  if (!object) return error(404, 'Aucun modèle 3D pour ce personnage.');
+  if (!object) return error(404, 'Aucun modèle 3D pour ce personnage.', 'not-found');
   const headers = new Headers(CORS);
   object.writeHttpMetadata(headers);
   headers.set('ETag', object.httpEtag);
   headers.set('Last-Modified', object.uploaded.toUTCString());
-  headers.set('Cache-Control', 'private, no-cache');
+  headers.set('Cache-Control', 'public, no-cache');
   if (object.customMetadata?.appearanceHash) headers.set('X-Appearance-Hash', object.customMetadata.appearanceHash);
   // Condition If-None-Match remplie : R2 renvoie l'objet sans contenu.
   if (!('body' in object)) return new Response(null, { status: 304, headers });
@@ -175,41 +302,38 @@ async function getModel(request: Request, env: Env, id: number): Promise<Respons
   return new Response(object.body, { status: 200, headers });
 }
 
-async function getInfo(request: Request, env: Env, id: number): Promise<Response> {
-  if (!canRead(request, env)) return error(401, 'Clé de lecture absente ou invalide.');
+async function getInfo(env: Env, id: number): Promise<Response> {
   const object = await env.MODELS.head(modelKey(id));
-  if (!object) return error(404, 'Aucun modèle 3D pour ce personnage.');
-  return json(toInfo(id, object));
-}
-
-async function listModels(request: Request, env: Env): Promise<Response> {
-  if (!canRead(request, env)) return error(401, 'Clé de lecture absente ou invalide.');
-  const infos: ModelInfo[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await env.MODELS.list({ prefix: 'models/', cursor, include: ['customMetadata'] });
-    for (const object of page.objects) {
-      const id = parseId(object.key.slice('models/'.length).replace(/\.glb$/, ''));
-      if (id !== null) infos.push(toInfo(id, object));
-    }
-    cursor = page.truncated ? page.cursor : undefined;
-  } while (cursor);
-  return json({ characters: infos });
+  if (!object) return error(404, 'Aucun modèle 3D pour ce personnage.', 'not-found');
+  return json(toInfo(id, object), 200, { 'Cache-Control': 'public, max-age=30' });
 }
 
 export async function handle(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
-  if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+  const method = request.method;
+  if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (url.pathname === '/health') return json({ ok: true });
-  if (url.pathname === '/v1/characters' && request.method === 'GET') return listModels(request, env);
 
-  const match = /^\/v1\/characters\/([^/]+)\/model(\/info)?$/.exec(url.pathname);
-  if (!match) return error(404, 'Route inconnue.');
+  const match = /^\/v1\/characters\/([^/]+)\/(model|model\/info|claim|claim\/verify)$/.exec(url.pathname);
+  if (!match) return error(404, 'Route inconnue.', 'not-found');
   const id = parseId(match[1]);
-  if (id === null) return error(400, 'Identifiant de personnage invalide.');
+  if (id === null) return error(400, 'Identifiant de personnage invalide.', 'bad-id');
 
-  if (match[2]) return request.method === 'GET' ? getInfo(request, env, id) : error(405, 'Méthode non autorisée.');
-  if (request.method === 'PUT') return putModel(request, env, id);
-  if (request.method === 'GET' || request.method === 'HEAD') return getModel(request, env, id);
-  return error(405, 'Méthode non autorisée.');
+  switch (`${method} ${match[2]}`) {
+    case 'GET model':
+    case 'HEAD model':
+      return getModel(request, env, id);
+    case 'GET model/info':
+      return getInfo(env, id);
+    case 'PUT model':
+      return putModel(request, env, id);
+    case 'DELETE model':
+      return deleteModel(request, env, id);
+    case 'POST claim':
+      return startClaim(request, env, id);
+    case 'POST claim/verify':
+      return verifyClaim(request, env, id);
+    default:
+      return error(405, 'Méthode non autorisée.', 'method');
+  }
 }

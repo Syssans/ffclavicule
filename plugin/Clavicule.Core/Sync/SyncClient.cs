@@ -1,16 +1,32 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Text.Json;
 
 namespace Clavicule.Sync;
 
-public sealed record SyncResult(bool Ok, string Message);
+/// <summary>Résultat d'un appel : message lisible et code stable renvoyé par le service (ex. « claimed »).</summary>
+public sealed record SyncResult(bool Ok, string Message, string? Code = null)
+{
+    /// <summary>Le personnage est lié à un autre ordinateur : il faut le confirmer avec le code Lodestone.</summary>
+    public bool IsClaimedElsewhere => Code == "claimed";
+}
 
-/// <summary>Client du service Clavicule Sync (dossier server/ du dépôt).</summary>
+public sealed record ClaimChallenge(string Code, DateTime ExpiresAt, string ProfileUrl);
+
+/// <summary>
+/// Client du service Clavicule Sync (dossier server/ du dépôt). Aucune clé à saisir : chaque personnage
+/// a un secret généré par le plugin, que le service associe au personnage au premier envoi.
+/// </summary>
 public sealed class SyncClient
 {
     private readonly HttpClient http;
 
     public SyncClient(HttpClient http) => this.http = http;
+
+    /// <summary>Secret aléatoire (256 bits) propre à un personnage, gardé dans la configuration du plugin.</summary>
+    public static string NewSecret() =>
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     /// <summary>« clavicule-sync.x.workers.dev/ » -> « https://clavicule-sync.x.workers.dev ».</summary>
     public static string NormalizeUrl(string raw)
@@ -22,53 +38,113 @@ public sealed class SyncClient
                    : "https://" + url;
     }
 
-    /// <summary>Vérifie l'adresse et la clé (une clé d'écriture permet aussi de lire la liste).</summary>
-    public async Task<SyncResult> CheckAsync(string serviceUrl, string key, CancellationToken ct = default)
+    private static HttpRequestMessage Request(HttpMethod method, string serviceUrl, string path, string? secret)
+    {
+        var request = new HttpRequestMessage(method, $"{NormalizeUrl(serviceUrl)}{path}");
+        if (secret != null) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", secret);
+        return request;
+    }
+
+    private async Task<(HttpResponseMessage? response, SyncResult? failure)> Send(HttpRequestMessage request, CancellationToken ct)
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, $"{NormalizeUrl(serviceUrl)}/v1/characters");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key.Trim());
-            using var response = await http.SendAsync(request, ct).ConfigureAwait(false);
-            return response.StatusCode switch
-            {
-                HttpStatusCode.OK => new SyncResult(true, "Connexion au service réussie."),
-                HttpStatusCode.Unauthorized => new SyncResult(false, "Clé refusée par le service."),
-                _ => new SyncResult(false, $"Réponse inattendue du service (HTTP {(int)response.StatusCode})."),
-            };
+            return (await http.SendAsync(request, ct).ConfigureAwait(false), null);
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or UriFormatException or InvalidOperationException)
         {
-            return new SyncResult(false, $"Service injoignable : {e.Message}");
+            return (null, new SyncResult(false, $"Service injoignable : {e.Message}", "unreachable"));
         }
     }
 
-    public async Task<SyncResult> UploadAsync(string serviceUrl, string writeKey, long characterId, byte[] glb,
-                                              string name, string world, string appearanceHash, CancellationToken ct = default)
+    /// <summary>Message et code d'erreur du service (corps JSON { error, code }).</summary>
+    private static async Task<SyncResult> Failure(HttpResponseMessage response, CancellationToken ct)
     {
+        var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Put, $"{NormalizeUrl(serviceUrl)}/v1/characters/{characterId}/model");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", writeKey.Trim());
-            request.Headers.Add("X-Character-Name", Uri.EscapeDataString(name));
-            request.Headers.Add("X-Character-World", Uri.EscapeDataString(world));
-            request.Headers.Add("X-Appearance-Hash", appearanceHash);
-            request.Content = new ByteArrayContent(glb);
-            request.Content.Headers.ContentType = new MediaTypeHeaderValue("model/gltf-binary");
-            using var response = await http.SendAsync(request, ct).ConfigureAwait(false);
-            if (response.IsSuccessStatusCode)
-                return new SyncResult(true, $"Modèle envoyé ({glb.Length / 1024 / 1024.0:0.0} Mo).");
-            var body = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            return response.StatusCode switch
-            {
-                HttpStatusCode.Unauthorized => new SyncResult(false, "Clé d’écriture refusée par le service."),
-                HttpStatusCode.RequestEntityTooLarge => new SyncResult(false, "Modèle trop lourd pour le service : baisse la taille des textures."),
-                _ => new SyncResult(false, $"Envoi refusé (HTTP {(int)response.StatusCode}) : {body}"),
-            };
+            using var doc = JsonDocument.Parse(body);
+            var message = doc.RootElement.TryGetProperty("error", out var e) ? e.GetString() : null;
+            var code = doc.RootElement.TryGetProperty("code", out var c) ? c.GetString() : null;
+            if (message != null) return new SyncResult(false, message, code);
         }
-        catch (Exception e) when (e is HttpRequestException or TaskCanceledException or UriFormatException or InvalidOperationException)
+        catch (JsonException)
         {
-            return new SyncResult(false, $"Service injoignable : {e.Message}");
+            // Réponse non JSON : on garde le code HTTP.
+        }
+        return new SyncResult(false, $"Réponse inattendue du service (HTTP {(int)response.StatusCode}).", "http");
+    }
+
+    public async Task<SyncResult> CheckAsync(string serviceUrl, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Get, serviceUrl, "/health", null);
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return failure;
+        using (response)
+        {
+            return response!.IsSuccessStatusCode ? new SyncResult(true, "Service joignable.") : await Failure(response, ct).ConfigureAwait(false);
+        }
+    }
+
+    public async Task<SyncResult> UploadAsync(string serviceUrl, string secret, long characterId, byte[] glb,
+                                              string name, string world, string appearanceHash, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Put, serviceUrl, $"/v1/characters/{characterId}/model", secret);
+        request.Headers.Add("X-Character-Name", Uri.EscapeDataString(name));
+        request.Headers.Add("X-Character-World", Uri.EscapeDataString(world));
+        request.Headers.Add("X-Appearance-Hash", appearanceHash);
+        request.Content = new ByteArrayContent(glb);
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("model/gltf-binary");
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return failure;
+        using (response)
+        {
+            if (response!.IsSuccessStatusCode) return new SyncResult(true, $"Modèle envoyé ({glb.Length / 1024 / 1024.0:0.0} Mo).");
+            return await Failure(response, ct).ConfigureAwait(false);
+        }
+    }
+
+    public async Task<SyncResult> DeleteAsync(string serviceUrl, string secret, long characterId, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Delete, serviceUrl, $"/v1/characters/{characterId}/model", secret);
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return failure;
+        using (response)
+        {
+            return response!.IsSuccessStatusCode ? new SyncResult(true, "Modèle supprimé.") : await Failure(response, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Demande un code à coller dans la présentation Lodestone pour lier ce personnage à ce secret.</summary>
+    public async Task<(ClaimChallenge? challenge, SyncResult result)> StartClaimAsync(string serviceUrl, string secret, long characterId,
+                                                                                      CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Post, serviceUrl, $"/v1/characters/{characterId}/claim", secret);
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return (null, failure);
+        using (response)
+        {
+            if (!response!.IsSuccessStatusCode) return (null, await Failure(response, ct).ConfigureAwait(false));
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            var root = doc.RootElement;
+            var challenge = new ClaimChallenge(root.GetProperty("code").GetString()!,
+                                               root.GetProperty("expiresAt").GetDateTime(),
+                                               root.GetProperty("profileUrl").GetString()!);
+            return (challenge, new SyncResult(true, "Code obtenu."));
+        }
+    }
+
+    /// <summary>Vérifie que le code est bien dans la présentation Lodestone ; le personnage est alors lié à ce secret.</summary>
+    public async Task<SyncResult> VerifyClaimAsync(string serviceUrl, string secret, long characterId, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Post, serviceUrl, $"/v1/characters/{characterId}/claim/verify", secret);
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return failure;
+        using (response)
+        {
+            return response!.IsSuccessStatusCode
+                       ? new SyncResult(true, "Personnage confirmé : il est maintenant lié à cet ordinateur.")
+                       : await Failure(response, ct).ConfigureAwait(false);
         }
     }
 }

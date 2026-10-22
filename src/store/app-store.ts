@@ -19,14 +19,6 @@ export interface WatchedItem {
   icon: string | null;
 }
 
-/** Service de synchro des modèles 3D (Cloudflare), partagé par le groupe d'amis. */
-export interface SyncSettings {
-  /** Adresse du service, ex. « https://clavicule-sync.exemple.workers.dev ». Vide = désactivé. */
-  url: string;
-  /** Clé de lecture du groupe. */
-  readKey: string;
-}
-
 interface AppState {
   region: LodestoneRegion;
   /** Monde ou centre de données utilisé pour les prix (ex. "Chaos", "Omega"). */
@@ -34,7 +26,6 @@ interface AppState {
   characters: SavedCharacter[];
   mainCharacterId: number | null;
   watchlist: WatchedItem[];
-  sync: SyncSettings;
 
   setRegion: (region: LodestoneRegion) => void;
   setMarketScope: (scope: string) => void;
@@ -42,7 +33,6 @@ interface AppState {
   removeCharacter: (id: number) => void;
   setMainCharacter: (id: number) => void;
   toggleWatch: (item: WatchedItem) => void;
-  setSync: (sync: SyncSettings) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -53,7 +43,6 @@ export const useAppStore = create<AppState>()(
       characters: [],
       mainCharacterId: null,
       watchlist: [],
-      sync: { url: '', readKey: '' },
 
       setRegion: (region) => set({ region }),
       setMarketScope: (marketScope) => set({ marketScope }),
@@ -78,8 +67,16 @@ export const useAppStore = create<AppState>()(
             ? { watchlist: state.watchlist.filter((w) => w.id !== item.id) }
             : { watchlist: [...state.watchlist, item] },
         ),
-      setSync: (sync) => set({ sync }),
     }),
-    { name: 'ffclavicule', storage: createJSONStorage(() => AsyncStorage), version: 1 },
+    {
+      name: 'ffclavicule',
+      storage: createJSONStorage(() => AsyncStorage),
+      version: 2,
+      // v1 -> v2 : les réglages de synchro (adresse, clé) ont disparu, l'adresse est intégrée à l'appli.
+      migrate: (persisted) => {
+        const { sync: _removed, ...rest } = (persisted ?? {}) as Record<string, unknown>;
+        return rest as unknown as AppState;
+      },
+    },
   ),
 );

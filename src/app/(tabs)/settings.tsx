@@ -1,13 +1,12 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
-import { Button, Card, ErrorBox, Input, Loading, Screen, Section, Segmented } from '@/components/ui';
+import { Button, Card, ErrorBox, Loading, Screen, Section, Segmented } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { RUNNING_IN_BROWSER, runDiagnostics, type ProbeResult } from '@/api/diagnostics';
-import { listModels, normalizeSyncUrl } from '@/api/sync';
+import { isSyncAvailable } from '@/api/sync';
 import { getDataCenters, getWorlds, regionLabel, type DataCenter } from '@/api/universalis';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/store/app-store';
@@ -86,7 +85,7 @@ export default function SettingsScreen() {
         ) : null}
       </Section>
 
-      <SyncSettingsSection />
+      <ModelsSection />
 
       <Diagnostics />
 
@@ -110,64 +109,15 @@ export default function SettingsScreen() {
   );
 }
 
-/** Adresse et clé du service qui reçoit les modèles 3D envoyés par le plugin Dalamud. */
-function SyncSettingsSection() {
-  const sync = useAppStore((s) => s.sync);
-  const setSync = useAppStore((s) => s.setSync);
-  const [url, setUrl] = useState(sync.url);
-  const [readKey, setReadKey] = useState(sync.readKey);
-  const test = useMutation({
-    mutationFn: () => {
-      const next = { url: normalizeSyncUrl(url), readKey: readKey.trim() };
-      setSync(next);
-      setUrl(next.url);
-      return listModels(next);
-    },
-  });
-  const changed = normalizeSyncUrl(url) !== sync.url || readKey.trim() !== sync.readKey;
-
+/** Explique d'où viennent les modèles 3D : il n'y a rien à régler. */
+function ModelsSection() {
   return (
     <Section title="Modèles 3D">
       <ThemedText type="small" themeColor="textSecondary">
-        Le plugin Dalamud envoie l’apparence de chaque personnage à la connexion et à chaque changement de tenue. Renseigne ici
-        l’adresse du service du groupe et la clé de lecture.
+        {isSyncAvailable()
+          ? 'Installe le plugin Dalamud Clavicule sur ton PC : il envoie l’apparence de ton personnage à chaque connexion et changement de tenue. Le bouton 3D apparaît alors sur sa fiche, pour toi comme pour tout le monde.'
+          : 'La vue 3D n’est pas encore disponible dans cette version de l’appli.'}
       </ThemedText>
-      <Input
-        value={url}
-        onChangeText={setUrl}
-        placeholder="https://clavicule-sync.exemple.workers.dev"
-        autoCapitalize="none"
-        keyboardType="url"
-        textContentType="URL"
-        accessibilityLabel="Adresse du service de synchro"
-      />
-      <Input
-        value={readKey}
-        onChangeText={setReadKey}
-        placeholder="Clé de lecture du groupe"
-        autoCapitalize="none"
-        secureTextEntry
-        accessibilityLabel="Clé de lecture du groupe"
-      />
-      <Button
-        label={test.isPending ? 'Vérification…' : changed ? 'Enregistrer et tester' : 'Tester'}
-        onPress={() => test.mutate()}
-        disabled={test.isPending || !url.trim() || !readKey.trim()}
-      />
-      {test.error ? <ErrorBox error={test.error} /> : null}
-      {test.data ? (
-        <Card>
-          <ThemedText type="smallBold">
-            ✓ Connecté · {test.data.length} {test.data.length > 1 ? 'modèles' : 'modèle'}
-          </ThemedText>
-          {test.data.map((m) => (
-            <ThemedText key={m.characterId} type="small" themeColor="textSecondary">
-              {m.name ?? `Personnage ${m.characterId}`}
-              {m.world ? ` · ${m.world}` : ''} — mis à jour le {new Date(m.updatedAt).toLocaleDateString('fr-FR')}
-            </ThemedText>
-          ))}
-        </Card>
-      ) : null}
     </Section>
   );
 }
