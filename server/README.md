@@ -55,7 +55,7 @@ Pour pointer l’appli vers le service local : `EXPO_PUBLIC_SYNC_URL=http://loca
 | DELETE | `/v1/characters/:id/model` | secret, ou clé d’admin | suppression du modèle |
 | POST | `/v1/characters/:id/claim` | nouveau secret | demande d’un code à coller sur le Lodestone |
 | POST | `/v1/characters/:id/claim/verify` | nouveau secret | vérification du code ; le personnage est lié au nouveau secret |
-
+| PUT / GET | `/v1/characters/:id/debug` | secret (PUT) / aucune (GET) | diagnostic des couleurs (.zip) |
 | PUT | `/v1/characters/:id/private` | secret du personnage | inventaire, servants, courrier (JSON, 2 Mo maximum) |
 | GET | `/v1/characters/:id/private` | jeton du téléphone | lecture de ces données (ETag) |
 | POST | `/v1/characters/:id/pairing` | secret du personnage | code à 6 chiffres pour connecter un téléphone (10 min, une fois) |
