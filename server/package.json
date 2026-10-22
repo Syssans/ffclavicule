@@ -1,0 +1,17 @@
+{
+  "name": "clavicule-sync",
+  "private": true,
+  "description": "Stockage des modèles 3D (et plus tard de l'inventaire) envoyés par le plugin Clavicule.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261022.1",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.151.3"
+  }
+}

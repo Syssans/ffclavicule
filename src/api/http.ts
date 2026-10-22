@@ -26,6 +26,10 @@ interface RequestOptions {
   source: string;
   headers?: Record<string, string>;
   timeoutMs?: number;
+  /** Codes HTTP renvoyés tels quels au lieu de lever une erreur (ex. 304, 404). */
+  allow?: number[];
+  /** Messages propres au service, par code HTTP. */
+  messages?: Partial<Record<number, string>>;
 }
 
 function messageForStatus(status: number, source: string): string {
@@ -36,7 +40,10 @@ function messageForStatus(status: number, source: string): string {
   return `Réponse inattendue de ${source} (erreur ${status}).`;
 }
 
-export async function request(url: string, { source, headers, timeoutMs = 15000 }: RequestOptions): Promise<Response> {
+export async function request(
+  url: string,
+  { source, headers, timeoutMs = 15000, allow = [], messages = {} }: RequestOptions,
+): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
@@ -52,8 +59,8 @@ export async function request(url: string, { source, headers, timeoutMs = 15000 
   } finally {
     clearTimeout(timer);
   }
-  if (!response.ok) {
-    throw new ApiError(messageForStatus(response.status, source), source, response.status, `${host(url)} : HTTP ${response.status}`);
+  if (!response.ok && !allow.includes(response.status)) {
+    throw new ApiError(messages[response.status] ?? messageForStatus(response.status, source), source, response.status, `${host(url)} : HTTP ${response.status}`);
   }
   return response;
 }

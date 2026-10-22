@@ -1,0 +1,8 @@
+{
+  // Déploiement : voir server/README.md
+  "name": "clavicule-sync",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "r2_buckets": [{ "binding": "MODELS", "bucket_name": "clavicule-models" }],
+  "observability": { "enabled": true }
+}
