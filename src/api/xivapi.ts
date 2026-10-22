@@ -134,3 +134,37 @@ export async function getItem(id: number, language: GameLanguage = 'fr'): Promis
   const row = await getJson<RowResult<ItemFields>>(`${BASE}/sheet/Item/${id}?${params}`, { source: SOURCE });
   return toItem(row);
 }
+
+export interface ItemSummary {
+  id: number;
+  name: string;
+  icon: string | null;
+  category: string | null;
+}
+
+interface SheetResponse<F> {
+  rows: RowResult<F>[];
+}
+
+/** Noms et icônes de nombreux objets (par paquets de 100), pour afficher un inventaire. */
+export async function getItemSummaries(ids: number[], language: GameLanguage = 'fr'): Promise<Map<number, ItemSummary>> {
+  const unique = [...new Set(ids.filter((id) => id > 0))].sort((a, b) => a - b);
+  const out = new Map<number, ItemSummary>();
+  for (let i = 0; i < unique.length; i += 100) {
+    const params = new URLSearchParams({
+      rows: unique.slice(i, i + 100).join(','),
+      fields: 'Name,Icon,ItemUICategory.Name',
+      language,
+    });
+    const data = await getJson<SheetResponse<ItemFields>>(`${BASE}/sheet/Item?${params}`, { source: SOURCE });
+    for (const row of data.rows) {
+      out.set(row.row_id, {
+        id: row.row_id,
+        name: row.fields.Name || `Objet ${row.row_id}`,
+        icon: iconUrl(row.fields.Icon),
+        category: row.fields.ItemUICategory?.fields?.Name || null,
+      });
+    }
+  }
+  return out;
+}

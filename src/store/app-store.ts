@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import type { PrivateLink } from '@/api/private';
 import type { LodestoneRegion } from '@/lodestone/client';
 
 export interface SavedCharacter {
@@ -28,6 +29,8 @@ interface AppState {
   watchlist: WatchedItem[];
   /** Fond choisi dans la visionneuse 3D. */
   viewerBackground: string;
+  /** Téléphone connecté aux données privées d'un personnage (par identifiant Lodestone). */
+  privateLinks: Record<number, PrivateLink>;
 
   setRegion: (region: LodestoneRegion) => void;
   setMarketScope: (scope: string) => void;
@@ -36,6 +39,7 @@ interface AppState {
   setMainCharacter: (id: number) => void;
   toggleWatch: (item: WatchedItem) => void;
   setViewerBackground: (key: string) => void;
+  setPrivateLink: (characterId: number, link: PrivateLink | null) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -47,6 +51,7 @@ export const useAppStore = create<AppState>()(
       mainCharacterId: null,
       watchlist: [],
       viewerBackground: 'nuit',
+      privateLinks: {},
 
       setRegion: (region) => set({ region }),
       setMarketScope: (marketScope) => set({ marketScope }),
@@ -72,6 +77,13 @@ export const useAppStore = create<AppState>()(
             : { watchlist: [...state.watchlist, item] },
         ),
       setViewerBackground: (viewerBackground) => set({ viewerBackground }),
+      setPrivateLink: (characterId, link) =>
+        set((state) => {
+          const privateLinks = { ...state.privateLinks };
+          if (link) privateLinks[characterId] = link;
+          else delete privateLinks[characterId];
+          return { privateLinks };
+        }),
     }),
     {
       name: 'ffclavicule',

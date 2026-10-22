@@ -15,6 +15,7 @@ Projet perso, pour soi et ses amis. Appli non officielle, sans lien avec Square 
 | Fiche personnage · Collections | Hauts faits, montures, mascottes, orchestrions, emotes, cartes… avec progression | [FFXIV Collect](https://ffxivcollect.com) |
 | **Marché** | Recherche d'objets vendables, favoris avec le prix le plus bas | [XIVAPI](https://v2.xivapi.com), [Universalis](https://universalis.app) |
 | Fiche objet | Annonces, ventes récentes, prix moyen, ventes par jour ; centre de données ou région entière | Universalis |
+| Fiche personnage · Inventaire, servants, courrier | Sacs, arsenal, cristaux, sacoches, gil ; servants (missions, ventes, inventaires) ; lettres. Recherche d'un objet partout. Téléphone connecté par un code affiché dans le plugin | Plugin Dalamud |
 | **Réglages** | Lodestone Europe ou Amérique du Nord, serveur ou centre de données pour les prix | Universalis |
 
 Tout est lu directement depuis le téléphone : pas de serveur à héberger, pas de compte à créer. Les personnages suivis et les favoris sont enregistrés sur le téléphone.

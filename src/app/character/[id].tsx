@@ -90,6 +90,7 @@ export default function CharacterScreen() {
       {profile.data ? (
         <>
           <Hero profile={profile.data} />
+          <PrivateEntry id={id} name={profile.data.name} />
           <Segmented options={TABS} value={tab} onChange={setTab} />
           {tab === 'profile' ? <ProfileTab profile={profile.data} /> : null}
           {tab === 'jobs' ? (
@@ -183,6 +184,30 @@ function Hero({ profile }: { profile: CharacterProfile }) {
         </Pressable>
       ) : null}
     </View>
+  );
+}
+
+/** Accès à l'inventaire, aux servants et au courrier (données du plugin, téléphone connecté par code). */
+function PrivateEntry({ id, name }: { id: number; name: string }) {
+  const theme = useTheme();
+  const linked = useAppStore((s) => Boolean(s.privateLinks[id]));
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() =>
+        linked
+          ? router.push({ pathname: '/private/[id]', params: { id: String(id) } })
+          : router.push({ pathname: '/connect', params: { id: String(id), name } })
+      }
+      style={({ pressed }) => [styles.privateEntry, { backgroundColor: theme.backgroundElement }, pressed && { opacity: 0.8 }]}>
+      <View style={{ flex: 1 }}>
+        <ThemedText type="smallBold">Inventaire · Servants · Courrier</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          {linked ? 'Données envoyées par le plugin Dalamud' : 'Connecte ce téléphone avec le code du plugin'}
+        </ThemedText>
+      </View>
+      <Badge label={linked ? 'Ouvrir' : 'Connecter'} tone="accent" />
+    </Pressable>
   );
 }
 
@@ -435,6 +460,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8C987',
   },
   hero3dToggleText: { color: '#151B2B' },
+  privateEntry: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, padding: Spacing.three, borderRadius: 16 },
   heroText: { padding: Spacing.three, gap: Spacing.half },
   heroTitle: { color: '#E8C987' },
   heroName: { color: '#FFFFFF' },

@@ -26,6 +26,17 @@ Aucune clé ni adresse à saisir.
 
 Tu peux retirer le code ensuite.
 
+**Inventaire, servants et courrier dans l’appli** :
+
+1. Dans `/clavicule`, section « Appli mobile », clique sur « Connecter un téléphone ».
+2. Dans l’appli, sur la fiche de ton personnage, touche « Inventaire · Servants · Courrier » et saisis le code à 6 chiffres.
+
+Ces données ne sont visibles que sur les téléphones connectés, et tu peux les retirer depuis la même section. Quelques données ne sont lisibles qu’à certains moments, et le plugin garde la dernière version vue :
+
+- l’inventaire d’un servant : ouvre-le à la sonnette ;
+- le courrier : ouvre ta boîte aux lettres ;
+- les sacoches : ouvre-les une fois.
+
 Commandes :
 
 - `/clavicule` ouvre les réglages.
