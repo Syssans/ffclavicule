@@ -16,7 +16,8 @@ public sealed unsafe partial class CollectionCollector(IDataManager data, IPlugi
 {
     private sealed record Candidate(uint Id, string Name, uint Icon, uint Check);
 
-    private sealed record Catalog(string Key, string Label, List<Candidate> Items, Func<uint, bool> IsOwned);
+    /// <summary>Ready : pour les collections que le jeu ne charge qu'à certains moments (titres, armoire).</summary>
+    private sealed record Catalog(string Key, string Label, List<Candidate> Items, Func<uint, bool> IsOwned, Func<bool>? Ready = null);
 
     private readonly object buildLock = new();
     private List<Catalog>? catalogs;
@@ -33,11 +34,11 @@ public sealed unsafe partial class CollectionCollector(IDataManager data, IPlugi
     private List<Catalog> Build()
     {
         var list = new List<Catalog>();
-        void Add(string key, string label, Func<List<Candidate>> items, Func<uint, bool> owned)
+        void Add(string key, string label, Func<List<Candidate>> items, Func<uint, bool> owned, Func<bool>? ready = null)
         {
             try
             {
-                list.Add(new Catalog(key, label, items(), owned));
+                list.Add(new Catalog(key, label, items(), owned, ready));
             }
             catch (Exception e)
             {
@@ -146,11 +147,40 @@ public sealed unsafe partial class CollectionCollector(IDataManager data, IPlugi
             },
             link => UIState.Instance()->IsUnlockLinkUnlocked(link));
 
+        Add("titles", "Titres",
+            () => data.GetExcelSheet<Title>()
+                      .Where(r => !r.Masculine.IsEmpty)
+                      .Select(r =>
+                      {
+                          var masculine = r.Masculine.ExtractText();
+                          var feminine = r.Feminine.ExtractText();
+                          var name = feminine.Length == 0 || feminine == masculine ? masculine : $"{masculine} / {feminine}";
+                          return new Candidate(r.RowId, name, 0, r.RowId);
+                      }).ToList(),
+            id => UIState.Instance()->TitleList.IsTitleUnlocked((ushort)id),
+            () => UIState.Instance()->TitleList.DataReceived);
+
+        Add("armoire", "Armoire",
+            () => data.GetExcelSheet<Lumina.Excel.Sheets.Cabinet>()
+                      .Where(r => r.Item.RowId != 0 && r.Item.ValueNullable is { } item && !item.Name.IsEmpty)
+                      .Select(r => new Candidate(r.RowId, r.Item.Value.Name.ExtractText(), r.Item.Value.Icon, r.RowId)).ToList(),
+            id => UIState.Instance()->Cabinet.IsItemInCabinet(id),
+            () => UIState.Instance()->Cabinet.IsCabinetLoaded());
+
+        Add("leves", "Mandats",
+            () => data.GetExcelSheet<Leve>()
+                      .Where(r => !r.Name.IsEmpty && r.ClassJobCategory.RowId > 0)
+                      .Select(r => new Candidate(r.RowId, r.Name.ExtractText(), (uint)Math.Max(0, r.IconIssuer), r.RowId)).ToList(),
+            id => FFXIVClientStructs.FFXIV.Client.Game.QuestManager.Instance()->IsLevequestComplete((ushort)id));
+
         log.Information("Collections : {Count} catalogues ({Items} éléments)", list.Count, list.Sum(c => c.Items.Count));
         return list;
     }
 
-    /// <summary>Collections possédées ; null si le personnage n'est pas encore chargé.</summary>
+    /// <summary>
+    /// Collections possédées ; null si le personnage n'est pas encore chargé. Les collections que le jeu n'a pas
+    /// encore chargées (titres, armoire) sont absentes : l'appelant garde leur dernière version connue.
+    /// </summary>
     public List<CollectionInfo>? Collect()
     {
         var player = PlayerState.Instance();
@@ -158,6 +188,7 @@ public sealed unsafe partial class CollectionCollector(IDataManager data, IPlugi
         var result = new List<CollectionInfo>();
         foreach (var catalog in Catalogs())
         {
+            if (catalog.Ready != null && !catalog.Ready()) continue;
             var owned = catalog.Items.Where(c => catalog.IsOwned(c.Check))
                                .Select(c => new CollectionEntry(c.Id, c.Name, c.Icon))
                                .ToList();
@@ -202,6 +233,15 @@ public sealed unsafe partial class CollectionCollector(IDataManager data, IPlugi
         var state = AchievementState.Instance();
         if (state == null || state->IsLoaded()) return false;
         state->RequestCompletedAchievements();
+        return true;
+    }
+
+    /// <summary>Demande la liste des titres obtenus, comme le fait la fenêtre des titres du jeu.</summary>
+    public static bool RequestTitles()
+    {
+        var ui = UIState.Instance();
+        if (ui == null || ui->TitleList.DataReceived || ui->TitleList.DataPending) return false;
+        ui->TitleList.RequestTitleList();
         return true;
     }
 }

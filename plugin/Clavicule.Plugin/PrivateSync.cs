@@ -78,12 +78,13 @@ public sealed class PrivateSync : IDisposable
         var current = exporter.CurrentCharacter();
         if (current is not { } c || !IsLinked(c.state) || c.state.NeedsLodestoneProof) return;
 
-        // Les hauts faits ne sont chargés par le jeu que sur demande (fenêtre « Hauts faits ») : une demande par session.
+        // Hauts faits et titres ne sont chargés par le jeu que sur demande (fenêtres du jeu) : une demande par session.
         if (!condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.InCombat] && achievementsRequested.Add(c.key))
         {
             try
             {
                 CollectionCollector.RequestAchievements();
+                CollectionCollector.RequestTitles();
             }
             catch (Exception e)
             {

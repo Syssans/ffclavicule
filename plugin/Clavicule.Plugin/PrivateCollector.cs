@@ -83,7 +83,7 @@ public static unsafe class PrivateCollector
             groups,
             CollectRetainers(manager, memory, now),
             CollectMail(memory, now),
-            collections.Collect(),
+            memory.MergeCollections(collections.Collect()),
             memory.MergeAchievements(collections.CollectAchievements(now)));
     }
 

@@ -79,6 +79,24 @@ public class CollectionSnapshotTests
     }
 
     [Fact]
+    public void Garde_la_derniere_armoire_vue()
+    {
+        var memory = new PrivateMemory();
+        CollectionInfo Info(string key, int owned) =>
+            new(key, key, 10, Enumerable.Range(1, owned).Select(i => new CollectionEntry((uint)i, $"{key} {i}", 0)).ToList());
+
+        // Armoire ouverte à l'auberge : relevée avec le reste.
+        var first = memory.MergeCollections([Info("mounts", 3), Info("armoire", 5)])!;
+        Assert.Equal(["mounts", "armoire"], first.Select(c => c.Key));
+
+        // Plus tard, loin de l'armoire : elle n'est plus lisible, on garde la dernière version.
+        var later = memory.MergeCollections([Info("mounts", 4)])!;
+        Assert.Equal(4, later.Single(c => c.Key == "mounts").Owned.Count);
+        Assert.Equal(5, later.Single(c => c.Key == "armoire").Owned.Count);
+        Assert.Equal(5, PrivateMemory.FromJson(memory.ToJson()).MergeCollections(null)!.Single(c => c.Key == "armoire").Owned.Count);
+    }
+
+    [Fact]
     public void Garde_les_derniers_hauts_faits_connus()
     {
         var memory = new PrivateMemory();

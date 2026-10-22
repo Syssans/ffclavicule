@@ -107,6 +107,17 @@ public sealed class PrivateMemory
     /// <summary>Derniers hauts faits connus (chargés par le jeu seulement sur demande).</summary>
     public AchievementSummary? Achievements { get; set; }
 
+    /// <summary>Dernière version vue des collections que le jeu ne charge qu'à certains moments (titres, armoire).</summary>
+    public Dictionary<string, CollectionInfo> Collections { get; set; } = new();
+
+    /// <summary>Complète les collections lues avec la dernière version connue de celles qui ne l'ont pas été.</summary>
+    public List<CollectionInfo>? MergeCollections(List<CollectionInfo>? live)
+    {
+        if (live == null) return Collections.Count > 0 ? Collections.Values.ToList() : null;
+        foreach (var c in live) Collections[c.Key] = c;
+        return live.Concat(Collections.Values.Where(known => live.All(c => c.Key != known.Key))).ToList();
+    }
+
     public AchievementSummary? MergeAchievements(AchievementSummary? live)
     {
         if (live != null) Achievements = live;

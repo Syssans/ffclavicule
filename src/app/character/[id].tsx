@@ -488,6 +488,7 @@ function CollectionsTab({ id, data }: { id: number; data: PrivateSnapshot | null
         {achievements
           ? ` Hauts faits relevés ${formatAgo(Date.parse(achievements.updatedAt))}.`
           : ' Hauts faits : ils arrivent après ta prochaine connexion en jeu (ou ouvre la fenêtre des hauts faits).'}
+        {data.collections.some((c) => c.key === 'armoire') ? '' : ' Armoire : ouvre-la une fois à l’auberge pour qu’elle apparaisse.'}
       </Empty>
     </>
   );

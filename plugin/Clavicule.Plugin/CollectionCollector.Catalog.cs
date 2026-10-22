@@ -26,6 +26,10 @@ public sealed partial class CollectionCollector
         var emoteByLink = data.GetExcelSheet<Emote>().Where(e => e.UnlockLink > 0)
                               .GroupBy(e => e.UnlockLink).ToDictionary(g => g.Key, g => g.First().RowId);
 
+        // Armoire : chaque entrée est un objet d'équipement ; les boutiques, quêtes et recettes de cet objet s'appliquent.
+        var armoireByItem = data.GetExcelSheet<Cabinet>().Where(c => c.Item.RowId != 0)
+                                .GroupBy(c => c.Item.RowId).ToDictionary(g => g.Key, g => g.First().RowId);
+
         // 1. Objet → élément de collection qu'il débloque.
         var unlocks = new Dictionary<uint, (string Key, uint Id)>();
         var itemsOf = new Dictionary<(string Key, uint Id), List<Item>>();
@@ -40,6 +44,7 @@ public sealed partial class CollectionCollector
         {
             if (item.Name.IsEmpty) continue;
             if (item.AdditionalData.Is<Orchestrion>()) Link(item, "orchestrions", item.AdditionalData.RowId);
+            else if (armoireByItem.TryGetValue(item.RowId, out var cabinet)) Link(item, "armoire", cabinet);
             else if (item.AdditionalData.Is<Glasses>() && data.GetExcelSheet<Glasses>().GetRowOrDefault(item.AdditionalData.RowId) is { } glasses)
                 Link(item, "facewear", glasses.Style.RowId);
             if (item.ItemAction.RowId == 0 || item.ItemAction.ValueNullable is not { } action) continue;
@@ -81,8 +86,12 @@ public sealed partial class CollectionCollector
 
         foreach (var achievement in data.GetExcelSheet<Achievement>())
         {
-            if (achievement.Item.RowId != 0 && !achievement.Name.IsEmpty)
+            if (achievement.Name.IsEmpty) continue;
+            if (achievement.Item.RowId != 0)
                 Source(achievement.Item.RowId, new CatalogSource(SourceType.Achievement, achievement.Name.ExtractText()));
+            // Les titres s'obtiennent presque tous par un haut fait.
+            if (achievement.Title.RowId != 0)
+                Direct("titles", achievement.Title.RowId, new CatalogSource(SourceType.Achievement, achievement.Name.ExtractText()));
         }
 
         foreach (var quest in data.GetExcelSheet<Quest>())

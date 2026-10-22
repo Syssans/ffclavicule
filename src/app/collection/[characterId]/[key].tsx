@@ -179,8 +179,8 @@ function Grid({
               { backgroundColor: theme.backgroundElement, borderColor: c.id === selected ? theme.accent : 'transparent' },
               pressed && { opacity: 0.75 },
             ]}>
-            <GameIcon uri={c.icon ? gameIconUrl(c.icon) : null} size={56} />
-            <ThemedText type="small" numberOfLines={2} style={styles.name}>
+            {c.icon ? <GameIcon uri={gameIconUrl(c.icon)} size={56} /> : null}
+            <ThemedText type="small" numberOfLines={c.icon ? 2 : 4} style={styles.name}>
               {c.name}
             </ThemedText>
             {info ? (
