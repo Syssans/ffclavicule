@@ -23,6 +23,8 @@ public sealed class Configuration : IPluginConfiguration
     public bool Normals { get; set; } = true;
     /// <summary>Envoi de l'inventaire, des servants et du courrier (lisibles seulement par les téléphones associés).</summary>
     public bool PrivateSync { get; set; } = true;
+    /// <summary>ATH (dispositions, barres d'actions) visible et modifiable depuis les téléphones associés.</summary>
+    public bool HudSync { get; set; } = true;
 
     /// <summary>État par personnage, indexé par « Nom@Monde ».</summary>
     public Dictionary<string, CharacterState> Characters { get; set; } = new();

@@ -17,19 +17,21 @@ public sealed class ConfigWindow : Window
     private readonly Configuration config;
     private readonly Exporter exporter;
     private readonly PrivateSync privateSync;
+    private readonly HudSync hudSync;
     private string? pairingCode;
     private DateTime pairingExpires;
     private IReadOnlyList<Clavicule.Sync.SyncClient.PairedDevice>? devices;
     private string message = "";
     private bool working;
 
-    public ConfigWindow(IDalamudPluginInterface pluginInterface, Configuration config, Exporter exporter, PrivateSync privateSync)
+    public ConfigWindow(IDalamudPluginInterface pluginInterface, Configuration config, Exporter exporter, PrivateSync privateSync, HudSync hudSync)
         : base("Clavicule###clavicule-config")
     {
         this.pluginInterface = pluginInterface;
         this.config = config;
         this.exporter = exporter;
         this.privateSync = privateSync;
+        this.hudSync = hudSync;
         SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(440, 280), MaximumSize = new Vector2(900, 900) };
     }
 
@@ -128,7 +130,7 @@ public sealed class ConfigWindow : Window
     private void DrawMobile(CharacterState state)
     {
         ImGui.Spacing();
-        if (!ImGui.CollapsingHeader("Appli mobile : inventaire, servants, courrier", ImGuiTreeNodeFlags.DefaultOpen)) return;
+        if (!ImGui.CollapsingHeader("Appli mobile : inventaire, servants, courrier, ATH", ImGuiTreeNodeFlags.DefaultOpen)) return;
         if (!PrivateSync.IsLinked(state))
         {
             ImGui.TextWrapped("Envoie d’abord ton apparence (« Envoyer maintenant ») : c’est ce qui relie ton personnage à ce PC.");
@@ -146,6 +148,21 @@ public sealed class ConfigWindow : Window
         ImGui.SameLine();
         ImGui.TextDisabled(privateSync.Status);
 
+        var hud = config.HudSync;
+        if (ImGui.Checkbox("Modifier l’ATH et les barres d’actions depuis l’appli", ref hud))
+        {
+            config.HudSync = hud;
+            Save();
+            if (hud) hudSync.SendSoon();
+        }
+        ImGui.SameLine();
+        ImGui.TextDisabled(hudSync.Status);
+        if (config.HudSync)
+        {
+            ImGui.TextDisabled("Les modifications s’appliquent hors combat, éditeur d’ATH fermé, ou à ta prochaine connexion.");
+            if (hudSync.LastResult is { } last) ImGui.TextWrapped($"Dernière modification : {last}");
+        }
+
         using (ImRaii.Disabled(working))
         {
             if (ImGui.Button("Connecter un téléphone"))
@@ -157,6 +174,7 @@ public sealed class ConfigWindow : Window
                     pairingCode = code.Code;
                     pairingExpires = code.ExpiresAt;
                     privateSync.SendSoon();
+                    hudSync.SendSoon();
                     return "Dans l’appli : fiche de ton personnage → « Connecter », puis saisis ce code.";
                 });
             }

@@ -15,6 +15,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly MeddleBridge meddle;
     private readonly Exporter exporter;
     private readonly PrivateSync privateSync;
+    private readonly HudSync hudSync;
     private readonly ConfigWindow configWindow;
 
     public Plugin(
@@ -37,7 +38,8 @@ public sealed class Plugin : IDalamudPlugin
         meddle = new MeddleBridge(pluginInterface, log, sigScanner, gameInterop, dataManager);
         exporter = new Exporter(pluginInterface, config, framework, objects, condition, clientState, notifications, log, meddle);
         privateSync = new PrivateSync(pluginInterface, config, framework, objects, log, exporter);
-        configWindow = new ConfigWindow(pluginInterface, config, exporter, privateSync);
+        hudSync = new HudSync(config, framework, condition, objects, log, exporter, dataManager);
+        configWindow = new ConfigWindow(pluginInterface, config, exporter, privateSync, hudSync);
         windows.AddWindow(configWindow);
 
         pluginInterface.UiBuilder.Draw += windows.Draw;
@@ -64,6 +66,7 @@ public sealed class Plugin : IDalamudPlugin
         pluginInterface.UiBuilder.OpenConfigUi -= OpenWindow;
         pluginInterface.UiBuilder.OpenMainUi -= OpenWindow;
         windows.RemoveAllWindows();
+        hudSync.Dispose();
         privateSync.Dispose();
         exporter.Dispose();
         meddle.Dispose();

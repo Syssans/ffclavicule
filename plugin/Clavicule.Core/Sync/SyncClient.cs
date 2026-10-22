@@ -133,6 +133,48 @@ public sealed class SyncClient
         }
     }
 
+    /// <summary>Envoie le relevé de l'ATH (dispositions et barres d'actions), lisible seulement par les téléphones associés.</summary>
+    public async Task<SyncResult> UploadHudAsync(string serviceUrl, string secret, long characterId, string json, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Put, serviceUrl, $"/v1/characters/{characterId}/hud", secret);
+        request.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return failure;
+        using (response)
+        {
+            return response!.IsSuccessStatusCode ? new SyncResult(true, "ATH envoyé.") : await Failure(response, ct).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>Modifications de l'ATH déposées par l'appli et pas encore appliquées.</summary>
+    public async Task<(IReadOnlyList<Clavicule.Hud.QueuedHudChange>? changes, SyncResult result)> PendingHudChangesAsync(
+        string serviceUrl, string secret, long characterId, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Get, serviceUrl, $"/v1/characters/{characterId}/hud/changes?pending=1", secret);
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return (null, failure);
+        using (response)
+        {
+            if (!response!.IsSuccessStatusCode) return (null, await Failure(response, ct).ConfigureAwait(false));
+            var list = Clavicule.Hud.QueuedHudChange.ParseList(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            return (list, new SyncResult(true, $"{list.Count} modification(s) en attente."));
+        }
+    }
+
+    /// <summary>Résultat d'une modification de l'ATH : « applied », « partial » ou « failed ».</summary>
+    public async Task<SyncResult> FinishHudChangeAsync(string serviceUrl, string secret, long characterId, string changeId,
+                                                       string status, string message, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Post, serviceUrl, $"/v1/characters/{characterId}/hud/changes/{Uri.EscapeDataString(changeId)}", secret);
+        request.Content = new StringContent(JsonSerializer.Serialize(new { status, message }), System.Text.Encoding.UTF8, "application/json");
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return failure;
+        using (response)
+        {
+            return response!.IsSuccessStatusCode ? new SyncResult(true, message) : await Failure(response, ct).ConfigureAwait(false);
+        }
+    }
+
     public sealed record PairingCode(string Code, DateTime ExpiresAt);
 
     /// <summary>Code à 6 chiffres à saisir dans l'appli pour associer un téléphone (valable 10 minutes).</summary>
