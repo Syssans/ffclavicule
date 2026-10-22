@@ -41,7 +41,7 @@ Options (facultatives) :
 
 ## Limites connues (première version)
 
-- Le rendu des matériaux est une approximation des shaders du jeu. Peau, cheveux, yeux et équipement teint sont gérés. Peintures faciales, reflets et effets spéciaux ne le sont pas encore.
+- Le rendu des matériaux est une approximation des shaders du jeu. Peau, cheveux, yeux, peinture faciale et équipement teint sont gérés. Reflets et effets spéciaux ne le sont pas encore.
 - Le plugin n’a pas encore été essayé en jeu. En cas de souci, le journal `/xllog` (filtre « Clavicule ») aide à corriger.
 
 ## Développement

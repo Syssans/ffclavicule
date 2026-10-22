@@ -23,6 +23,13 @@ public static class SceneBaker
             .Cast<MaterialBuilder>()
             .ToList();
 
+        var meshes = scene.Instances
+            .Select(i => i.Content?.GetGeometryAsset())
+            .OfType<IMeshBuilder<MaterialBuilder>>()
+            .Distinct(ReferenceEqualityComparer.Instance)
+            .Cast<IMeshBuilder<MaterialBuilder>>()
+            .ToList();
+
         int baked = 0, skipped = 0;
         var errors = new List<string>();
         foreach (var material in materials)
@@ -44,6 +51,7 @@ public static class SceneBaker
                 }
                 else
                 {
+                    PaintDecal(data, result, material, meshes, options);
                     ApplyTo(material, result);
                     baked++;
                 }
@@ -58,6 +66,37 @@ public static class SceneBaker
             material.Extras = new JsonObject { ["shader"] = data.Shader };
         }
         return new BakeReport(baked, skipped, errors);
+    }
+
+    /// <summary>Peinture faciale : reportée dans la couleur du visage à l'aide des deux jeux d'UV du maillage.</summary>
+    private static void PaintDecal(MaterialData data, BakedMaterial result, MaterialBuilder material,
+                                   IReadOnlyList<IMeshBuilder<MaterialBuilder>> meshes, BakeOptions options)
+    {
+        if (data.Shader != "skin.shpk") return;
+        var settings = DecalSettings.From(data);
+        var decal = settings == null ? null : data.LoadTexture("Decal");
+        if (settings == null || decal == null) return;
+        DecalBaker.Apply(result.BaseColor, TrianglesOf(material, meshes), decal, settings);
+    }
+
+    /// <summary>Triangles (UV0 et UV1) de toutes les parties de maillage qui utilisent ce matériau.</summary>
+    public static IEnumerable<UvTriangle> TrianglesOf(MaterialBuilder material, IEnumerable<IMeshBuilder<MaterialBuilder>> meshes)
+    {
+        foreach (var mesh in meshes)
+        foreach (var primitive in mesh.Primitives)
+        {
+            if (!ReferenceEquals(primitive.Material, material)) continue;
+            var vertices = primitive.Vertices;
+            if (vertices.Count == 0 || vertices[0].GetMaterial().MaxTextCoords < 2) continue;
+            foreach (var (a, b, c) in primitive.Triangles)
+            {
+                var ma = vertices[a].GetMaterial();
+                var mb = vertices[b].GetMaterial();
+                var mc = vertices[c].GetMaterial();
+                yield return new UvTriangle(ma.GetTexCoord(0), mb.GetTexCoord(0), mc.GetTexCoord(0),
+                                            ma.GetTexCoord(1), mb.GetTexCoord(1), mc.GetTexCoord(1));
+            }
+        }
     }
 
     public static void ApplyTo(MaterialBuilder material, BakedMaterial baked)
