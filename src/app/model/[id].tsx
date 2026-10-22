@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { AccessibilityInfo, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { loadModel } from '@/api/model-cache';
 import { CharacterViewer } from '@/components/character-viewer';
@@ -34,6 +34,10 @@ export default function ModelScreen() {
   const [orbit] = useState(() => new OrbitState());
   const [mode, setMode] = useState<FramingMode>('body');
   const [autoRotate, setAutoRotate] = useState(true);
+  // Dans un écran plein écran, iOS peut annoncer une marge nulle au premier affichage :
+  // on garde au moins la hauteur de la barre d'état et de l'encoche.
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, Platform.OS === 'ios' ? 54 : 24);
 
   const model = useQuery({
     queryKey: ['sync', 'model', id],
@@ -77,7 +81,7 @@ export default function ModelScreen() {
         </View>
       )}
 
-      <SafeAreaView edges={['top']} style={styles.top} pointerEvents="box-none">
+      <View style={[styles.top, { paddingTop: topInset + Spacing.two }]} pointerEvents="box-none">
         <LinearGradient colors={['rgba(5,8,15,0.55)', 'transparent']} style={StyleSheet.absoluteFill} pointerEvents="none" />
         <Pressable accessibilityRole="button" accessibilityLabel="Fermer" onPress={() => router.back()} style={styles.close} hitSlop={8}>
           <ThemedText style={styles.closeText}>✕</ThemedText>
@@ -86,7 +90,7 @@ export default function ModelScreen() {
           {name}
         </ThemedText>
         <View style={styles.spacer} />
-      </SafeAreaView>
+      </View>
 
       <SafeAreaView edges={['bottom']} style={styles.panelWrap} pointerEvents="box-none">
         <View style={styles.panel}>
@@ -130,10 +134,13 @@ export default function ModelScreen() {
 
           <View style={styles.row}>
             <View style={styles.grow}>
-              <Button label={autoRotate ? 'Arrêter la rotation' : 'Rotation auto'} variant="secondary" onPress={toggleAuto} />
+              <Button label={autoRotate ? 'Pause' : 'Rotation'} variant="secondary" onPress={toggleAuto} />
             </View>
             <View style={styles.grow}>
               <Button label="Recentrer" variant="secondary" onPress={() => orbit.reset()} />
+            </View>
+            <View style={styles.grow}>
+              <Button label="Fermer" onPress={() => router.back()} />
             </View>
           </View>
           <ThemedText type="small" style={styles.hint}>
