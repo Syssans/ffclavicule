@@ -345,6 +345,30 @@ export function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neut
   );
 }
 
+/** Petit bouton à bascule (filtre, option), en ligne avec d'autres. */
+export function Chip({ label, selected = false, onPress, disabled = false }: { label: string; selected?: boolean; onPress: () => void; disabled?: boolean }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      hitSlop={4}
+      style={({ pressed }) => [
+        extraStyles.chip,
+        {
+          backgroundColor: selected ? theme.accent : theme.backgroundSelected,
+          opacity: disabled ? 0.4 : pressed ? 0.75 : 1,
+        },
+      ]}>
+      <ThemedText type="smallBold" style={{ color: selected ? theme.accentText : theme.text, fontSize: 13 }}>
+        {label}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
 /** Chiffre clé : libellé, valeur, détail facultatif. */
 export function StatTile({ label, value, detail }: { label: string; value: string; detail?: ReactNode }) {
   const theme = useTheme();
@@ -362,6 +386,7 @@ export function StatTile({ label, value, detail }: { label: string; value: strin
 }
 
 const extraStyles = StyleSheet.create({
+  chip: { minHeight: 34, paddingHorizontal: 12, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
   badge: { borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start' },
   statTile: { flex: 1, borderRadius: 16, padding: Spacing.three, gap: Spacing.half, minWidth: 0 },
 });

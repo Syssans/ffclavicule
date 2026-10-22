@@ -81,6 +81,18 @@ export default function PrivateScreen() {
           <ThemedText type="small" themeColor="textSecondary">
             {snapshot.world} · mis à jour {formatAgo(Date.parse(snapshot.updatedAt))}
           </ThemedText>
+          <View style={styles.hudLinks}>
+            <View style={styles.grow}>
+              <Button label="ATH du jeu" variant="secondary" onPress={() => router.push({ pathname: '/hud/[id]', params: { id: String(id) } })} />
+            </View>
+            <View style={styles.grow}>
+              <Button
+                label="Barres d’actions"
+                variant="secondary"
+                onPress={() => router.push({ pathname: '/hotbars/[id]', params: { id: String(id) } })}
+              />
+            </View>
+          </View>
           <Segmented options={TABS} value={tab} onChange={setTab} />
           {tab === 'inventory' ? <InventoryTab snapshot={snapshot} names={names.data} /> : null}
           {tab === 'retainers' ? <RetainersTab retainers={snapshot.retainers} names={names.data} /> : null}
@@ -304,6 +316,7 @@ function MailTab({ mail, names }: { mail: PrivateSnapshot['mail']; names?: Names
 }
 
 const styles = StyleSheet.create({
+  hudLinks: { flexDirection: 'row', gap: Spacing.two },
   grow: { flex: 1, minWidth: 0 },
   list: { gap: 0, paddingVertical: Spacing.one },
   itemRow: {

@@ -91,6 +91,7 @@ export default function CharacterScreen() {
         <>
           <Hero profile={profile.data} />
           <PrivateEntry id={id} name={profile.data.name} />
+          <HudEntry id={id} />
           <Segmented options={TABS} value={tab} onChange={setTab} />
           {tab === 'profile' ? <ProfileTab profile={profile.data} /> : null}
           {tab === 'jobs' ? (
@@ -208,6 +209,36 @@ function PrivateEntry({ id, name }: { id: number; name: string }) {
       </View>
       <Badge label={linked ? 'Ouvrir' : 'Connecter'} tone="accent" />
     </Pressable>
+  );
+}
+
+/** Modifier l'ATH et les barres d'actions du jeu (téléphone connecté). */
+function HudEntry({ id }: { id: number }) {
+  const theme = useTheme();
+  const linked = useAppStore((s) => Boolean(s.privateLinks[id]));
+  if (!linked) return null;
+  const rows = [
+    { title: 'ATH du jeu', subtitle: 'Déplacer, redimensionner, masquer les éléments', pathname: '/hud/[id]' as const },
+    { title: 'Barres d’actions', subtitle: 'Réorganiser les barres de chaque job', pathname: '/hotbars/[id]' as const },
+  ];
+  return (
+    <>
+      {rows.map((row) => (
+        <Pressable
+          key={row.pathname}
+          accessibilityRole="button"
+          onPress={() => router.push({ pathname: row.pathname, params: { id: String(id) } })}
+          style={({ pressed }) => [styles.privateEntry, { backgroundColor: theme.backgroundElement }, pressed && { opacity: 0.8 }]}>
+          <View style={{ flex: 1 }}>
+            <ThemedText type="smallBold">{row.title}</ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {row.subtitle}
+            </ThemedText>
+          </View>
+          <Badge label="Modifier" tone="accent" />
+        </Pressable>
+      ))}
+    </>
   );
 }
 

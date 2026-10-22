@@ -37,6 +37,13 @@ Ces données ne sont visibles que sur les téléphones connectés, et tu peux le
 - le courrier : ouvre ta boîte aux lettres ;
 - les sacoches : ouvre-les une fois.
 
+**ATH et barres d’actions depuis l’appli** (même connexion que l’inventaire) :
+
+- Fiche du personnage → « ATH du jeu » : les 4 dispositions du jeu en miniature. Fais glisser un élément pour le déplacer ; touche-le pour le masquer, changer sa taille (60 à 200 %), son opacité, ou la forme d’une barre d’actions (12×1 à 1×12).
+- « Barres d’actions » : les barres 1 à 10 de chaque job. Touche une case puis une autre pour les échanger, ou vide une case. Pour ta sécurité, l’appli ne peut que réorganiser ce qui est déjà dans tes barres.
+- « Envoyer au jeu » : si le jeu tourne, le plugin applique la modification en quelques secondes. Il attend d’être hors combat, éditeur d’ATH fermé, hors cinématique. Si le jeu est fermé, elle s’applique à ta prochaine connexion. L’appli montre l’état de chaque envoi.
+- Option dans `/clavicule` : « Modifier l’ATH et les barres d’actions depuis l’appli ».
+
 Commandes :
 
 - `/clavicule` ouvre les réglages.
@@ -54,6 +61,7 @@ Options (facultatives) :
 
 - Le rendu des matériaux est une approximation des shaders du jeu. Peau, cheveux, yeux, peinture faciale et équipement teint sont gérés. Reflets et effets spéciaux ne le sont pas encore.
 - Le plugin n’a pas encore été essayé en jeu. En cas de souci, le journal `/xllog` (filtre « Clavicule ») aide à corriger.
+- ATH : l’aperçu de l’appli dessine chaque élément à sa taille de base. Quelques éléments affichés autrement par le jeu (jauges en mode simplifié, par exemple) peuvent paraître un peu décalés dans l’aperçu, pas en jeu.
 
 ## Développement
 
@@ -79,4 +87,4 @@ Organisation :
 
 ## Licence
 
-AGPL-3.0, comme Meddle dont ce plugin réutilise le code (voir `LICENSE.txt`). La cuisson des matériaux s’inspire des anciens « material builders » de Meddle.
+AGPL-3.0, comme Meddle dont ce plugin réutilise le code (voir `LICENSE.txt`). La cuisson des matériaux s’inspire des anciens « material builders » de Meddle. La liste des éléments de l’ATH et le format des dispositions viennent du plugin [HUD Manager](https://github.com/zacharied/FFXIV-Plugin-HudManager) (GPL-3.0).

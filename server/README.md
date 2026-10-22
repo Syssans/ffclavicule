@@ -62,9 +62,16 @@ Pour pointer l’appli vers le service local : `EXPO_PUBLIC_SYNC_URL=http://loca
 | POST | `/v1/pair` | aucune (10 essais par minute et par adresse) | `{ code, device }` → jeton du téléphone |
 | GET | `/v1/characters/:id/devices` | secret du personnage | téléphones connectés |
 | DELETE | `/v1/characters/:id/devices/:deviceId` | secret, ou jeton du téléphone pour `self` | retire un téléphone |
+| PUT | `/v1/characters/:id/hud` | secret du personnage | relevé de l’ATH : 4 dispositions et barres d’actions (JSON, 2 Mo maximum) |
+| GET | `/v1/characters/:id/hud` | jeton du téléphone | lecture de ce relevé (ETag) |
+| GET | `/v1/characters/:id/hud/changes` | secret, ou jeton du téléphone | file des modifications (`?pending=1` : seulement celles en attente) |
+| POST | `/v1/characters/:id/hud/changes` | jeton du téléphone | nouvelle modification `{ kind: "layout" \| "activate" \| "hotbars", … }` (20 en attente au plus) |
+| POST | `/v1/characters/:id/hud/changes/:changeId` | secret du personnage | résultat `{ status: "applied" \| "partial" \| "failed", message }` |
+| DELETE | `/v1/characters/:id/hud/changes/:changeId` | jeton du téléphone | annule une modification encore en attente |
 
 - `:id` est l’identifiant Lodestone du personnage.
 - Les données privées ne sont **jamais** publiques : seuls les téléphones connectés avec un code peuvent les lire.
+- Les modifications de l’ATH attendent sur le service : le plugin les relève toutes les 10 secondes quand le jeu tourne (3 secondes juste après une modification), sinon à la connexion suivante.
 - Le secret passe dans `Authorization: Bearer <secret>` et fait au moins 32 caractères.
 - Le PUT accepte aussi `X-Character-Name` (encodé URL), `X-Character-World` et `X-Appearance-Hash`.
 - En cas d’erreur, la réponse est `{ "error": "message lisible", "code": "claimed" | "rate-limited" | … }`.

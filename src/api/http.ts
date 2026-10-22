@@ -30,6 +30,8 @@ interface RequestOptions {
   allow?: number[];
   /** Messages propres au service, par code HTTP. */
   messages?: Partial<Record<number, string>>;
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  body?: string;
 }
 
 function messageForStatus(status: number, source: string): string {
@@ -42,13 +44,13 @@ function messageForStatus(status: number, source: string): string {
 
 export async function request(
   url: string,
-  { source, headers, timeoutMs = 15000, allow = [], messages = {} }: RequestOptions,
+  { source, headers, timeoutMs = 15000, allow = [], messages = {}, method, body }: RequestOptions,
 ): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
   try {
-    response = await fetch(url, { headers, signal: controller.signal });
+    response = await fetch(url, { method, headers, body, signal: controller.signal });
   } catch (error) {
     const reason = controller.signal.aborted
       ? `pas de réponse en ${timeoutMs / 1000} s`
