@@ -8,9 +8,9 @@ public sealed class Configuration : IPluginConfiguration
 {
     /// <summary>
     /// Adresse du service Clavicule Sync (dossier server/), intégrée au plugin : rien à saisir.
-    /// À renseigner une fois le service déployé.
+    /// Changer cette adresse coupe les versions déjà installées : la garder stable.
     /// </summary>
-    public const string DeployedServiceUrl = "";
+    public const string DeployedServiceUrl = "https://clavicule-sync.anton-millien.workers.dev";
 
     public int Version { get; set; } = 2;
 
