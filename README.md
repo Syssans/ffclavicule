@@ -30,6 +30,8 @@ npx expo start
 
 Scanne le QR code affiché avec l'appareil photo (iPhone) ou avec Expo Go (Android). Le téléphone et l'ordinateur doivent être sur le même Wi-Fi ; sinon, lance `npx expo start --tunnel`.
 
+Le projet utilise **Expo SDK 57**. Expo Go ne lit qu'une seule version du SDK à la fois : si Expo Go affiche « Project is incompatible with this version of Expo Go », regarde quelle version il indique (« The installed version of Expo Go is for SDK … ») ; le projet doit être passé à cette version.
+
 Pour installer l'appli sans Expo Go et la partager avec tes amis, il faudra la compiler avec [EAS Build](https://docs.expo.dev/build/introduction/).
 
 ## Limites connues
