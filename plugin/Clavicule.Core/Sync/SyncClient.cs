@@ -120,6 +120,69 @@ public sealed class SyncClient
         }
     }
 
+    /// <summary>Envoie les données privées (inventaire, servants, courrier), lisibles seulement par les téléphones associés.</summary>
+    public async Task<SyncResult> UploadPrivateAsync(string serviceUrl, string secret, long characterId, string json, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Put, serviceUrl, $"/v1/characters/{characterId}/private", secret);
+        request.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return failure;
+        using (response)
+        {
+            return response!.IsSuccessStatusCode ? new SyncResult(true, "Données envoyées.") : await Failure(response, ct).ConfigureAwait(false);
+        }
+    }
+
+    public sealed record PairingCode(string Code, DateTime ExpiresAt);
+
+    /// <summary>Code à 6 chiffres à saisir dans l'appli pour associer un téléphone (valable 10 minutes).</summary>
+    public async Task<(PairingCode? code, SyncResult result)> CreatePairingAsync(string serviceUrl, string secret, long characterId,
+                                                                                   string name, string world, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Post, serviceUrl, $"/v1/characters/{characterId}/pairing", secret);
+        request.Content = new StringContent(JsonSerializer.Serialize(new { name, world }), System.Text.Encoding.UTF8, "application/json");
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return (null, failure);
+        using (response)
+        {
+            if (!response!.IsSuccessStatusCode) return (null, await Failure(response, ct).ConfigureAwait(false));
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            return (new PairingCode(doc.RootElement.GetProperty("code").GetString()!, doc.RootElement.GetProperty("expiresAt").GetDateTime()),
+                    new SyncResult(true, "Code obtenu."));
+        }
+    }
+
+    public sealed record PairedDevice(string Id, string Name, DateTime CreatedAt, DateTime LastSeen);
+
+    public async Task<(IReadOnlyList<PairedDevice>? devices, SyncResult result)> ListDevicesAsync(string serviceUrl, string secret, long characterId,
+                                                                                                     CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Get, serviceUrl, $"/v1/characters/{characterId}/devices", secret);
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return (null, failure);
+        using (response)
+        {
+            if (!response!.IsSuccessStatusCode) return (null, await Failure(response, ct).ConfigureAwait(false));
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            var list = doc.RootElement.GetProperty("devices").EnumerateArray()
+                          .Select(d => new PairedDevice(d.GetProperty("id").GetString()!, d.GetProperty("name").GetString()!,
+                                                        d.GetProperty("createdAt").GetDateTime(), d.GetProperty("lastSeen").GetDateTime()))
+                          .ToList();
+            return (list, new SyncResult(true, $"{list.Count} téléphone(s) associé(s)."));
+        }
+    }
+
+    public async Task<SyncResult> RevokeDeviceAsync(string serviceUrl, string secret, long characterId, string deviceId, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Delete, serviceUrl, $"/v1/characters/{characterId}/devices/{Uri.EscapeDataString(deviceId)}", secret);
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return failure;
+        using (response)
+        {
+            return response!.IsSuccessStatusCode ? new SyncResult(true, "Téléphone retiré.") : await Failure(response, ct).ConfigureAwait(false);
+        }
+    }
+
     public async Task<SyncResult> DeleteAsync(string serviceUrl, string secret, long characterId, CancellationToken ct = default)
     {
         using var request = Request(HttpMethod.Delete, serviceUrl, $"/v1/characters/{characterId}/model", secret);

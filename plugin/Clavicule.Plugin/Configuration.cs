@@ -21,6 +21,8 @@ public sealed class Configuration : IPluginConfiguration
     public bool IncludeWeapons { get; set; } = true;
     public int MaxTextureSize { get; set; } = 1024;
     public bool Normals { get; set; } = true;
+    /// <summary>Envoi de l'inventaire, des servants et du courrier (lisibles seulement par les téléphones associés).</summary>
+    public bool PrivateSync { get; set; } = true;
 
     /// <summary>État par personnage, indexé par « Nom@Monde ».</summary>
     public Dictionary<string, CharacterState> Characters { get; set; } = new();

@@ -14,6 +14,7 @@ public sealed class Plugin : IDalamudPlugin
     private readonly WindowSystem windows = new("Clavicule");
     private readonly MeddleBridge meddle;
     private readonly Exporter exporter;
+    private readonly PrivateSync privateSync;
     private readonly ConfigWindow configWindow;
 
     public Plugin(
@@ -35,7 +36,8 @@ public sealed class Plugin : IDalamudPlugin
 
         meddle = new MeddleBridge(pluginInterface, log, sigScanner, gameInterop, dataManager);
         exporter = new Exporter(pluginInterface, config, framework, objects, condition, clientState, notifications, log, meddle);
-        configWindow = new ConfigWindow(pluginInterface, config, exporter);
+        privateSync = new PrivateSync(pluginInterface, config, framework, objects, log, exporter);
+        configWindow = new ConfigWindow(pluginInterface, config, exporter, privateSync);
         windows.AddWindow(configWindow);
 
         pluginInterface.UiBuilder.Draw += windows.Draw;
@@ -62,6 +64,7 @@ public sealed class Plugin : IDalamudPlugin
         pluginInterface.UiBuilder.OpenConfigUi -= OpenWindow;
         pluginInterface.UiBuilder.OpenMainUi -= OpenWindow;
         windows.RemoveAllWindows();
+        privateSync.Dispose();
         exporter.Dispose();
         meddle.Dispose();
     }

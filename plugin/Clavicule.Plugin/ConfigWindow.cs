@@ -16,15 +16,20 @@ public sealed class ConfigWindow : Window
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly Configuration config;
     private readonly Exporter exporter;
+    private readonly PrivateSync privateSync;
+    private string? pairingCode;
+    private DateTime pairingExpires;
+    private IReadOnlyList<Clavicule.Sync.SyncClient.PairedDevice>? devices;
     private string message = "";
     private bool working;
 
-    public ConfigWindow(IDalamudPluginInterface pluginInterface, Configuration config, Exporter exporter)
+    public ConfigWindow(IDalamudPluginInterface pluginInterface, Configuration config, Exporter exporter, PrivateSync privateSync)
         : base("Clavicule###clavicule-config")
     {
         this.pluginInterface = pluginInterface;
         this.config = config;
         this.exporter = exporter;
+        this.privateSync = privateSync;
         SizeConstraints = new WindowSizeConstraints { MinimumSize = new Vector2(440, 280), MaximumSize = new Vector2(900, 900) };
     }
 
@@ -86,6 +91,7 @@ public sealed class ConfigWindow : Window
         }
 
         if (message.Length > 0) ImGui.TextWrapped(message);
+        DrawMobile(state);
         DrawAdvanced(state);
     }
 
@@ -115,6 +121,87 @@ public sealed class ConfigWindow : Window
             ImGui.SameLine();
             if (ImGui.Button("3. Vérifier")) Run(() => exporter.VerifyProofCode(state));
             if (ImGui.SmallButton("Nouveau code")) Run(() => exporter.RequestProofCode(state));
+        }
+    }
+
+    /// <summary>Inventaire, servants et courrier dans l'appli : association d'un téléphone par code.</summary>
+    private void DrawMobile(CharacterState state)
+    {
+        ImGui.Spacing();
+        if (!ImGui.CollapsingHeader("Appli mobile : inventaire, servants, courrier", ImGuiTreeNodeFlags.DefaultOpen)) return;
+        if (!PrivateSync.IsLinked(state))
+        {
+            ImGui.TextWrapped("Envoie d’abord ton apparence (« Envoyer maintenant ») : c’est ce qui relie ton personnage à ce PC.");
+            return;
+        }
+        ImGui.TextWrapped("Ces données ne sont visibles que sur les téléphones que tu connectes avec un code. Inventaire des servants : ouvre-les une fois à la sonnette. Courrier : ouvre ta boîte aux lettres.");
+
+        var enabled = config.PrivateSync;
+        if (ImGui.Checkbox("Envoyer inventaire, servants et courrier", ref enabled))
+        {
+            config.PrivateSync = enabled;
+            Save();
+            if (enabled) privateSync.SendSoon();
+        }
+        ImGui.SameLine();
+        ImGui.TextDisabled(privateSync.Status);
+
+        using (ImRaii.Disabled(working))
+        {
+            if (ImGui.Button("Connecter un téléphone"))
+            {
+                Run(async () =>
+                {
+                    var (code, result) = await privateSync.CreatePairing(state);
+                    if (code == null) return result.Message;
+                    pairingCode = code.Code;
+                    pairingExpires = code.ExpiresAt;
+                    privateSync.SendSoon();
+                    return "Dans l’appli : fiche de ton personnage → « Connecter », puis saisis ce code.";
+                });
+            }
+            ImGui.SameLine();
+            if (ImGui.Button("Téléphones connectés"))
+            {
+                Run(async () =>
+                {
+                    var (list, result) = await privateSync.ListDevices(state);
+                    devices = list;
+                    return result.Message;
+                });
+            }
+        }
+
+        if (pairingCode != null && pairingExpires > DateTime.UtcNow)
+        {
+            var left = pairingExpires - DateTime.UtcNow;
+            ImGui.SetWindowFontScale(2f);
+            ImGui.TextColored(new Vector4(0.9f, 0.8f, 0.5f, 1f), $"{pairingCode[..3]} {pairingCode[3..]}");
+            ImGui.SetWindowFontScale(1f);
+            ImGui.TextDisabled($"Valable encore {left.Minutes} min {left.Seconds:00} s, une seule fois.");
+        }
+
+        if (devices != null)
+        {
+            if (devices.Count == 0) ImGui.TextDisabled("Aucun téléphone connecté.");
+            foreach (var d in devices)
+            {
+                ImGui.TextUnformatted($"• {d.Name} (depuis le {d.CreatedAt.ToLocalTime():dd/MM/yyyy})");
+                ImGui.SameLine();
+                using (ImRaii.Disabled(working))
+                {
+                    if (ImGui.SmallButton($"Retirer##{d.Id}"))
+                    {
+                        var target = d;
+                        Run(async () =>
+                        {
+                            var result = await privateSync.RevokeDevice(state, target.Id);
+                            if (result.Ok) devices = devices.Where(x => x.Id != target.Id).ToList();
+                            return result.Message;
+                        });
+                    }
+                }
+            }
         }
     }
 
