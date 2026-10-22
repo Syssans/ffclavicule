@@ -104,6 +104,22 @@ public sealed class SyncClient
         }
     }
 
+    /// <summary>Envoie le diagnostic des couleurs (.zip) pour aider à corriger la cuisson des matériaux.</summary>
+    public async Task<SyncResult> UploadDiagnosticsAsync(string serviceUrl, string secret, long characterId, byte[] zip, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Put, serviceUrl, $"/v1/characters/{characterId}/debug", secret);
+        request.Content = new ByteArrayContent(zip);
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return failure;
+        using (response)
+        {
+            return response!.IsSuccessStatusCode
+                       ? new SyncResult(true, $"Diagnostic envoyé ({zip.Length / 1024} Ko).")
+                       : await Failure(response, ct).ConfigureAwait(false);
+        }
+    }
+
     public async Task<SyncResult> DeleteAsync(string serviceUrl, string secret, long characterId, CancellationToken ct = default)
     {
         using var request = Request(HttpMethod.Delete, serviceUrl, $"/v1/characters/{characterId}/model", secret);

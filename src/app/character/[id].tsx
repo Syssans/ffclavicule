@@ -7,10 +7,8 @@ import { useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { getCollections, isBrowsable, profileUrl } from '@/api/ffxivcollect';
-import { loadModel } from '@/api/model-cache';
 import { getModelInfo, isSyncAvailable } from '@/api/sync';
 import { gameIconUrl } from '@/api/xivapi';
-import { CharacterViewer } from '@/components/character-viewer';
 import { ThemedText } from '@/components/themed-text';
 import {
   Badge,
@@ -128,37 +126,19 @@ export default function CharacterScreen() {
   );
 }
 
-/** Grand portrait du Lodestone (ou modèle 3D synchronisé), avec le nom et le job actif par-dessus. */
+/** Grand portrait du Lodestone, avec le nom et le job actif par-dessus ; bouton 3D si un modèle existe. */
 function Hero({ profile }: { profile: CharacterProfile }) {
   const image = profile.portrait ?? profile.avatar;
-  const [show3d, setShow3d] = useState(false);
   const info = useQuery({
     queryKey: ['sync', 'info', profile.id],
     queryFn: () => getModelInfo(profile.id),
     enabled: isSyncAvailable(),
     retry: false,
   });
-  const model = useQuery({
-    queryKey: ['sync', 'model', profile.id, info.data?.updatedAt],
-    queryFn: () => loadModel(profile.id),
-    enabled: show3d && Boolean(info.data),
-    staleTime: Infinity,
-    gcTime: 60_000,
-    structuralSharing: false,
-  });
-  const in3d = show3d && Boolean(info.data);
 
   return (
-    <View style={[styles.hero, in3d && styles.hero3d]}>
-      {in3d ? (
-        model.data ? (
-          <CharacterViewer data={model.data} name={profile.name} style={StyleSheet.absoluteFill} />
-        ) : (
-          <View style={styles.heroStatus}>
-            {model.error ? <ErrorBox error={model.error} onRetry={() => model.refetch()} /> : <Loading label="Téléchargement du modèle 3D…" />}
-          </View>
-        )
-      ) : image ? (
+    <View style={styles.hero}>
+      {image ? (
         <Image
           source={image}
           style={StyleSheet.absoluteFill}
@@ -168,12 +148,7 @@ function Hero({ profile }: { profile: CharacterProfile }) {
           accessibilityLabel={`Portrait de ${profile.name}`}
         />
       ) : null}
-      <LinearGradient
-        colors={['transparent', 'rgba(5,8,15,0.92)']}
-        locations={[in3d ? 0.7 : 0.45, 1]}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
+      <LinearGradient colors={['transparent', 'rgba(5,8,15,0.92)']} locations={[0.45, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
       <View style={styles.heroText} pointerEvents="none">
         {profile.title ? (
           <ThemedText type="smallBold" style={styles.heroTitle}>
@@ -199,11 +174,11 @@ function Hero({ profile }: { profile: CharacterProfile }) {
       {info.data ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={in3d ? 'Revenir au portrait' : 'Voir le modèle 3D'}
-          onPress={() => setShow3d((v) => !v)}
+          accessibilityLabel="Voir le modèle 3D"
+          onPress={() => router.push({ pathname: '/model/[id]', params: { id: String(profile.id), name: profile.name } })}
           style={({ pressed }) => [styles.hero3dToggle, pressed && { opacity: 0.8 }]}>
           <ThemedText type="smallBold" style={styles.hero3dToggleText}>
-            {in3d ? 'Portrait' : '3D'}
+            Voir en 3D
           </ThemedText>
         </Pressable>
       ) : null}
@@ -447,8 +422,6 @@ function FollowActions({ profile }: { profile: CharacterProfile }) {
 const styles = StyleSheet.create({
   // Fond sombre fixe : le texte est blanc sur le portrait, quel que soit le thème.
   hero: { height: 380, borderRadius: 20, overflow: 'hidden', justifyContent: 'flex-end', backgroundColor: '#151B2B' },
-  hero3d: { height: 480 },
-  heroStatus: { flex: 1, justifyContent: 'center', padding: Spacing.three },
   hero3dToggle: {
     position: 'absolute',
     top: Spacing.two,

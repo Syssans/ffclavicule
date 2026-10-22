@@ -12,7 +12,7 @@ export interface Framing {
   distance: number;
 }
 
-export type FramingMode = 'body' | 'face';
+export type FramingMode = 'body' | 'bust' | 'face';
 
 /** Distance pour qu'une zone de `height` x `width` tienne dans le champ (fov vertical en degrés). */
 function fit(height: number, width: number, fovDeg: number, aspect: number, margin: number): number {
@@ -31,6 +31,12 @@ export function computeFraming(bounds: Bounds, mode: FramingMode, fovDeg: number
   const height = Math.max(maxY - minY, 1e-3);
   const width = Math.max(maxX - minX, maxZ - minZ, 1e-3);
   const depth = (maxZ - minZ) / 2;
+  if (mode === 'bust') {
+    // Tête et buste : environ les 45 % supérieurs.
+    const part = height * 0.45;
+    const zone = part / (1 - inset);
+    return { targetY: maxY - zone / 2, distance: fit(zone, Math.min(width, part * 1.2), fovDeg, aspect, 1.08) + depth * 0.7 };
+  }
   if (mode === 'face') {
     // La tête occupe environ le huitième supérieur d'un personnage debout.
     const head = height * 0.22;

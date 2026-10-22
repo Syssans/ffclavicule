@@ -17,6 +17,8 @@
  *   DELETE /v1/characters/:id/model            suppression du modèle            (secret, ou clé d'admin)
  *   POST   /v1/characters/:id/claim            demande d'un code Lodestone      (nouveau secret)
  *   POST   /v1/characters/:id/claim/verify     vérification du code             (nouveau secret)
+ *   PUT    /v1/characters/:id/debug            diagnostic des couleurs (.zip)   (secret du personnage)
+ *   GET    /v1/characters/:id/debug            le diagnostic, pour corriger la cuisson des matériaux
  */
 
 export interface Env {
@@ -107,6 +109,9 @@ function secretOf(request: Request): string | null {
 }
 
 const modelKey = (id: number) => `models/${id}.glb`;
+const debugKey = (id: number) => `debug/${id}.zip`;
+/** Le diagnostic contient des aperçus de textures (256 px) : quelques Mo. */
+export const MAX_DEBUG_BYTES = 30 * 1024 * 1024;
 const ownerKey = (id: number) => `owners/${id}.json`;
 const claimKey = (id: number) => `claims/${id}.json`;
 
@@ -287,6 +292,32 @@ async function verifyClaim(request: Request, env: Env, id: number): Promise<Resp
   return json({ ok: true });
 }
 
+/** Diagnostic des couleurs : seul l'ordinateur lié au personnage peut l'envoyer. */
+async function putDebug(request: Request, env: Env, id: number): Promise<Response> {
+  const secret = secretOf(request);
+  const owner = await readJson<Owner>(env, ownerKey(id));
+  if (!secret || !owner || !safeEqual(owner.secretHash, await sha256(secret))) {
+    return error(403, 'Envoie d’abord le modèle depuis ce PC.', 'claimed');
+  }
+  const body = await request.arrayBuffer();
+  if (body.byteLength > MAX_DEBUG_BYTES) return error(413, 'Diagnostic trop lourd.', 'too-large');
+  // Archive .zip : commence par « PK\x03\x04 ».
+  if (body.byteLength < 4 || new DataView(body).getUint32(0, true) !== 0x04034b50) {
+    return error(415, 'Ce n’est pas une archive .zip.', 'not-zip');
+  }
+  await env.MODELS.put(debugKey(id), body, { httpMetadata: { contentType: 'application/zip' } });
+  return json({ ok: true, size: body.byteLength }, 201);
+}
+
+async function getDebug(env: Env, id: number): Promise<Response> {
+  const object = await env.MODELS.get(debugKey(id));
+  if (!object) return error(404, 'Aucun diagnostic pour ce personnage.', 'not-found');
+  const headers = new Headers(CORS);
+  object.writeHttpMetadata(headers);
+  headers.set('Last-Modified', object.uploaded.toUTCString());
+  return new Response(object.body, { status: 200, headers });
+}
+
 async function getModel(request: Request, env: Env, id: number): Promise<Response> {
   const object = await env.MODELS.get(modelKey(id), { onlyIf: request.headers });
   if (!object) return error(404, 'Aucun modèle 3D pour ce personnage.', 'not-found');
@@ -314,7 +345,7 @@ export async function handle(request: Request, env: Env): Promise<Response> {
   if (method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   if (url.pathname === '/health') return json({ ok: true });
 
-  const match = /^\/v1\/characters\/([^/]+)\/(model|model\/info|claim|claim\/verify)$/.exec(url.pathname);
+  const match = /^\/v1\/characters\/([^/]+)\/(model|model\/info|claim|claim\/verify|debug)$/.exec(url.pathname);
   if (!match) return error(404, 'Route inconnue.', 'not-found');
   const id = parseId(match[1]);
   if (id === null) return error(400, 'Identifiant de personnage invalide.', 'bad-id');
@@ -333,6 +364,10 @@ export async function handle(request: Request, env: Env): Promise<Response> {
       return startClaim(request, env, id);
     case 'POST claim/verify':
       return verifyClaim(request, env, id);
+    case 'PUT debug':
+      return putDebug(request, env, id);
+    case 'GET debug':
+      return getDebug(env, id);
     default:
       return error(405, 'Méthode non autorisée.', 'method');
   }

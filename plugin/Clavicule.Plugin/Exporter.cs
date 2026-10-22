@@ -97,11 +97,11 @@ public sealed class Exporter : IDisposable
         }
         if (DateTime.UtcNow - pendingSince < StableFor) return;
         if (!Appearance.IsIdle(character, condition, clientState)) return;
-        Start(character, current.Value.state, hash, manual: false);
+        Start(character, current.Value.state, hash, manual: false, diagnostics: false);
     }
 
     /// <summary>Envoi demandé depuis la fenêtre ou la commande.</summary>
-    public unsafe void SendNow()
+    public unsafe void SendNow(bool diagnostics = false)
     {
         framework.RunOnFrameworkThread(() =>
         {
@@ -119,11 +119,11 @@ public sealed class Exporter : IDisposable
             var character = (Character*)player.Address;
             var current = CurrentCharacter();
             if (current == null || character->DrawObject == null) return;
-            Start(character, current.Value.state, Appearance.Hash(character, config.IncludeWeapons), manual: true);
+            Start(character, current.Value.state, Appearance.Hash(character, config.IncludeWeapons), manual: true, diagnostics);
         });
     }
 
-    private unsafe void Start(Character* character, CharacterState state, string hash, bool manual)
+    private unsafe void Start(Character* character, CharacterState state, string hash, bool manual, bool diagnostics)
     {
         busy = true;
         pendingHash = null;
@@ -144,10 +144,10 @@ public sealed class Exporter : IDisposable
             return;
         }
 
-        Upload(info, state, hash, manual);
+        Upload(info, state, hash, manual, diagnostics);
     }
 
-    private void Upload(Meddle.Plugin.Models.Layout.ParsedCharacterInfo info, CharacterState state, string hash, bool manual)
+    private void Upload(Meddle.Plugin.Models.Layout.ParsedCharacterInfo info, CharacterState state, string hash, bool manual, bool diagnostics)
     {
         var options = new BakeOptions { MaxTextureSize = config.MaxTextureSize, Normals = config.Normals };
         var serviceUrl = config.ServiceUrl;
@@ -156,7 +156,8 @@ public sealed class Exporter : IDisposable
         Task.Run(async () =>
         {
             Status = "Création du modèle 3D…";
-            var built = meddle.Build(info, state.Name, options, token);
+            var bakeDiagnostics = diagnostics ? new BakeDiagnostics() : null;
+            var built = meddle.Build(info, state.Name, options, bakeDiagnostics, token);
             foreach (var error in built.Report.Errors) log.Warning($"Matériau non cuit : {error}");
 
             var lodestoneId = state.LodestoneId;
@@ -189,6 +190,18 @@ public sealed class Exporter : IDisposable
                 pluginInterface.SavePluginConfig(config);
             });
             Status = $"{result.Message} {built.Report.Baked} matériaux.";
+            if (bakeDiagnostics != null)
+            {
+                Status = "Envoi du diagnostic…";
+                var summary = new System.Text.Json.Nodes.JsonObject
+                {
+                    ["character"] = $"{state.Name}@{state.World}",
+                    ["plugin"] = typeof(Exporter).Assembly.GetName().Version?.ToString(),
+                    ["errors"] = new System.Text.Json.Nodes.JsonArray(built.Report.Errors.Select(e => (System.Text.Json.Nodes.JsonNode)e).ToArray()),
+                };
+                var sent = await sync.UploadDiagnosticsAsync(serviceUrl, secret, lodestoneId.Value, bakeDiagnostics.ToZip(summary), token);
+                Status = sent.Ok ? $"{result.Message} {sent.Message}" : sent.Message;
+            }
             notifications.AddNotification(new Notification
             {
                 Title = "Clavicule",

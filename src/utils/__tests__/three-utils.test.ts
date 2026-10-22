@@ -18,6 +18,15 @@ describe('computeFraming', () => {
     expect(Math.tan((15 * Math.PI) / 180) * (f.distance - 0.2)).toBeGreaterThanOrEqual(0.85);
   });
 
+  it('cadre le buste entre le corps et le visage', () => {
+    const body = computeFraming(bounds, 'body', 30, 0.8);
+    const bust = computeFraming(bounds, 'bust', 30, 0.8);
+    const face = computeFraming(bounds, 'face', 30, 0.8);
+    expect(bust.distance).toBeLessThan(body.distance);
+    expect(bust.distance).toBeGreaterThan(face.distance);
+    expect(bust.targetY).toBeGreaterThan(body.targetY);
+  });
+
   it('cadre le visage plus près et plus haut', () => {
     const body = computeFraming(bounds, 'body', 30, 0.8);
     const face = computeFraming(bounds, 'face', 30, 0.8);

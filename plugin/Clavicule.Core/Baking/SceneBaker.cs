@@ -12,7 +12,7 @@ public sealed record BakeReport(int Baked, int Skipped, IReadOnlyList<string> Er
 /// <summary>Remplace les matériaux « bruts » de Meddle par des matériaux glTF texturés.</summary>
 public static class SceneBaker
 {
-    public static BakeReport Apply(SceneBuilder scene, string cacheDir, BakeOptions options)
+    public static BakeReport Apply(SceneBuilder scene, string cacheDir, BakeOptions options, BakeDiagnostics? diagnostics = null)
     {
         var materials = scene.Instances
             .Select(i => i.Content?.GetGeometryAsset())
@@ -33,9 +33,11 @@ public static class SceneBaker
                 skipped++;
                 continue;
             }
+            BakedMaterial? result = null;
+            string? failure = null;
             try
             {
-                var result = MaterialBaker.Bake(data, options);
+                result = MaterialBaker.Bake(data, options);
                 if (result == null)
                 {
                     skipped++;
@@ -48,8 +50,10 @@ public static class SceneBaker
             }
             catch (Exception e)
             {
+                failure = e.Message;
                 errors.Add($"{material.Name} ({data.Shader}) : {e.Message}");
             }
+            diagnostics?.Record(material.Name, data, material.Extras, result, failure);
             // Les paramètres bruts (tables de couleurs, etc.) ne servent qu'à Blender : on allège le fichier.
             material.Extras = new JsonObject { ["shader"] = data.Shader };
         }

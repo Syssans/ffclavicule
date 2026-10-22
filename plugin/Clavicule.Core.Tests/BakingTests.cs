@@ -248,7 +248,8 @@ public class BakingTests : IDisposable
         var scene = new SceneBuilder();
         scene.AddRigidMesh(mesh, Matrix4x4.Identity);
 
-        var report = SceneBaker.Apply(scene, cache.Dir, Options);
+        var diagnostics = new BakeDiagnostics();
+        var report = SceneBaker.Apply(scene, cache.Dir, Options, diagnostics);
         Assert.Equal(1, report.Baked);
         Assert.Equal(1, report.Skipped);
         Assert.Empty(report.Errors);
@@ -260,5 +261,15 @@ public class BakingTests : IDisposable
         Assert.NotNull(baked.FindChannel("BaseColor")?.Texture);
         Assert.NotNull(baked.FindChannel("Normal")?.Texture);
         Assert.Null(baked.Extras?["ColorTable"]);
+
+        // Le diagnostic garde les paramètres bruts, les textures d'origine et la couleur cuite.
+        using var zip = new System.IO.Compression.ZipArchive(new MemoryStream(diagnostics.ToZip()));
+        var names = zip.Entries.Select(e => e.FullName).ToList();
+        Assert.Contains("materials.json", names);
+        Assert.Contains("sources/peau/g_SamplerNormal.png", names);
+        Assert.Contains("baked/peau_color.png", names);
+        using var reader = new StreamReader(zip.GetEntry("materials.json")!.Open());
+        var index = System.Text.Json.Nodes.JsonNode.Parse(reader.ReadToEnd())!;
+        Assert.True(index["materials"]![0]!["extras"]!["ColorTable"]!["énorme"]!.GetValue<bool>());
     }
 }

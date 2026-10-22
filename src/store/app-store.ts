@@ -26,6 +26,8 @@ interface AppState {
   characters: SavedCharacter[];
   mainCharacterId: number | null;
   watchlist: WatchedItem[];
+  /** Fond choisi dans la visionneuse 3D. */
+  viewerBackground: string;
 
   setRegion: (region: LodestoneRegion) => void;
   setMarketScope: (scope: string) => void;
@@ -33,6 +35,7 @@ interface AppState {
   removeCharacter: (id: number) => void;
   setMainCharacter: (id: number) => void;
   toggleWatch: (item: WatchedItem) => void;
+  setViewerBackground: (key: string) => void;
 }
 
 export const useAppStore = create<AppState>()(
@@ -43,6 +46,7 @@ export const useAppStore = create<AppState>()(
       characters: [],
       mainCharacterId: null,
       watchlist: [],
+      viewerBackground: 'nuit',
 
       setRegion: (region) => set({ region }),
       setMarketScope: (marketScope) => set({ marketScope }),
@@ -67,6 +71,7 @@ export const useAppStore = create<AppState>()(
             ? { watchlist: state.watchlist.filter((w) => w.id !== item.id) }
             : { watchlist: [...state.watchlist, item] },
         ),
+      setViewerBackground: (viewerBackground) => set({ viewerBackground }),
     }),
     {
       name: 'ffclavicule',

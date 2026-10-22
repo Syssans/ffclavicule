@@ -160,6 +160,19 @@ describe('Clavicule Sync (moteur Cloudflare local)', () => {
     expect((await worker.fetch('/v1/characters/39451459/model')).status).toBe(404);
   });
 
+  it('accepte un diagnostic .zip seulement du PC lié, et le rend lisible', async () => {
+    const zip = new Uint8Array([0x50, 0x4b, 0x03, 0x04, 1, 2, 3]);
+    const put = (secret: string, body: Uint8Array) =>
+      worker.fetch('/v1/characters/111/debug', { method: 'PUT', body, headers: auth(secret) });
+    expect((await put(SECRET_PC2, zip)).status).toBe(403);
+    expect((await put(SECRET_PC1, glb())).status).toBe(415);
+    expect((await put(SECRET_PC1, zip)).status).toBe(201);
+    const get = await worker.fetch('/v1/characters/111/debug');
+    expect(get.status).toBe(200);
+    expect(new Uint8Array(await get.arrayBuffer())).toEqual(zip);
+    expect((await worker.fetch('/v1/characters/222/debug')).status).toBe(404);
+  });
+
   it('la clé d’admin supprime un modèle et libère le personnage', async () => {
     expect((await upload(333, SECRET_PC1)).status).toBe(201);
     expect((await worker.fetch('/v1/characters/333/model', { method: 'DELETE', headers: auth(ADMIN) })).status).toBe(204);

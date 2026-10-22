@@ -152,6 +152,12 @@ public sealed class ConfigWindow : Window
             }
             ImGui.TextDisabled("Trouvé automatiquement. À corriger seulement en cas d’erreur.");
 
+            using (ImRaii.Disabled(working || exporter.Busy || !config.IsReady || state.NeedsLodestoneProof))
+            {
+                if (ImGui.Button("Envoyer un diagnostic des couleurs")) exporter.SendNow(diagnostics: true);
+            }
+            ImGui.TextDisabled("Renvoie le modèle avec les données brutes des matériaux, pour corriger les couleurs.");
+
             using (ImRaii.Disabled(working || state.LastUpload == null))
             {
                 if (ImGui.Button("Retirer mon modèle de l’appli")) Run(() => exporter.DeleteModel(state));

@@ -81,7 +81,7 @@ public sealed unsafe class MeddleBridge : IDisposable
     public sealed record BuildResult(byte[] Glb, BakeReport Report);
 
     /// <summary>Compose, cuit et sérialise le modèle (hors du thread du jeu).</summary>
-    public BuildResult Build(ParsedCharacterInfo info, string name, BakeOptions options, CancellationToken ct)
+    public BuildResult Build(ParsedCharacterInfo info, string name, BakeOptions options, BakeDiagnostics? diagnostics, CancellationToken ct)
     {
         Directory.CreateDirectory(workDir);
         var exportConfig = new MeddleExportConfiguration
@@ -98,7 +98,7 @@ public sealed unsafe class MeddleBridge : IDisposable
         composer.Compose(info, scene, root, new ExportProgress(info.Models.Count, "Character"));
         ct.ThrowIfCancellationRequested();
 
-        var report = SceneBaker.Apply(scene, Path.Combine(workDir, "cache"), options);
+        var report = SceneBaker.Apply(scene, Path.Combine(workDir, "cache"), options, diagnostics);
         var model = scene.ToGltf2();
         var glb = model.WriteGLB(new WriteSettings { Validation = ValidationMode.TryFix, JsonIndented = false }).ToArray();
         return new BuildResult(glb, report);
