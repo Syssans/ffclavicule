@@ -29,6 +29,8 @@ public sealed class PrivateSync : IDisposable
     /// <summary>Personnages pour lesquels les hauts faits ont déjà été demandés au serveur pendant cette session.</summary>
     private readonly HashSet<string> achievementsRequested = new();
 
+    private Task<Clavicule.Collections.CollectionCatalog?>? catalog;
+    private volatile bool catalogUploading;
     private DateTime nextCheck = DateTime.MinValue;
     private DateTime lastUpload = DateTime.MinValue;
     private string? lastHash;
@@ -89,6 +91,8 @@ public sealed class PrivateSync : IDisposable
             }
         }
 
+        SendCatalog(c.state);
+
         PrivateSnapshot? snapshot;
         var memory = MemoryFor(c.key);
         try
@@ -130,6 +134,47 @@ public sealed class PrivateSync : IDisposable
             if (t.IsFaulted) Status = $"Envoi impossible : {t.Exception!.GetBaseException().Message}";
             uploading = false;
         });
+    }
+
+    /// <summary>
+    /// Catalogue des collections : construit une fois par session en tâche de fond (quelques secondes de lecture
+    /// des données du jeu), envoyé seulement s'il a changé depuis le dernier envoi pour ce personnage.
+    /// </summary>
+    private void SendCatalog(CharacterState state)
+    {
+        catalog ??= Task.Run(() =>
+        {
+            try
+            {
+                return (Clavicule.Collections.CollectionCatalog?)collections.BuildCatalog();
+            }
+            catch (Exception e)
+            {
+                log.Warning(e, "Catalogue des collections impossible à construire");
+                return null;
+            }
+        });
+        if (!catalog.IsCompleted || catalogUploading || catalog.Result is not { } built) return;
+        var hash = built.ContentHash();
+        if (hash == state.CatalogHash) return;
+
+        catalogUploading = true;
+        var serviceUrl = config.ServiceUrl;
+        var secret = state.Secret;
+        var id = state.LodestoneId!.Value;
+        Task.Run(async () =>
+        {
+            var result = await sync.UploadCatalogAsync(serviceUrl, secret, id, built.ToJson());
+            if (result.Ok)
+            {
+                state.CatalogHash = hash;
+                pluginInterface.SavePluginConfig(config);
+            }
+            else
+            {
+                log.Warning("Envoi du catalogue : {Message}", result.Message);
+            }
+        }).ContinueWith(_ => catalogUploading = false);
     }
 
     /// <summary>Renvoie tout au prochain passage (après association d'un téléphone, par exemple).</summary>

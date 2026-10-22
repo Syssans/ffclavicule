@@ -133,6 +133,19 @@ public sealed class SyncClient
         }
     }
 
+    /// <summary>Envoie le catalogue des collections (tout ce qui existe et comment l'obtenir), lisible par les téléphones associés.</summary>
+    public async Task<SyncResult> UploadCatalogAsync(string serviceUrl, string secret, long characterId, string json, CancellationToken ct = default)
+    {
+        using var request = Request(HttpMethod.Put, serviceUrl, $"/v1/characters/{characterId}/catalog", secret);
+        request.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+        var (response, failure) = await Send(request, ct).ConfigureAwait(false);
+        if (failure != null) return failure;
+        using (response)
+        {
+            return response!.IsSuccessStatusCode ? new SyncResult(true, "Catalogue envoyé.") : await Failure(response, ct).ConfigureAwait(false);
+        }
+    }
+
     /// <summary>Envoie le relevé de l'ATH (dispositions et barres d'actions), lisible seulement par les téléphones associés.</summary>
     public async Task<SyncResult> UploadHudAsync(string serviceUrl, string secret, long characterId, string json, CancellationToken ct = default)
     {

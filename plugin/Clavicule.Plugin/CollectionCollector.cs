@@ -12,18 +12,23 @@ namespace Clavicule.Plugin;
 /// La liste de ce qui existe vient des données du jeu ; elle est construite une fois, puis seul
 /// « possédé ou pas » est relu à chaque relevé. À appeler sur le thread du jeu.
 /// </summary>
-public sealed unsafe class CollectionCollector(IDataManager data, IPluginLog log)
+public sealed unsafe partial class CollectionCollector(IDataManager data, IPluginLog log)
 {
     private sealed record Candidate(uint Id, string Name, uint Icon, uint Check);
 
     private sealed record Catalog(string Key, string Label, List<Candidate> Items, Func<uint, bool> IsOwned);
 
+    private readonly object buildLock = new();
     private List<Catalog>? catalogs;
     private (List<uint> Ids, int Points)? achievements;
 
     private static string Cap(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 
-    private List<Catalog> Catalogs() => catalogs ??= Build();
+    /// <summary>Construit une fois (le catalogue peut aussi être demandé depuis une tâche de fond).</summary>
+    private List<Catalog> Catalogs()
+    {
+        lock (buildLock) return catalogs ??= Build();
+    }
 
     private List<Catalog> Build()
     {

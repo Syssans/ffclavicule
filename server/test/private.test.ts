@@ -84,6 +84,18 @@ describe('données privées et association des téléphones', () => {
     expect((await worker.fetch('/v1/characters/111/private', { headers: auth(token) })).status).toBe(401);
   });
 
+  it('le catalogue des collections suit les mêmes règles que les données', async () => {
+    const catalog = { schema: 1, collections: [{ key: 'mounts', label: 'Montures', items: [] }] };
+    expect((await worker.fetch(`/v1/characters/${ID}/catalog`, { method: 'PUT', body: JSON.stringify(catalog), headers: auth(OTHER) })).status).toBe(403);
+    expect((await worker.fetch(`/v1/characters/${ID}/catalog`, { method: 'PUT', body: JSON.stringify(catalog), headers: auth(OWNER) })).status).toBe(201);
+    expect((await worker.fetch(`/v1/characters/${ID}/catalog`)).status).toBe(401);
+    const { token } = await pairPhone('Catalogue');
+    const get = await worker.fetch(`/v1/characters/${ID}/catalog`, { headers: auth(token) });
+    expect(await get.json()).toEqual(catalog);
+    // Les données privées ne sont pas écrasées par le catalogue.
+    expect(((await (await worker.fetch(`/v1/characters/${ID}/private`, { headers: auth(token) })).json()) as { gil: number }).gil).toBe(123456);
+  });
+
   it('un code ne sert qu’une fois et un mauvais code est refusé', async () => {
     const start = await worker.fetch(`/v1/characters/${ID}/pairing`, { method: 'POST', headers: auth(OWNER) });
     const { code } = (await start.json()) as { code: string };

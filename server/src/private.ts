@@ -10,6 +10,8 @@
  * Routes :
  *   PUT    /v1/characters/:id/private              envoi des données (JSON)          (secret du personnage)
  *   GET    /v1/characters/:id/private              lecture des données (ETag, 304)   (jeton du téléphone)
+ *   PUT    /v1/characters/:id/catalog              catalogue des collections (JSON)  (secret du personnage)
+ *   GET    /v1/characters/:id/catalog              lecture du catalogue (ETag, 304)  (jeton du téléphone)
  *   POST   /v1/characters/:id/pairing              nouveau code d'association        (secret du personnage)
  *   GET    /v1/characters/:id/devices              téléphones associés               (secret du personnage)
  *   DELETE /v1/characters/:id/devices/:deviceId    révocation                        (secret, ou jeton du téléphone pour « self »)
@@ -40,7 +42,9 @@ export interface Device {
   lastSeen: string;
 }
 
-const privateKey = (id: number) => `private/${id}.json`;
+/** Documents privés d'un personnage : données du jeu, et catalogue des collections (envoyé rarement). */
+type PrivateDocument = 'private' | 'catalog';
+const documentKey = (doc: PrivateDocument, id: number) => (doc === 'private' ? `private/${id}.json` : `catalog/${id}.json`);
 const devicesKey = (id: number) => `devices/${id}.json`;
 const pairingKey = (code: string) => `pairings/${code}.json`;
 
@@ -72,7 +76,7 @@ function publicDevice(d: Device) {
   return { id: d.id, name: d.name, createdAt: d.createdAt, lastSeen: d.lastSeen };
 }
 
-async function putPrivate(request: Request, env: Env, id: number): Promise<Response> {
+async function putPrivate(request: Request, env: Env, id: number, doc: PrivateDocument): Promise<Response> {
   if (!(await isOwner(request, env, id))) return error(403, 'Envoie d’abord ton modèle depuis ce PC.', 'claimed');
   const body = await request.text();
   if (body.length > MAX_PRIVATE_BYTES) return error(413, 'Données trop volumineuses.', 'too-large');
@@ -82,11 +86,11 @@ async function putPrivate(request: Request, env: Env, id: number): Promise<Respo
   } catch {
     return error(400, 'Données illisibles (JSON attendu).', 'bad-json');
   }
-  await env.MODELS.put(privateKey(id), body, { httpMetadata: { contentType: 'application/json; charset=utf-8' } });
+  await env.MODELS.put(documentKey(doc, id), body, { httpMetadata: { contentType: 'application/json; charset=utf-8' } });
   return json({ ok: true, devices: (await devicesOf(env, id)).length }, 201);
 }
 
-async function getPrivate(request: Request, env: Env, id: number): Promise<Response> {
+async function getPrivate(request: Request, env: Env, id: number, doc: PrivateDocument): Promise<Response> {
   const found = await deviceOf(request, env, id);
   if (!found) return error(401, 'Ce téléphone n’est pas (ou plus) associé à ce personnage.', 'not-paired');
 
@@ -97,7 +101,7 @@ async function getPrivate(request: Request, env: Env, id: number): Promise<Respo
     await writeJson(env, devicesKey(id), { devices: found.all });
   }
 
-  const object = await env.MODELS.get(privateKey(id), { onlyIf: request.headers });
+  const object = await env.MODELS.get(documentKey(doc, id), { onlyIf: request.headers });
   if (!object) return error(404, 'Le plugin n’a pas encore envoyé de données pour ce personnage.', 'not-found');
   const headers = new Headers(CORS);
   headers.set('Content-Type', 'application/json; charset=utf-8');
@@ -198,15 +202,15 @@ export async function handlePrivate(request: Request, env: Env, url: URL): Promi
   const method = request.method;
   if (url.pathname === '/v1/pair') return method === 'POST' ? pair(request, env) : error(405, 'Méthode non autorisée.', 'method');
 
-  const match = /^\/v1\/characters\/([^/]+)\/(private|pairing|devices)(?:\/([A-Za-z0-9_-]{1,32}))?$/.exec(url.pathname);
+  const match = /^\/v1\/characters\/([^/]+)\/(private|catalog|pairing|devices)(?:\/([A-Za-z0-9_-]{1,32}))?$/.exec(url.pathname);
   if (!match) return null;
   const id = parseId(match[1]);
   if (id === null) return error(400, 'Identifiant de personnage invalide.', 'bad-id');
   const [, , route, sub] = match;
 
-  if (route === 'private' && !sub) {
-    if (method === 'PUT') return putPrivate(request, env, id);
-    if (method === 'GET' || method === 'HEAD') return getPrivate(request, env, id);
+  if ((route === 'private' || route === 'catalog') && !sub) {
+    if (method === 'PUT') return putPrivate(request, env, id, route);
+    if (method === 'GET' || method === 'HEAD') return getPrivate(request, env, id, route);
   }
   if (route === 'pairing' && !sub && method === 'POST') return createPairing(request, env, id);
   if (route === 'devices' && !sub && method === 'GET') return listDevices(request, env, id);

@@ -50,6 +50,8 @@ public sealed class CharacterState
     /// <summary>Empreinte de l'apparence au dernier envoi réussi.</summary>
     public string? LastHash { get; set; }
     public DateTime? LastUpload { get; set; }
+    /// <summary>Empreinte du dernier catalogue des collections envoyé (il ne change qu'avec le jeu ou le plugin).</summary>
+    public string? CatalogHash { get; set; }
 
     public string EnsureSecret()
     {
