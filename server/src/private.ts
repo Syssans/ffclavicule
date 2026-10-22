@@ -59,7 +59,7 @@ async function devicesOf(env: Env, id: number): Promise<Device[]> {
 }
 
 /** Téléphone associé correspondant au jeton de la requête, s'il y en a un. */
-async function deviceOf(request: Request, env: Env, id: number): Promise<{ device: Device; all: Device[] } | null> {
+export async function deviceOf(request: Request, env: Env, id: number): Promise<{ device: Device; all: Device[] } | null> {
   const token = bearer(request);
   if (!token) return null;
   const hash = await sha256(token);

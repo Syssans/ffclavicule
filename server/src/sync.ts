@@ -39,6 +39,7 @@ import {
   type Env,
   type Owner,
 } from './common';
+import { handleHud } from './hud';
 import { handlePrivate } from './private';
 
 export { error, type Env } from './common';
@@ -272,6 +273,8 @@ export async function handle(request: Request, env: Env): Promise<Response> {
   if (url.pathname === '/health') return json({ ok: true });
   const privateResponse = await handlePrivate(request, env, url);
   if (privateResponse) return privateResponse;
+  const hudResponse = await handleHud(request, env, url);
+  if (hudResponse) return hudResponse;
 
   const match = /^\/v1\/characters\/([^/]+)\/(model|model\/info|claim|claim\/verify|debug)$/.exec(url.pathname);
   if (!match) return error(404, 'Route inconnue.', 'not-found');
