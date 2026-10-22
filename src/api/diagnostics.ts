@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 import { probeLodestone, type LodestoneRegion } from '@/lodestone/client';
 
-import { ApiError, getJson } from './http';
+import { ApiError } from './http';
 import { checkSync, isSyncAvailable } from './sync';
 import { getDataCenters } from './universalis';
 import { searchItems } from './xivapi';
@@ -58,10 +58,6 @@ export function runDiagnostics(region: LodestoneRegion): Promise<ProbeResult[]> 
     probe('Universalis', async () => {
       const dcs = await getDataCenters();
       return { ok: dcs.length > 0, summary: `${dcs.length} centres de données.` };
-    }),
-    probe('FFXIV Collect', async () => {
-      const mount = await getJson<{ name?: string }>('https://ffxivcollect.com/api/mounts/1', { source: 'FFXIV Collect' });
-      return { ok: Boolean(mount.name), summary: `Monture n° 1 : ${mount.name ?? 'illisible'}.` };
     }),
     ...(isSyncAvailable()
       ? [

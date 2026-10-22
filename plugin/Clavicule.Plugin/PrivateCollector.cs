@@ -49,7 +49,7 @@ public static unsafe class PrivateCollector
         return ItemStack.Merge(stacks);
     }
 
-    public static PrivateSnapshot? Collect(IPlayerCharacter player, PrivateMemory memory)
+    public static PrivateSnapshot? Collect(IPlayerCharacter player, PrivateMemory memory, CollectionCollector collections)
     {
         var manager = InventoryManager.Instance();
         if (manager == null) return null;
@@ -82,7 +82,9 @@ public static unsafe class PrivateCollector
             currencies,
             groups,
             CollectRetainers(manager, memory, now),
-            CollectMail(memory, now));
+            CollectMail(memory, now),
+            collections.Collect(),
+            memory.MergeAchievements(collections.CollectAchievements(now)));
     }
 
     private static List<RetainerInfo> CollectRetainers(InventoryManager* manager, PrivateMemory memory, DateTime now)

@@ -12,7 +12,7 @@ Projet perso, pour soi et ses amis. Appli non officielle, sans lien avec Square 
 | Fiche personnage · Profil | Titre, monde, race, divinité, Grande Compagnie, compagnie libre, présentation | [Lodestone](https://eu.finalfantasyxiv.com/lodestone/) |
 | Fiche personnage · Jobs | Niveau et expérience de chaque job, par rôle | Lodestone |
 | Fiche personnage · Équipement | Pièces portées, niveau d'objet, apparence, teinture, matérias | Lodestone |
-| Fiche personnage · Collections | Hauts faits, montures, mascottes, orchestrions, emotes, cartes… avec progression | [FFXIV Collect](https://ffxivcollect.com) |
+| Fiche personnage · Collections | Hauts faits, montures, mascottes, orchestrions, emotes, coiffures, bardes, cartes, sorts de mage bleu… avec progression | Plugin Clavicule (relevé en jeu, téléphone connecté) |
 | **Marché** | Recherche d'objets vendables, favoris avec le prix le plus bas | [XIVAPI](https://v2.xivapi.com), [Universalis](https://universalis.app) |
 | Fiche objet | Annonces, ventes récentes, prix moyen, ventes par jour ; centre de données ou région entière | Universalis |
 | Fiche personnage · Inventaire, servants, courrier | Sacs, arsenal, cristaux, sacoches, gil ; servants (missions, ventes, inventaires) ; lettres. Recherche d'un objet partout. Téléphone connecté par un code affiché dans le plugin | Plugin Dalamud |
@@ -51,7 +51,7 @@ Pour installer l'appli sans Expo Go et la partager avec tes amis, il faudra la c
 
 - **Textes du Lodestone en anglais** : l'appli lit les pages anglaises du Lodestone (race, titre, noms des pièces d'équipement…), car c'est la langue des règles de lecture communautaires. Les noms des jobs, eux, sont en français.
 - **Le Lodestone n'a pas d'API officielle.** L'appli lit ses pages avec les sélecteurs CSS maintenus par la communauté ([lodestone-css-selectors](https://github.com/xivapi/lodestone-css-selectors)). Quand Square Enix modifie le site, il suffit de recopier la nouvelle version de ces fichiers dans `src/lodestone/selectors/`.
-- **FFXIV Collect** ne connaît un personnage qu'après un premier import sur son site. L'appli propose d'ouvrir la page pour le faire.
+- **Collections** : relevées en jeu par le plugin, donc toujours à jour, mais seulement pour les personnages dont le téléphone est connecté au plugin.
 - **Prix du marché** : envoyés par les joueurs à Universalis, ils peuvent dater de quelques heures sur les objets peu vendus.
 
 ## Prochaines étapes
@@ -71,7 +71,7 @@ npm run lint
 |---|---|
 | `src/app/` | Écrans (Expo Router) : onglets, fiche personnage, fiche objet |
 | `src/lodestone/` | Lecture des pages du Lodestone : interpréteur des sélecteurs communautaires, client, sélecteurs copiés |
-| `src/api/` | Clients Universalis, XIVAPI, FFXIV Collect, service de synchro 3D (avec cache local) |
+| `src/api/` | Clients Universalis, XIVAPI, service Clavicule Sync (modèles 3D, données du plugin) (avec cache local) |
 | `src/store/` | Réglages, personnages suivis, favoris (enregistrés sur le téléphone) |
 | `src/components/` | Composants d'interface, graphiques, visionneuse 3D |
 | `server/` | Service de synchro des modèles 3D (Cloudflare Worker + R2) |

@@ -37,7 +37,7 @@ public sealed class Plugin : IDalamudPlugin
 
         meddle = new MeddleBridge(pluginInterface, log, sigScanner, gameInterop, dataManager);
         exporter = new Exporter(pluginInterface, config, framework, objects, condition, clientState, notifications, log, meddle);
-        privateSync = new PrivateSync(pluginInterface, config, framework, objects, log, exporter);
+        privateSync = new PrivateSync(pluginInterface, config, framework, objects, log, exporter, dataManager, condition);
         hudSync = new HudSync(config, framework, condition, objects, log, exporter, dataManager);
         configWindow = new ConfigWindow(pluginInterface, config, exporter, privateSync, hudSync);
         windows.AddWindow(configWindow);

@@ -27,5 +27,5 @@ it('décrit chaque source, avec le détail technique en cas d’échec', async (
     detail: 'v2.xivapi.com : Network request failed',
   });
   expect(by.Universalis).toMatchObject({ ok: true, summary: '1 centres de données.' });
-  expect(by['FFXIV Collect']).toMatchObject({ ok: true, summary: 'Monture n° 1 : Chocobo de compagnie.' });
+  expect(by['FFXIV Collect']).toBeUndefined();
 });

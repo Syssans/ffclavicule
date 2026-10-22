@@ -6,7 +6,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
-import { getCollections, isBrowsable, profileUrl } from '@/api/ffxivcollect';
+import type { PrivateSnapshot } from '@/api/private';
 import { getModelInfo, isSyncAvailable } from '@/api/sync';
 import { gameIconUrl } from '@/api/xivapi';
 import { ThemedText } from '@/components/themed-text';
@@ -26,6 +26,7 @@ import {
 } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { jobIconId, ROLE_LABELS, ROLE_ORDER } from '@/data/jobs';
+import { usePrivate } from '@/hooks/use-private';
 import { useTheme } from '@/hooks/use-theme';
 import {
   getCharacter,
@@ -37,7 +38,7 @@ import {
   type JobLevel,
 } from '@/lodestone/client';
 import { useAppStore } from '@/store/app-store';
-import { formatNumber, percent } from '@/utils/format';
+import { formatAgo, formatNumber, percent } from '@/utils/format';
 
 type Tab = 'profile' | 'jobs' | 'gear' | 'collections';
 
@@ -64,11 +65,7 @@ export default function CharacterScreen() {
     queryFn: () => getClassJobs(region, id),
     enabled: Number.isFinite(id) && tab === 'jobs',
   });
-  const collections = useQuery({
-    queryKey: ['ffxivcollect', id],
-    queryFn: () => getCollections(id),
-    enabled: Number.isFinite(id) && tab === 'collections',
-  });
+  const { link, query: collections } = usePrivate(id, tab === 'collections');
   const gear = useQuery({
     queryKey: ['lodestone', 'gear', region, id, profile.dataUpdatedAt],
     queryFn: () => getGear(region, profile.data!),
@@ -113,8 +110,10 @@ export default function CharacterScreen() {
             )
           ) : null}
           {tab === 'collections' ? (
-            collections.isPending ? (
-              <Loading label="Lecture de FFXIV Collect…" />
+            !link ? (
+              <CollectionsUnlinked id={id} name={profile.data.name} />
+            ) : collections.isPending ? (
+              <Loading label="Lecture de tes collections…" />
             ) : collections.error ? (
               <ErrorBox error={collections.error} onRetry={() => collections.refetch()} />
             ) : (
@@ -378,53 +377,80 @@ function GearTab({ gear }: { gear: GearPiece[] }) {
   );
 }
 
-function CollectionsTab({ id, data }: { id: number; data: Awaited<ReturnType<typeof getCollections>> }) {
+/** Les collections viennent du plugin : il faut que ce téléphone soit connecté au personnage. */
+function CollectionsUnlinked({ id, name }: { id: number; name: string }) {
+  return (
+    <Card>
+      <ThemedText type="small">
+        Les collections (montures, mascottes, hauts faits…) sont relevées en jeu par le plugin Clavicule : elles sont toujours à jour, mais
+        seulement pour tes personnages.
+      </ThemedText>
+      <Button label="Connecter ce personnage" variant="secondary" onPress={() => router.push({ pathname: '/connect', params: { id: String(id), name } })} />
+    </Card>
+  );
+}
+
+function CollectionsTab({ id, data }: { id: number; data: PrivateSnapshot | null }) {
   const theme = useTheme();
-  if (!data) {
+  if (!data?.collections) {
     return (
       <Card>
-        <ThemedText type="small">
-          Ce personnage n’est pas encore connu de FFXIV Collect. Ouvre sa page une fois pour l’importer, puis reviens ici.
+        <ThemedText type="small">Le plugin n’a pas encore envoyé tes collections.</ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          Mets à jour le plugin et connecte-toi en jeu : l’envoi se fait dans la minute.
         </ThemedText>
-        <Button label="Ouvrir FFXIV Collect" variant="secondary" onPress={() => WebBrowser.openBrowserAsync(profileUrl(id))} />
       </Card>
     );
   }
+  const achievements = data.achievements;
+  const rows = [
+    ...(achievements
+      ? [{ key: 'achievements', label: 'Hauts faits', count: achievements.count, total: achievements.total, browsable: false }]
+      : []),
+    ...data.collections.map((c) => ({ key: c.key, label: c.label, count: c.owned.length, total: c.total, browsable: c.owned.length > 0 })),
+  ];
   return (
     <>
+      {achievements ? (
+        <View style={styles.stats}>
+          <StatTile
+            label="Points de hauts faits"
+            value={formatNumber(achievements.points)}
+            detail={
+              <ThemedText type="small" themeColor="textSecondary">
+                sur {formatNumber(achievements.pointsTotal)}
+              </ThemedText>
+            }
+          />
+        </View>
+      ) : null}
       <Card style={{ gap: 0, paddingVertical: Spacing.one }}>
-        {data.collections.map((c, i) => {
-          const tracked = c.isPublic && c.count > 0;
-          const browsable = tracked && isBrowsable(c.key);
-          return (
-            <Pressable
-              key={c.key}
-              disabled={!browsable}
-              accessibilityRole={browsable ? 'button' : undefined}
-              onPress={() => router.push({ pathname: '/collection/[characterId]/[key]', params: { characterId: String(id), key: c.key, label: c.label } })}
-              style={({ pressed }) => [
-                styles.collectionRow,
-                i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
-                pressed && { opacity: 0.7 },
-              ]}>
-              <View style={styles.jobTop}>
-                <ThemedText type="small">{c.label}</ThemedText>
-                <ThemedText type="smallBold" themeColor={tracked ? 'text' : 'textSecondary'}>
-                  {!c.isPublic
-                    ? 'Privé'
-                    : c.count === 0
-                      ? 'Non renseigné'
-                      : `${formatNumber(c.count)} / ${formatNumber(c.total)} · ${percent(c.count, c.total)} %${browsable ? '  ›' : ''}`}
-                </ThemedText>
-              </View>
-              {tracked ? <ProgressBar value={c.total ? c.count / c.total : 0} /> : null}
-            </Pressable>
-          );
-        })}
+        {rows.map((c, i) => (
+          <Pressable
+            key={c.key}
+            disabled={!c.browsable}
+            accessibilityRole={c.browsable ? 'button' : undefined}
+            onPress={() => router.push({ pathname: '/collection/[characterId]/[key]', params: { characterId: String(id), key: c.key, label: c.label } })}
+            style={({ pressed }) => [
+              styles.collectionRow,
+              i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+              pressed && { opacity: 0.7 },
+            ]}>
+            <View style={styles.jobTop}>
+              <ThemedText type="small">{c.label}</ThemedText>
+              <ThemedText type="smallBold">
+                {`${formatNumber(c.count)} / ${formatNumber(c.total)} · ${percent(c.count, c.total)} %${c.browsable ? '  ›' : ''}`}
+              </ThemedText>
+            </View>
+            <ProgressBar value={c.total ? c.count / c.total : 0} />
+          </Pressable>
+        ))}
       </Card>
       <Empty>
-        « Non renseigné » : collection que le Lodestone ne publie pas, à cocher soi-même sur FFXIV Collect.{'\n'}
-        Source : FFXIV Collect{data.lastParsed ? `, mis à jour le ${new Date(data.lastParsed).toLocaleDateString('fr-FR')}` : ''}.
+        Relevé en jeu par le plugin Clavicule, {formatAgo(Date.parse(data.updatedAt))}.
+        {achievements
+          ? ` Hauts faits relevés ${formatAgo(Date.parse(achievements.updatedAt))}.`
+          : ' Hauts faits : ils arrivent après ta prochaine connexion en jeu (ou ouvre la fenêtre des hauts faits).'}
       </Empty>
     </>
   );

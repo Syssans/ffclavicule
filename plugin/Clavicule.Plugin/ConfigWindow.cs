@@ -130,7 +130,7 @@ public sealed class ConfigWindow : Window
     private void DrawMobile(CharacterState state)
     {
         ImGui.Spacing();
-        if (!ImGui.CollapsingHeader("Appli mobile : inventaire, servants, courrier, ATH", ImGuiTreeNodeFlags.DefaultOpen)) return;
+        if (!ImGui.CollapsingHeader("Appli mobile : inventaire, collections, servants, courrier, ATH", ImGuiTreeNodeFlags.DefaultOpen)) return;
         if (!PrivateSync.IsLinked(state))
         {
             ImGui.TextWrapped("Envoie d’abord ton apparence (« Envoyer maintenant ») : c’est ce qui relie ton personnage à ce PC.");
@@ -139,7 +139,7 @@ public sealed class ConfigWindow : Window
         ImGui.TextWrapped("Ces données ne sont visibles que sur les téléphones que tu connectes avec un code. Inventaire des servants : ouvre-les une fois à la sonnette. Courrier : ouvre ta boîte aux lettres.");
 
         var enabled = config.PrivateSync;
-        if (ImGui.Checkbox("Envoyer inventaire, servants et courrier", ref enabled))
+        if (ImGui.Checkbox("Envoyer inventaire, collections, servants et courrier", ref enabled))
         {
             config.PrivateSync = enabled;
             Save();

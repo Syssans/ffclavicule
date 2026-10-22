@@ -46,6 +46,15 @@ public sealed record Letter(string Sender, long Timestamp, string Preview, bool 
 
 public sealed record Mailbox(DateTime UpdatedAt, List<Letter> Letters);
 
+/// <summary>Élément possédé d'une collection : identifiant dans la feuille du jeu, nom (langue du jeu) et icône.</summary>
+public sealed record CollectionEntry(uint Id, string Name, uint Icon);
+
+/// <summary>Une collection (montures, mascottes…) : total des éléments obtenables et ceux possédés.</summary>
+public sealed record CollectionInfo(string Key, string Label, int Total, List<CollectionEntry> Owned);
+
+/// <summary>Hauts faits : le jeu ne les charge qu'à la demande, d'où la date du dernier relevé.</summary>
+public sealed record AchievementSummary(DateTime UpdatedAt, int Count, int Total, int Points, int PointsTotal);
+
 /// <summary>Tout ce que l'appli peut afficher sur les données privées du personnage.</summary>
 public sealed record PrivateSnapshot(
     int Schema,
@@ -56,7 +65,9 @@ public sealed record PrivateSnapshot(
     Dictionary<string, uint> Currencies,
     List<ItemGroup> Inventories,
     List<RetainerInfo> Retainers,
-    Mailbox? Mail)
+    Mailbox? Mail,
+    List<CollectionInfo>? Collections = null,
+    AchievementSummary? Achievements = null)
 {
     public const int CurrentSchema = 1;
 
@@ -77,6 +88,7 @@ public sealed record PrivateSnapshot(
             UpdatedAt = default,
             Inventories = Inventories.Select(g => g with { UpdatedAt = default }).ToList(),
             Mail = Mail == null ? null : Mail with { UpdatedAt = default },
+            Achievements = Achievements == null ? null : Achievements with { UpdatedAt = default },
         };
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(undated, Json))))[..16];
     }
@@ -92,6 +104,14 @@ public sealed class PrivateMemory
     public Mailbox? Mail { get; set; }
     /// <summary>Derniers contenus vus de chaque groupe (les sacoches ne sont chargées qu'après ouverture).</summary>
     public Dictionary<string, ItemGroup> Inventories { get; set; } = new();
+    /// <summary>Derniers hauts faits connus (chargés par le jeu seulement sur demande).</summary>
+    public AchievementSummary? Achievements { get; set; }
+
+    public AchievementSummary? MergeAchievements(AchievementSummary? live)
+    {
+        if (live != null) Achievements = live;
+        return Achievements;
+    }
 
     /// <summary>Garde le contenu lu s'il est disponible, sinon le dernier connu.</summary>
     public ItemGroup? MergeGroup(string key, ItemGroup? live)

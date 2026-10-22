@@ -55,6 +55,29 @@ export interface Letter {
   attachments: ItemStack[];
 }
 
+/** Élément possédé d'une collection : identifiant dans la feuille du jeu, nom, numéro d'icône. */
+export interface CollectionEntry {
+  id: number;
+  name: string;
+  icon: number;
+}
+
+/** Une collection relevée en jeu : total des éléments obtenables et ceux possédés. */
+export interface CollectionInfo {
+  key: string;
+  label: string;
+  total: number;
+  owned: CollectionEntry[];
+}
+
+export interface AchievementSummary {
+  updatedAt: string;
+  count: number;
+  total: number;
+  points: number;
+  pointsTotal: number;
+}
+
 export interface PrivateSnapshot {
   schema: number;
   updatedAt: string;
@@ -65,6 +88,10 @@ export interface PrivateSnapshot {
   inventories: ItemGroup[];
   retainers: RetainerInfo[];
   mail?: { updatedAt: string; letters: Letter[] };
+  /** Absent avec un plugin antérieur aux collections. */
+  collections?: CollectionInfo[];
+  /** Absent tant que le jeu n'a pas chargé les hauts faits. */
+  achievements?: AchievementSummary;
 }
 
 export interface PrivateLink {

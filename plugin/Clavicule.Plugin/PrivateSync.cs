@@ -24,6 +24,10 @@ public sealed class PrivateSync : IDisposable
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(30) };
     private readonly SyncClient sync;
     private readonly Dictionary<string, PrivateMemory> memories = new();
+    private readonly CollectionCollector collections;
+    private readonly ICondition condition;
+    /// <summary>Personnages pour lesquels les hauts faits ont déjà été demandés au serveur pendant cette session.</summary>
+    private readonly HashSet<string> achievementsRequested = new();
 
     private DateTime nextCheck = DateTime.MinValue;
     private DateTime lastUpload = DateTime.MinValue;
@@ -33,8 +37,10 @@ public sealed class PrivateSync : IDisposable
     public string Status { get; private set; } = "Pas encore envoyées.";
 
     public PrivateSync(IDalamudPluginInterface pluginInterface, Configuration config, IFramework framework, IObjectTable objects,
-                       IPluginLog log, Exporter exporter)
+                       IPluginLog log, Exporter exporter, IDataManager data, ICondition condition)
     {
+        collections = new CollectionCollector(data, log);
+        this.condition = condition;
         this.pluginInterface = pluginInterface;
         this.config = config;
         this.framework = framework;
@@ -70,11 +76,24 @@ public sealed class PrivateSync : IDisposable
         var current = exporter.CurrentCharacter();
         if (current is not { } c || !IsLinked(c.state) || c.state.NeedsLodestoneProof) return;
 
+        // Les hauts faits ne sont chargés par le jeu que sur demande (fenêtre « Hauts faits ») : une demande par session.
+        if (!condition[Dalamud.Game.ClientState.Conditions.ConditionFlag.InCombat] && achievementsRequested.Add(c.key))
+        {
+            try
+            {
+                CollectionCollector.RequestAchievements();
+            }
+            catch (Exception e)
+            {
+                log.Warning(e, "Demande des hauts faits impossible");
+            }
+        }
+
         PrivateSnapshot? snapshot;
         var memory = MemoryFor(c.key);
         try
         {
-            snapshot = PrivateCollector.Collect(player, memory);
+            snapshot = PrivateCollector.Collect(player, memory, collections);
         }
         catch (Exception e)
         {

@@ -31,6 +31,8 @@ Tu peux retirer le code ensuite.
 1. Dans `/clavicule`, section « Appli mobile », clique sur « Connecter un téléphone ».
 2. Dans l’appli, sur la fiche de ton personnage, touche « Inventaire · Servants · Courrier » et saisis le code à 6 chiffres.
 
+Le plugin envoie aussi tes **collections**, lues directement en jeu : montures, mascottes, rouleaux d’orchestrion, emotes, coiffures, bardes de chocobo, accessoires de mode et de visage, cartes Triple Triade, sorts de mage bleu, et hauts faits (points compris). Le jeu ne charge les hauts faits que sur demande : le plugin les demande une fois par connexion, comme le fait la fenêtre « Hauts faits ».
+
 Ces données ne sont visibles que sur les téléphones connectés, et tu peux les retirer depuis la même section. Quelques données ne sont lisibles qu’à certains moments, et le plugin garde la dernière version vue :
 
 - l’inventaire d’un servant : ouvre-le à la sonnette ;

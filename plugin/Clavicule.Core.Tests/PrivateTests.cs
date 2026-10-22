@@ -57,6 +57,38 @@ public class PrivateSnapshotTests
     }
 }
 
+public class CollectionSnapshotTests
+{
+    [Fact]
+    public void Collections_et_hauts_faits_dans_le_releve()
+    {
+        PrivateSnapshot Make(DateTime at, int mounts) =>
+            new(PrivateSnapshot.CurrentSchema, at, "Six Clavicule", "Moogle", 0, new(), [], [], null,
+                [new CollectionInfo("mounts", "Montures", 356, Enumerable.Range(1, mounts).Select(i => new CollectionEntry((uint)i, $"Monture {i}", 4000u + (uint)i)).ToList())],
+                new AchievementSummary(at, 120, 4000, 1450, 37955));
+        var a = Make(DateTime.UtcNow, 27);
+        Assert.Equal(a.ContentHash(), Make(DateTime.UtcNow.AddHours(1), 27).ContentHash());
+        Assert.NotEqual(a.ContentHash(), Make(DateTime.UtcNow, 28).ContentHash());
+
+        using var doc = JsonDocument.Parse(a.ToJson());
+        var mounts = doc.RootElement.GetProperty("collections")[0];
+        Assert.Equal("mounts", mounts.GetProperty("key").GetString());
+        Assert.Equal(356, mounts.GetProperty("total").GetInt32());
+        Assert.Equal(27, mounts.GetProperty("owned").GetArrayLength());
+        Assert.Equal(1450, doc.RootElement.GetProperty("achievements").GetProperty("points").GetInt32());
+    }
+
+    [Fact]
+    public void Garde_les_derniers_hauts_faits_connus()
+    {
+        var memory = new PrivateMemory();
+        Assert.Null(memory.MergeAchievements(null));
+        var seen = new AchievementSummary(DateTime.UtcNow, 10, 4000, 100, 37955);
+        Assert.Equal(seen, memory.MergeAchievements(seen));
+        Assert.Equal(seen, PrivateMemory.FromJson(memory.ToJson()).MergeAchievements(null));
+    }
+}
+
 /// <summary>Parcours complet contre un service local (CLAVICULE_SYNC_URL), comme le ferait le téléphone.</summary>
 public class PrivateSyncTests
 {

@@ -1,5 +1,4 @@
-import { getCollections, getOwned } from '../ffxivcollect';
-import { ApiError, getJson } from '../http';
+import { getJson } from '../http';
 import { getHistories, getHistory, getMarket, getPriceSummaries } from '../universalis';
 import { escapeQueryValue, gameIconUrl, getItem, iconUrl, searchItems } from '../xivapi';
 
@@ -169,43 +168,7 @@ describe('XIVAPI', () => {
   });
 });
 
-describe('FFXIV Collect', () => {
-  it('résume les collections publiques et privées', async () => {
-    mockFetch(() => ({
-      body: {
-        id: 12345678,
-        name: 'Anton Millien',
-        server: 'Moogle',
-        last_parsed: '2026-10-20T10:00:00Z',
-        achievements: { count: 1500, total: 3000, points: 15000, points_total: 30000, public: true },
-        mounts: { count: 250, total: 400, ranked_count: 200, ranked_total: 350 },
-        minions: { count: 0, total: 500, public: false },
-        orchestrions: { count: 100, total: 700 },
-        emotes: { count: 0, total: 0 },
-        bardings: { count: 10, total: 100 },
-        hairstyles: { count: 30, total: 60 },
-      },
-    }));
-    const data = await getCollections(12345678);
-    expect(calls[0]).toBe('https://ffxivcollect.com/api/characters/12345678?language=fr');
-    expect(data?.achievementPoints).toBe(15000);
-    expect(data?.collections.map((c) => c.key)).toEqual(['achievements', 'mounts', 'minions', 'orchestrions', 'hairstyles', 'bardings']);
-    expect(data?.collections.find((c) => c.key === 'minions')).toMatchObject({ isPublic: false });
-    expect(data?.collections.find((c) => c.key === 'mounts')).toMatchObject({ count: 250, total: 400, label: 'Montures' });
-  });
-
-  it('renvoie null pour un personnage pas encore importé', async () => {
-    mockFetch(() => ({ status: 404, body: { status: 404, error: 'Not found' } }));
-    expect(await getCollections(1)).toBeNull();
-  });
-
-  it('remonte les autres erreurs', async () => {
-    mockFetch(() => ({ status: 403, body: { status: 403, error: 'Character is set to private' } }));
-    await expect(getCollections(1)).rejects.toBeInstanceOf(ApiError);
-  });
-});
-
-describe('historique et collections', () => {
+describe('historique et icônes', () => {
   const sale = (price: number) => ({ pricePerUnit: price, quantity: 1, hq: false, timestamp: 1792603913 });
 
   it('lit l’historique d’un objet sur la bonne période', async () => {
@@ -222,21 +185,6 @@ describe('historique et collections', () => {
     expect(calls).toHaveLength(1);
     expect(result.get(1)).toEqual([sale(10)]);
     expect(result.get(3)).toEqual([]);
-  });
-
-  it('liste les montures possédées, triées, sans image cassée', async () => {
-    mockFetch(() => ({
-      body: [
-        { id: 2, name: 'Licorne', icon: 'https://v2.xivapi.com/api/asset?format=webp&path=ui%2Ficon%2F004000%2F004002_hr1.tex', patch: '2.0', owned: '80%' },
-        { id: 1, name: 'Chocobo de compagnie', icon: 'https://v2.xivapi.com/api/asset?format=webp&path=ui%2Ficon%2F200000%2F', image: 'None' },
-      ],
-    }));
-    const owned = await getOwned(42, 'mounts');
-    expect(calls[0]).toBe('https://ffxivcollect.com/api/characters/42/mounts/owned?language=fr');
-    expect(owned.map((o) => [o.name, o.icon !== null])).toEqual([
-      ['Chocobo de compagnie', false],
-      ['Licorne', true],
-    ]);
   });
 
   it('construit l’adresse d’une icône du jeu', () => {
