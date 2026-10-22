@@ -1,5 +1,9 @@
+/// <reference types="node" />
 import { parseHtml, evaluate, extractPage, toInt, translateRegex, type Definition } from '../interpreter';
-import { parseCharacterProfile, parseCharacterSearch, parseClassJobs } from '../client';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { getGear, parseCharacterProfile, parseCharacterSearch, parseClassJobs, parseGearTooltip } from '../client';
 import characterSelectors from '../selectors/profile/character.json';
 import classJobSelectors from '../selectors/profile/classjob.json';
 import gearSelectors from '../selectors/profile/gearset.json';
@@ -129,6 +133,24 @@ describe('recherche de personnages', () => {
     expect(page.results[0].avatar).toBe('https://img/a.jpg');
   });
 
+  it('lit une entrée au format réel du Lodestone (octobre 2026)', () => {
+    // Entrée réelle, nom et identifiant remplacés.
+    const html = `<div class="ldst__window"><div class="entry"><a href="/lodestone/character/12345678/" class="entry__link"><div class="entry__chara__face"><img src="https://img2.finalfantasyxiv.com/f/a_fc0.jpg?1" alt="Alys Exemple"></div><div class="entry__box entry__box--world"><p class="entry__name">Alys Exemple</p><p class="entry__world"><i class="xiv-lds xiv-lds-home-world js__tooltip" data-tooltip="Home World"></i>Moogle [Chaos]</p><ul class="entry__chara_info"><li><i class="list__ic__class"><img src="https://lds-img.finalfantasyxiv.com/h/P/x.png" width="20" height="20" alt=""></i><span>94</span></li><li class="js__tooltip" data-tooltip="Maelstrom / Second Storm Lieutenant"><img src="https://lds-img.finalfantasyxiv.com/h/0/y.png" width="20" height="20" alt=""></li></ul></div><div class="entry__chara__lang">FR</div></a></div>
+      <ul class="btn__pager">
+        <li><a href="javascript:void(0);" class="icon-list__pager btn__pager__prev--all btn__pager__no"></a></li>
+        <li><a href="javascript:void(0);" class="icon-list__pager btn__pager__prev btn__pager__no"></a></li>
+        <li class="btn__pager__current">Page 1 of 1</li>
+        <li><a href="javascript:void(0);" class="icon-list__pager btn__pager__next btn__pager__no"></a></li>
+      </ul></div>`;
+    expect(parseCharacterSearch(html)).toEqual({
+      page: 1,
+      totalPages: 1,
+      results: [
+        { id: 12345678, name: 'Alys Exemple', world: 'Moogle', dataCenter: 'Chaos', avatar: 'https://img2.finalfantasyxiv.com/f/a_fc0.jpg?1' },
+      ],
+    });
+  });
+
   it('renvoie une liste vide sans résultat', () => {
     const html = '<div class="ldst__window"><p class="parts__zero">Your search yielded no results.</p></div>';
     expect(parseCharacterSearch(html)).toEqual({ results: [], page: 1, totalPages: 0 });
@@ -210,6 +232,7 @@ describe('fiche personnage', () => {
       slot: 'MAINHAND',
       slotLabel: 'Arme',
       name: 'Item MAINHAND',
+      hq: false,
       itemLevel: 730,
       glamour: 'Glamour Blade',
       dye: 'Jet Black',
@@ -243,5 +266,69 @@ describe('niveaux des jobs', () => {
     expect(byKey.FISHER.level).toBeNull();
     expect(byKey.MONK.level).toBeNull();
     expect(jobs).toHaveLength(34);
+  });
+});
+
+describe('équipement chargé pièce par pièce', () => {
+  const fixture = (name: string) => readFileSync(join(__dirname, 'fixtures', name), 'utf8');
+
+  it('lit une vraie fiche d’arme', () => {
+    expect(parseGearTooltip('MAINHAND', 'Arme', fixture('tooltip-weapon.html'))).toEqual({
+      slot: 'MAINHAND',
+      slotLabel: 'Arme',
+      name: 'Ceiba Staff',
+      hq: true,
+      itemLevel: 655,
+      glamour: null,
+      dye: null,
+      materia: [],
+      creator: null,
+    });
+  });
+
+  it('lit une vraie fiche de cristal de l’âme (détail en 3e position)', () => {
+    expect(parseGearTooltip('SOULCRYSTAL', "Cristal de l'âme", fixture('tooltip-soulcrystal.html'))).toMatchObject({
+      name: 'Soul of the Black Mage',
+    });
+  });
+
+  it('repère les pièces à charger dans la page et charge chacune', async () => {
+    const page = buildHtml(
+      leaves(characterSelectors as Group)
+        .filter(({ path }) => path.join('.') === 'NAME')
+        .map(({ leaf }) => ({ selector: leaf.selector, html: 'Alys Exemple' })),
+    ).replace(
+      '</body>',
+      '<div class="icon-c--0 js__db_tooltip" data-lazy_load_url="/lodestone/character/1/equipment/tooltip/0"></div>' +
+        '<div class="icon-c--13 js__db_tooltip" data-lazy_load_url="/lodestone/character/1/equipment/tooltip/13"></div></body>',
+    );
+    const profile = parseCharacterProfile(1, page);
+    expect(profile.gear).toEqual([]);
+    expect(profile.gearTooltips.sort((a, b) => a - b)).toEqual([0, 13]);
+
+    const urls: string[] = [];
+    globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      urls.push(url);
+      return new Response(fixture(url.endsWith('/13') ? 'tooltip-soulcrystal.html' : 'tooltip-weapon.html'));
+    }) as typeof fetch;
+    const gear = await getGear('eu', profile);
+    expect(urls.sort()).toEqual([
+      'https://eu.finalfantasyxiv.com/lodestone/character/1/equipment/tooltip/0',
+      'https://eu.finalfantasyxiv.com/lodestone/character/1/equipment/tooltip/13',
+    ]);
+    expect(gear.map((g) => [g.slot, g.name])).toEqual([
+      ['MAINHAND', 'Ceiba Staff'],
+      ['SOULCRYSTAL', 'Soul of the Black Mage'],
+    ]);
+  });
+
+  it('ignore une présentation vide (« - »)', () => {
+    const html = buildHtml(
+      leaves(characterSelectors as Group)
+        .filter(({ path }) => ['NAME', 'BIO'].includes(path.join('.')))
+        .map(({ path, leaf }) => ({ selector: leaf.selector, html: path[0] === 'NAME' ? 'Alys' : '-' })),
+    );
+    expect(parseCharacterProfile(1, html).bio).toBeNull();
   });
 });

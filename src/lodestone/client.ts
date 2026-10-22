@@ -116,6 +116,8 @@ export interface GearPiece {
   slot: string;
   slotLabel: string;
   name: string;
+  /** Pièce de haute qualité. */
+  hq: boolean;
   itemLevel: number | null;
   glamour: string | null;
   dye: string | null;
@@ -141,33 +143,87 @@ export interface CharacterProfile {
   freeCompany: { id: string | null; name: string } | null;
   activeJobLevel: number | null;
   bio: string | null;
+  /** Equipement présent dans la page, s'il y en a (sinon voir `gearTooltips`). */
   gear: GearPiece[];
+  /** Pièces dont le détail se charge à part, avec getGear(). */
+  gearTooltips: number[];
 }
 
-function parseGear(html: string): GearPiece[] {
-  const raw = extractPage(html, gearSelectors as Definition);
-  const pieces: GearPiece[] = [];
-  for (const { key, label } of GEAR_SLOTS) {
-    const slot = obj(raw[key]);
-    const name = str(slot?.NAME);
-    if (!slot || !name) continue;
-    const materia: string[] = [];
-    for (let i = 1; i <= 5; i++) {
-      const m = str(obj(slot[`MATERIA_${i}`])?.Name);
-      if (m) materia.push(m);
-    }
-    pieces.push({
-      slot: key,
-      slotLabel: label,
-      name,
-      itemLevel: num(slot.ITEM_LEVEL),
-      glamour: str(slot.MIRAGE_NAME),
-      dye: str(slot.STAIN),
-      materia,
-      creator: str(slot.CREATOR_NAME),
-    });
+type GearSlotKey = (typeof GEAR_SLOTS)[number]['key'];
+
+/** Symbole « HQ » du jeu (zone Unicode privée), ajouté par le Lodestone après le nom. */
+const HQ_GLYPH = '\uE03C';
+/** Glyphes propres au jeu (zone Unicode privée), illisibles hors du jeu. */
+const GAME_GLYPHS = /[\uE000-\uF8FF]/g;
+
+function toGearPiece(key: GearSlotKey, label: string, slot: ExtractedObject | null): GearPiece | null {
+  const rawName = str(slot?.NAME);
+  const name = rawName?.replace(GAME_GLYPHS, '').trim();
+  if (!slot || !rawName || !name) return null;
+  const materia: string[] = [];
+  for (let i = 1; i <= 5; i++) {
+    const m = str(obj(slot[`MATERIA_${i}`])?.Name);
+    if (m) materia.push(m);
   }
-  return pieces;
+  return {
+    slot: key,
+    slotLabel: label,
+    name,
+    hq: rawName.includes(HQ_GLYPH),
+    itemLevel: num(slot.ITEM_LEVEL),
+    glamour: str(slot.MIRAGE_NAME),
+    dye: str(slot.STAIN),
+    materia,
+    creator: str(slot.CREATOR_NAME),
+  };
+}
+
+/** Equipement décrit directement dans la page (ancienne présentation du Lodestone). */
+function parseInlineGear(html: string): GearPiece[] {
+  const raw = extractPage(html, gearSelectors as Definition);
+  return GEAR_SLOTS.map(({ key, label }) => toGearPiece(key, label, obj(raw[key]))).filter(
+    (p): p is GearPiece => p !== null,
+  );
+}
+
+/** Numéro de l'emplacement (« icon-c--N ») utilisé par les sélecteurs d'une pièce. */
+function slotIndex(key: GearSlotKey): number | null {
+  const selectors = JSON.stringify((gearSelectors as Record<string, unknown>)[key] ?? {});
+  const match = /icon-c--(\d+)/.exec(selectors);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Le Lodestone charge désormais le détail de chaque pièce à part
+ * (/lodestone/character/ID/equipment/tooltip/N). On remet ce détail à sa place d'origine,
+ * sous l'icône « icon-c--N », pour que les sélecteurs communautaires s'appliquent tels quels.
+ * Sa position parmi les enfants de l'icône varie selon les sélecteurs (4e en général,
+ * 3e pour le cristal de l'âme) : on garde celle qui donne le plus de champs.
+ */
+export function parseGearTooltip(key: GearSlotKey, label: string, fragment: string): GearPiece | null {
+  const index = slotIndex(key);
+  if (index === null) return null;
+  const def = { [key]: (gearSelectors as Record<string, Definition>)[key] } as Definition;
+  let best: GearPiece | null = null;
+  let bestScore = -1;
+  for (const fillers of [3, 2, 1, 0]) {
+    const html = `<div class="icon-c--${index}">${'<div></div>'.repeat(fillers)}${fragment}</div>`;
+    const piece = toGearPiece(key, label, obj(extractPage(html, def)[key]));
+    if (!piece) continue;
+    const score = Object.values(piece).filter((v) => v !== null && !(Array.isArray(v) && v.length === 0)).length;
+    if (score > bestScore) {
+      best = piece;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
+/** Numéros des pièces dont la page indique un détail à charger. */
+function gearTooltipIndexes(html: string): number[] {
+  const found = new Set<number>();
+  for (const m of html.matchAll(/\/equipment\/tooltip\/(\d+)/g)) found.add(Number(m[1]));
+  return [...found];
 }
 
 export function parseCharacterProfile(id: number, html: string): CharacterProfile {
@@ -196,13 +252,32 @@ export function parseCharacterProfile(id: number, html: string): CharacterProfil
     grandCompany: gc ? { name: str(gc.Name), rank: str(gc.Rank) } : null,
     freeCompany: fcName ? { id: str(obj(fc?.ID)?.ID), name: fcName } : null,
     activeJobLevel: num(obj(raw.ACTIVE_CLASSJOB_LEVEL)?.Level),
-    bio: str(raw.BIO),
-    gear: parseGear(html),
+    // Le Lodestone affiche « - » quand la présentation est vide.
+    bio: str(raw.BIO) === '-' ? null : str(raw.BIO),
+    gear: parseInlineGear(html),
+    gearTooltips: gearTooltipIndexes(html),
   };
 }
 
 export async function getCharacter(region: LodestoneRegion, id: number): Promise<CharacterProfile> {
   return parseCharacterProfile(id, await fetchPage(`${baseUrl(region)}/character/${id}/`));
+}
+
+/** Equipement porté : celui de la page, sinon le détail de chaque pièce chargé à part. */
+export async function getGear(region: LodestoneRegion, profile: CharacterProfile): Promise<GearPiece[]> {
+  if (profile.gear.length > 0) return profile.gear;
+  const wanted = new Set(profile.gearTooltips);
+  const slots = GEAR_SLOTS.filter(({ key }) => {
+    const index = slotIndex(key);
+    return index !== null && wanted.has(index);
+  });
+  const pieces = await Promise.all(
+    slots.map(async ({ key, label }) => {
+      const fragment = await fetchPage(`${baseUrl(region)}/character/${profile.id}/equipment/tooltip/${slotIndex(key)}`);
+      return parseGearTooltip(key, label, fragment);
+    }),
+  );
+  return pieces.filter((p): p is GearPiece => p !== null);
 }
 
 // ---------------------------------------------------------------------------

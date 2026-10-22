@@ -25,6 +25,7 @@ import { useTheme } from '@/hooks/use-theme';
 import {
   getCharacter,
   getClassJobs,
+  getGear,
   lodestoneProfileUrl,
   type CharacterProfile,
   type GearPiece,
@@ -64,7 +65,13 @@ export default function CharacterScreen() {
     enabled: Number.isFinite(id) && tab === 'collections',
   });
 
-  const refreshing = profile.isRefetching || jobs.isRefetching || collections.isRefetching;
+  const gear = useQuery({
+    queryKey: ['lodestone', 'gear', region, id, profile.dataUpdatedAt],
+    queryFn: () => getGear(region, profile.data!),
+    enabled: profile.data !== undefined && tab === 'gear',
+  });
+
+  const refreshing = profile.isRefetching || jobs.isRefetching || collections.isRefetching || gear.isRefetching;
   const refresh = () => {
     profile.refetch();
     if (tab === 'jobs') jobs.refetch();
@@ -90,7 +97,15 @@ export default function CharacterScreen() {
               <JobsTab jobs={jobs.data ?? []} />
             )
           ) : null}
-          {tab === 'gear' ? <GearTab gear={profile.data.gear} /> : null}
+          {tab === 'gear' ? (
+            gear.isPending ? (
+              <Loading label="Lecture de l’équipement…" />
+            ) : gear.error ? (
+              <ErrorBox error={gear.error} onRetry={() => gear.refetch()} />
+            ) : (
+              <GearTab gear={gear.data ?? []} />
+            )
+          ) : null}
           {tab === 'collections' ? (
             collections.isPending ? (
               <Loading label="Lecture de FFXIV Collect…" />
@@ -221,7 +236,10 @@ function GearTab({ gear }: { gear: GearPiece[] }) {
             </ThemedText>
             {piece.itemLevel ? <ThemedText type="smallBold">niv. obj. {piece.itemLevel}</ThemedText> : null}
           </View>
-          <ThemedText>{piece.name}</ThemedText>
+          <ThemedText>
+            {piece.name}
+            {piece.hq ? ' · HQ' : ''}
+          </ThemedText>
           {piece.glamour ? <InfoRow label="Apparence" value={piece.glamour} /> : null}
           {piece.dye ? <InfoRow label="Teinture" value={piece.dye} /> : null}
           {piece.materia.length ? <InfoRow label="Matérias" value={piece.materia.join(', ')} /> : null}
