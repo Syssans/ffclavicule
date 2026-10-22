@@ -81,3 +81,53 @@ export async function getCollections(characterId: number): Promise<CollectionSum
   }
   return { lastParsed: data.last_parsed ?? null, achievementPoints: data.achievements?.points ?? 0, collections };
 }
+
+/** Collections dont FFXIV Collect sait lister les éléments possédés, avec leurs images. */
+export const BROWSABLE_COLLECTIONS = ['mounts', 'minions', 'orchestrions', 'emotes', 'hairstyles', 'bardings', 'fashions', 'facewear'] as const;
+export type BrowsableCollection = (typeof BROWSABLE_COLLECTIONS)[number];
+
+export function isBrowsable(key: string): key is BrowsableCollection {
+  return (BROWSABLE_COLLECTIONS as readonly string[]).includes(key);
+}
+
+export interface Collectable {
+  id: number;
+  name: string;
+  /** Petite icône carrée. */
+  icon: string | null;
+  /** Illustration plus grande, quand elle existe. */
+  image: string | null;
+  patch: string | null;
+  /** Part des joueurs suivis par FFXIV Collect qui la possèdent (ex. « 22.9% »). */
+  owned: string | null;
+}
+
+interface CollectableJson {
+  id: number;
+  name: string;
+  icon?: string;
+  image?: string;
+  patch?: string;
+  owned?: string;
+}
+
+/** FFXIV Collect renvoie parfois une adresse d'image incomplète (chemin réduit au dossier). */
+function imageUrl(url: string | undefined): string | null {
+  if (!url || /(%2F|\/)$/i.test(url)) return null;
+  return url;
+}
+
+/** Eléments possédés d'une collection, triés par nom. */
+export async function getOwned(characterId: number, collection: BrowsableCollection): Promise<Collectable[]> {
+  const data = await getJson<CollectableJson[]>(`${BASE}/characters/${characterId}/${collection}/owned?language=fr`, { source: SOURCE });
+  return data
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+      icon: imageUrl(c.icon),
+      image: imageUrl(c.image),
+      patch: c.patch ?? null,
+      owned: c.owned ?? null,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+}

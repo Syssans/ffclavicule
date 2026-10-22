@@ -9,28 +9,34 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#1B1A17',
+    background: '#F6F3EC',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#ECE6D8',
+    textSecondary: '#6B665C',
     accent: '#8A6A1F',
-    accentText: '#ffffff',
+    accentText: '#FFFFFF',
     danger: '#C62828',
     success: '#2E7D32',
-    border: '#E0E1E6',
+    border: '#E4DDCC',
+    /** Tracé des graphiques (validé : contraste, saturation, luminosité). */
+    chart: '#B07A00',
+    /** Grille et axes : un cran au-dessus de la surface. */
+    grid: '#ECE6D8',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
-    accent: '#E3C27A',
+    text: '#F2EFE8',
+    background: '#0B0F1A',
+    backgroundElement: '#151B2B',
+    backgroundSelected: '#222A40',
+    textSecondary: '#A3A9BA',
+    accent: '#D9B36C',
     accentText: '#1A1405',
     danger: '#EF9A9A',
     success: '#A5D6A7',
-    border: '#2E3135',
+    border: '#263049',
+    chart: '#C98500',
+    grid: '#222A40',
   },
 } as const;
 

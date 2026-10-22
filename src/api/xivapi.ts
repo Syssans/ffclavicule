@@ -76,6 +76,13 @@ const ITEM_FIELDS = [
   'ItemUICategory.Name',
 ].join(',');
 
+/** Icône du jeu par son numéro (ex. 62119 -> ui/icon/062000/062119_hr1.tex). */
+export function gameIconUrl(id: number): string {
+  const group = String(Math.floor(id / 1000) * 1000).padStart(6, '0');
+  const file = String(id).padStart(6, '0');
+  return `${BASE}/asset?${new URLSearchParams({ path: `ui/icon/${group}/${file}_hr1.tex`, format: 'png' })}`;
+}
+
 export function iconUrl(icon: IconValue | undefined): string | null {
   if (!icon || !icon.id) return null;
   return `${BASE}/asset?${new URLSearchParams({ path: icon.path_hr1, format: 'png' })}`;
@@ -108,9 +115,11 @@ export async function searchItems(
 ): Promise<Item[]> {
   const value = escapeQueryValue(text);
   if (value.length < 2) return [];
+  // Chaque mot doit apparaître dans le nom, dans n'importe quel ordre.
+  const words = value.split(/\s+/).filter(Boolean);
   const params = new URLSearchParams({
     sheets: 'Item',
-    query: `+Name~"${value}"`,
+    query: words.map((w) => `+Name~"${w}"`).join(' '),
     fields: ITEM_FIELDS,
     language,
     limit: String(limit),

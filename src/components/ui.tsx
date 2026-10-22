@@ -312,3 +312,56 @@ const styles = StyleSheet.create({
   track: { height: 6, borderRadius: 3, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 3 },
 });
+
+/** Icône carrée (objet, job, monture…), avec un fond neutre tant qu'elle charge. */
+export function GameIcon({ uri, size = 40, dimmed = false }: { uri: string | null | undefined; size?: number; dimmed?: boolean }) {
+  const theme = useTheme();
+  return (
+    <Image
+      source={uri ?? undefined}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size * 0.18,
+        backgroundColor: theme.backgroundSelected,
+        opacity: dimmed ? 0.35 : 1,
+      }}
+      contentFit="contain"
+      transition={150}
+    />
+  );
+}
+
+/** Petite pastille de texte (niveau d'objet, HQ, monde…). */
+export function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'accent' | 'up' | 'down' }) {
+  const theme = useTheme();
+  const color = tone === 'accent' ? theme.accent : tone === 'up' ? theme.success : tone === 'down' ? theme.danger : theme.textSecondary;
+  return (
+    <View style={[extraStyles.badge, { backgroundColor: theme.backgroundSelected }]}>
+      <ThemedText type="smallBold" style={{ color, fontSize: 12, lineHeight: 16 }}>
+        {label}
+      </ThemedText>
+    </View>
+  );
+}
+
+/** Chiffre clé : libellé, valeur, détail facultatif. */
+export function StatTile({ label, value, detail }: { label: string; value: string; detail?: ReactNode }) {
+  const theme = useTheme();
+  return (
+    <View style={[extraStyles.statTile, { backgroundColor: theme.backgroundElement }]}>
+      <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+        {label}
+      </ThemedText>
+      <ThemedText type="subtitle" numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </ThemedText>
+      {detail}
+    </View>
+  );
+}
+
+const extraStyles = StyleSheet.create({
+  badge: { borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'flex-start' },
+  statTile: { flex: 1, borderRadius: 16, padding: Spacing.three, gap: Spacing.half, minWidth: 0 },
+});

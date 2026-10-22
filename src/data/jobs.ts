@@ -63,4 +63,9 @@ export const JOBS: Job[] = [
   { id: 18, key: 'FISHER', name: 'Pêcheur', abbr: 'PÊC', role: 'gatherer' },
 ];
 
+/** Icône encadrée du job, à la couleur de son rôle (icônes 062100 + n° du job dans le jeu). */
+export function jobIconId(job: Job): number {
+  return 62100 + job.id;
+}
+
 export const JOBS_BY_KEY: Record<string, Job> = Object.fromEntries(JOBS.map((j) => [j.key, j]));

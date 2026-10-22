@@ -118,6 +118,8 @@ export interface GearPiece {
   name: string;
   /** Pièce de haute qualité. */
   hq: boolean;
+  /** Icône de l'objet (serveur d'images du Lodestone). */
+  icon: string | null;
   itemLevel: number | null;
   glamour: string | null;
   dye: string | null;
@@ -142,6 +144,10 @@ export interface CharacterProfile {
   grandCompany: { name: string | null; rank: string | null } | null;
   freeCompany: { id: string | null; name: string } | null;
   activeJobLevel: number | null;
+  /** Icône du job actif (serveur d'images du Lodestone). */
+  activeJobIcon: string | null;
+  guardianIcon: string | null;
+  cityStateIcon: string | null;
   bio: string | null;
   /** Equipement présent dans la page, s'il y en a (sinon voir `gearTooltips`). */
   gear: GearPiece[];
@@ -170,6 +176,7 @@ function toGearPiece(key: GearSlotKey, label: string, slot: ExtractedObject | nu
     slotLabel: label,
     name,
     hq: rawName.includes(HQ_GLYPH),
+    icon: null,
     itemLevel: num(slot.ITEM_LEVEL),
     glamour: str(slot.MIRAGE_NAME),
     dye: str(slot.STAIN),
@@ -210,6 +217,7 @@ export function parseGearTooltip(key: GearSlotKey, label: string, fragment: stri
     const html = `<div class="icon-c--${index}">${'<div></div>'.repeat(fillers)}${fragment}</div>`;
     const piece = toGearPiece(key, label, obj(extractPage(html, def)[key]));
     if (!piece) continue;
+    piece.icon = str(extractPage(fragment, { ICON: { selector: '.db-tooltip__item__icon__item_image', attribute: 'src' } }).ICON);
     const score = Object.values(piece).filter((v) => v !== null && !(Array.isArray(v) && v.length === 0)).length;
     if (score > bestScore) {
       best = piece;
@@ -252,6 +260,9 @@ export function parseCharacterProfile(id: number, html: string): CharacterProfil
     grandCompany: gc ? { name: str(gc.Name), rank: str(gc.Rank) } : null,
     freeCompany: fcName ? { id: str(obj(fc?.ID)?.ID), name: fcName } : null,
     activeJobLevel: num(obj(raw.ACTIVE_CLASSJOB_LEVEL)?.Level),
+    activeJobIcon: str(raw.ACTIVE_CLASSJOB),
+    guardianIcon: str(obj(raw.GUARDIAN_DEITY)?.ICON),
+    cityStateIcon: str(obj(raw.TOWN)?.ICON),
     // Le Lodestone affiche « - » quand la présentation est vide.
     bio: str(raw.BIO) === '-' ? null : str(raw.BIO),
     gear: parseInlineGear(html),

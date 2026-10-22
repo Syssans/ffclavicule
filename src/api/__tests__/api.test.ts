@@ -1,7 +1,7 @@
-import { getCollections } from '../ffxivcollect';
+import { getCollections, getOwned } from '../ffxivcollect';
 import { ApiError, getJson } from '../http';
-import { getMarket, getPriceSummaries } from '../universalis';
-import { escapeQueryValue, getItem, iconUrl, searchItems } from '../xivapi';
+import { getHistories, getHistory, getMarket, getPriceSummaries } from '../universalis';
+import { escapeQueryValue, gameIconUrl, getItem, iconUrl, searchItems } from '../xivapi';
 
 type Handler = (url: string) => { status?: number; body: unknown };
 
@@ -143,6 +143,12 @@ describe('XIVAPI', () => {
     ]);
   });
 
+  it('exige chaque mot, dans n’importe quel ordre', async () => {
+    mockFetch(() => ({ body: { results: [] } }));
+    await searchItems('  fer   lingot ');
+    expect(new URL(calls[0]).searchParams.get('query')).toBe('+Name~"fer" +Name~"lingot"');
+  });
+
   it("n'envoie pas de recherche trop courte et neutralise les guillemets", async () => {
     mockFetch(() => ({ body: { results: [] } }));
     expect(await searchItems('a')).toEqual([]);
@@ -196,5 +202,44 @@ describe('FFXIV Collect', () => {
   it('remonte les autres erreurs', async () => {
     mockFetch(() => ({ status: 403, body: { status: 403, error: 'Character is set to private' } }));
     await expect(getCollections(1)).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe('historique et collections', () => {
+  const sale = (price: number) => ({ pricePerUnit: price, quantity: 1, hq: false, timestamp: 1792603913 });
+
+  it('lit l’historique d’un objet sur la bonne période', async () => {
+    mockFetch(() => ({ body: { itemID: 5057, entries: [sale(45)] } }));
+    expect(await getHistory('Moogle', 5057, 7)).toEqual([sale(45)]);
+    const url = new URL(calls[0]);
+    expect(url.pathname).toBe('/api/v2/history/Moogle/5057');
+    expect(url.searchParams.get('entriesWithin')).toBe(String(7 * 86400));
+  });
+
+  it('lit l’historique de plusieurs favoris en une requête', async () => {
+    mockFetch(() => ({ body: { items: { '1': { itemID: 1, entries: [sale(10)] }, '2': { itemID: 2, entries: [] } } } }));
+    const result = await getHistories('Chaos', [1, 2, 3], 7);
+    expect(calls).toHaveLength(1);
+    expect(result.get(1)).toEqual([sale(10)]);
+    expect(result.get(3)).toEqual([]);
+  });
+
+  it('liste les montures possédées, triées, sans image cassée', async () => {
+    mockFetch(() => ({
+      body: [
+        { id: 2, name: 'Licorne', icon: 'https://v2.xivapi.com/api/asset?format=webp&path=ui%2Ficon%2F004000%2F004002_hr1.tex', patch: '2.0', owned: '80%' },
+        { id: 1, name: 'Chocobo de compagnie', icon: 'https://v2.xivapi.com/api/asset?format=webp&path=ui%2Ficon%2F200000%2F', image: 'None' },
+      ],
+    }));
+    const owned = await getOwned(42, 'mounts');
+    expect(calls[0]).toBe('https://ffxivcollect.com/api/characters/42/mounts/owned?language=fr');
+    expect(owned.map((o) => [o.name, o.icon !== null])).toEqual([
+      ['Chocobo de compagnie', false],
+      ['Licorne', true],
+    ]);
+  });
+
+  it('construit l’adresse d’une icône du jeu', () => {
+    expect(decodeURIComponent(gameIconUrl(62119))).toBe('https://v2.xivapi.com/api/asset?path=ui/icon/062000/062119_hr1.tex&format=png');
   });
 });

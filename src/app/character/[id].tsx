@@ -1,26 +1,30 @@
 import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { RefreshControl, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
+import { getCollections, isBrowsable, profileUrl } from '@/api/ffxivcollect';
+import { gameIconUrl } from '@/api/xivapi';
 import { ThemedText } from '@/components/themed-text';
 import {
+  Badge,
   Button,
   Card,
   Empty,
   ErrorBox,
-  InfoRow,
+  GameIcon,
   Loading,
   ProgressBar,
   Screen,
   Section,
   Segmented,
+  StatTile,
 } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
-import { getCollections, profileUrl } from '@/api/ffxivcollect';
-import { ROLE_LABELS, ROLE_ORDER } from '@/data/jobs';
+import { jobIconId, ROLE_LABELS, ROLE_ORDER } from '@/data/jobs';
 import { useTheme } from '@/hooks/use-theme';
 import {
   getCharacter,
@@ -64,7 +68,6 @@ export default function CharacterScreen() {
     queryFn: () => getCollections(id),
     enabled: Number.isFinite(id) && tab === 'collections',
   });
-
   const gear = useQuery({
     queryKey: ['lodestone', 'gear', region, id, profile.dataUpdatedAt],
     queryFn: () => getGear(region, profile.data!),
@@ -85,7 +88,7 @@ export default function CharacterScreen() {
       {profile.error ? <ErrorBox error={profile.error} onRetry={() => profile.refetch()} /> : null}
       {profile.data ? (
         <>
-          <Header profile={profile.data} />
+          <Hero profile={profile.data} />
           <Segmented options={TABS} value={tab} onChange={setTab} />
           {tab === 'profile' ? <ProfileTab profile={profile.data} /> : null}
           {tab === 'jobs' ? (
@@ -122,51 +125,82 @@ export default function CharacterScreen() {
   );
 }
 
-function Header({ profile }: { profile: CharacterProfile }) {
-  const theme = useTheme();
+/** Grand portrait du Lodestone, avec le nom et le job actif par-dessus. */
+function Hero({ profile }: { profile: CharacterProfile }) {
+  const image = profile.portrait ?? profile.avatar;
   return (
-    <View style={styles.header}>
-      <Image
-        source={profile.portrait ?? profile.avatar ?? undefined}
-        style={[styles.portrait, { backgroundColor: theme.backgroundElement }]}
-        contentFit="cover"
-        contentPosition="top"
-        accessibilityLabel={`Portrait de ${profile.name}`}
-      />
-      <View style={styles.headerText}>
+    <View style={styles.hero}>
+      {image ? (
+        <Image
+          source={image}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+          contentPosition="top"
+          transition={200}
+          accessibilityLabel={`Portrait de ${profile.name}`}
+        />
+      ) : null}
+      <LinearGradient colors={['transparent', 'rgba(5,8,15,0.92)']} locations={[0.45, 1]} style={StyleSheet.absoluteFill} />
+      <View style={styles.heroText}>
         {profile.title ? (
-          <ThemedText type="small" themeColor="textSecondary">
-            {profile.title}
+          <ThemedText type="smallBold" style={styles.heroTitle}>
+            « {profile.title} »
           </ThemedText>
         ) : null}
-        <ThemedText type="subtitle">{profile.name}</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {[profile.world, profile.dataCenter].filter(Boolean).join(' · ')}
+        <ThemedText type="title" style={styles.heroName} numberOfLines={1} adjustsFontSizeToFit>
+          {profile.name}
         </ThemedText>
-        {profile.freeCompany ? <ThemedText type="small">« {profile.freeCompany.name} »</ThemedText> : null}
+        <ThemedText type="small" style={styles.heroMuted}>
+          {[profile.world, profile.dataCenter].filter(Boolean).join(' · ')}
+          {profile.freeCompany ? `  ·  ${profile.freeCompany.name}` : ''}
+        </ThemedText>
+        {profile.activeJobLevel ? (
+          <View style={styles.heroJob}>
+            {profile.activeJobIcon ? <Image source={profile.activeJobIcon} style={styles.heroJobIcon} contentFit="contain" /> : null}
+            <ThemedText type="smallBold" style={styles.heroName}>
+              Niveau {profile.activeJobLevel}
+            </ThemedText>
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
+function IconRow({ icon, label, value }: { icon?: string | null; label: string; value: string }) {
+  return (
+    <View style={styles.iconRow}>
+      {icon !== undefined ? <GameIcon uri={icon} size={28} /> : null}
+      <View style={{ flex: 1 }}>
+        <ThemedText type="small" themeColor="textSecondary">
+          {label}
+        </ThemedText>
+        <ThemedText type="small">{value}</ThemedText>
       </View>
     </View>
   );
 }
 
 function ProfileTab({ profile }: { profile: CharacterProfile }) {
-  const rows: [string, string | null][] = [
-    ['Race', [profile.race, profile.tribe].filter(Boolean).join(' · ') || null],
-    ['Sexe', profile.gender],
-    ['Anniversaire', profile.nameday],
-    ['Divinité', profile.guardian],
-    ['Cité de départ', profile.cityState],
-    ['Grande Compagnie', profile.grandCompany ? [profile.grandCompany.name, profile.grandCompany.rank].filter(Boolean).join(' · ') : null],
-    ['Compagnie libre', profile.freeCompany?.name ?? null],
-    ['Niveau du job actif', profile.activeJobLevel ? String(profile.activeJobLevel) : null],
+  const rows: { label: string; value: string | null; icon?: string | null }[] = [
+    { label: 'Race', value: [profile.race, profile.tribe].filter(Boolean).join(' · ') || null },
+    { label: 'Sexe', value: profile.gender },
+    { label: 'Anniversaire', value: profile.nameday },
+    { label: 'Divinité', value: profile.guardian, icon: profile.guardianIcon },
+    { label: 'Cité de départ', value: profile.cityState, icon: profile.cityStateIcon },
+    {
+      label: 'Grande Compagnie',
+      value: profile.grandCompany ? [profile.grandCompany.name, profile.grandCompany.rank].filter(Boolean).join(' · ') : null,
+    },
+    { label: 'Compagnie libre', value: profile.freeCompany?.name ?? null },
   ];
   return (
     <>
       <Card>
         {rows
-          .filter(([, value]) => value)
-          .map(([label, value]) => (
-            <InfoRow key={label} label={label} value={value!} />
+          .filter((r) => r.value)
+          .map((r) => (
+            <IconRow key={r.label} label={r.label} value={r.value!} icon={r.icon} />
           ))}
       </Card>
       {profile.bio ? (
@@ -182,34 +216,25 @@ function ProfileTab({ profile }: { profile: CharacterProfile }) {
 }
 
 function JobsTab({ jobs }: { jobs: JobLevel[] }) {
-  const theme = useTheme();
-  const unlocked = jobs.filter((j) => j.level !== null);
   if (jobs.length === 0) return <Empty>Aucun job trouvé.</Empty>;
+  const unlocked = jobs.filter((j) => j.level !== null);
+  const maxed = unlocked.filter((j) => j.level === 100).length;
   return (
     <>
-      <ThemedText type="small" themeColor="textSecondary">
-        {unlocked.length} jobs débloqués sur {jobs.length}
-      </ThemedText>
+      <View style={styles.stats}>
+        <StatTile label="Jobs débloqués" value={`${unlocked.length} / ${jobs.length}`} />
+        <StatTile label="Niveau 100" value={String(maxed)} />
+      </View>
       {ROLE_ORDER.map((role) => {
         const list = jobs.filter((j) => j.job.role === role);
         if (list.length === 0) return null;
         return (
           <Section key={role} title={ROLE_LABELS[role]}>
-            <Card>
-              {list.map(({ job, level, exp, maxExp }) => (
-                <View key={job.key} style={styles.jobRow} accessible accessibilityLabel={`${job.name}, ${level ? `niveau ${level}` : 'non débloqué'}`}>
-                  <View style={styles.jobLine}>
-                    <ThemedText type="small" style={{ opacity: level ? 1 : 0.5 }}>
-                      {job.name}
-                    </ThemedText>
-                    <ThemedText type="smallBold" style={{ color: level ? theme.text : theme.textSecondary }}>
-                      {level ?? '—'}
-                    </ThemedText>
-                  </View>
-                  {level && exp !== null && maxExp ? <ProgressBar value={exp / maxExp} /> : null}
-                </View>
+            <View style={styles.grid}>
+              {list.map((j) => (
+                <JobTile key={j.job.key} job={j} />
               ))}
-            </Card>
+            </View>
           </Section>
         );
       })}
@@ -217,40 +242,69 @@ function JobsTab({ jobs }: { jobs: JobLevel[] }) {
   );
 }
 
+function JobTile({ job: { job, level, exp, maxExp } }: { job: JobLevel }) {
+  const theme = useTheme();
+  return (
+    <View
+      style={[styles.jobTile, { backgroundColor: theme.backgroundElement }]}
+      accessible
+      accessibilityLabel={`${job.name}, ${level ? `niveau ${level}` : 'non débloqué'}`}>
+      <View style={styles.jobTop}>
+        <GameIcon uri={gameIconUrl(jobIconId(job))} size={36} dimmed={!level} />
+        <ThemedText type="subtitle" style={{ color: level ? theme.text : theme.textSecondary }}>
+          {level ?? '—'}
+        </ThemedText>
+      </View>
+      <ThemedText type="small" numberOfLines={1} style={{ opacity: level ? 1 : 0.55 }}>
+        {job.name}
+      </ThemedText>
+      <ProgressBar value={level === 100 ? 1 : level && exp !== null && maxExp ? exp / maxExp : 0} />
+    </View>
+  );
+}
+
 function GearTab({ gear }: { gear: GearPiece[] }) {
+  const theme = useTheme();
   if (gear.length === 0) return <Empty>Équipement introuvable sur le Lodestone.</Empty>;
   const levels = gear.filter((g) => g.slot !== 'SOULCRYSTAL' && g.itemLevel).map((g) => g.itemLevel!);
   const average = levels.length ? Math.round(levels.reduce((a, b) => a + b, 0) / levels.length) : null;
   return (
     <>
-      {average ? (
-        <ThemedText type="small" themeColor="textSecondary">
-          Niveau d’objet moyen (approximatif) : {average}
-        </ThemedText>
-      ) : null}
-      {gear.map((piece) => (
-        <Card key={piece.slot}>
-          <View style={styles.jobLine}>
-            <ThemedText type="small" themeColor="textSecondary">
-              {piece.slotLabel}
-            </ThemedText>
-            {piece.itemLevel ? <ThemedText type="smallBold">niv. obj. {piece.itemLevel}</ThemedText> : null}
+      <View style={styles.stats}>
+        <StatTile label="Niveau d’objet" value={average ? String(average) : '—'} />
+        <StatTile label="Pièces HQ" value={`${gear.filter((g) => g.hq).length} / ${gear.length}`} />
+      </View>
+      <Card style={{ gap: 0, paddingVertical: Spacing.one }}>
+        {gear.map((piece, i) => (
+          <View
+            key={piece.slot}
+            style={[styles.gearRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }]}>
+            <GameIcon uri={piece.icon} size={44} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <ThemedText type="small" themeColor="textSecondary">
+                {piece.slotLabel}
+              </ThemedText>
+              <ThemedText numberOfLines={2}>{piece.name}</ThemedText>
+              {piece.glamour ? <ThemedText type="small" themeColor="textSecondary">Apparence : {piece.glamour}</ThemedText> : null}
+              {piece.dye ? <ThemedText type="small" themeColor="textSecondary">Teinture : {piece.dye}</ThemedText> : null}
+              {piece.materia.length ? (
+                <ThemedText type="small" themeColor="textSecondary">Matérias : {piece.materia.join(', ')}</ThemedText>
+              ) : null}
+              {piece.creator ? <ThemedText type="small" themeColor="textSecondary">Fabriqué par {piece.creator}</ThemedText> : null}
+            </View>
+            <View style={{ alignItems: 'flex-end', gap: 4 }}>
+              {piece.itemLevel ? <Badge label={String(piece.itemLevel)} tone="accent" /> : null}
+              {piece.hq ? <Badge label="HQ" /> : null}
+            </View>
           </View>
-          <ThemedText>
-            {piece.name}
-            {piece.hq ? ' · HQ' : ''}
-          </ThemedText>
-          {piece.glamour ? <InfoRow label="Apparence" value={piece.glamour} /> : null}
-          {piece.dye ? <InfoRow label="Teinture" value={piece.dye} /> : null}
-          {piece.materia.length ? <InfoRow label="Matérias" value={piece.materia.join(', ')} /> : null}
-          {piece.creator ? <InfoRow label="Fabriqué par" value={piece.creator} /> : null}
-        </Card>
-      ))}
+        ))}
+      </Card>
     </>
   );
 }
 
 function CollectionsTab({ id, data }: { id: number; data: Awaited<ReturnType<typeof getCollections>> }) {
+  const theme = useTheme();
   if (!data) {
     return (
       <Card>
@@ -263,22 +317,35 @@ function CollectionsTab({ id, data }: { id: number; data: Awaited<ReturnType<typ
   }
   return (
     <>
-      <Card>
-        {data.collections.map((c) => (
-          <View key={c.key} style={styles.jobRow}>
-            <View style={styles.jobLine}>
-              <ThemedText type="small">{c.label}</ThemedText>
-              <ThemedText type="smallBold">
-                {!c.isPublic
-                  ? 'Privé'
-                  : c.count === 0
-                    ? 'Non renseigné'
-                    : `${formatNumber(c.count)} / ${formatNumber(c.total)} (${percent(c.count, c.total)} %)`}
-              </ThemedText>
-            </View>
-            {c.isPublic && c.count > 0 ? <ProgressBar value={c.total ? c.count / c.total : 0} /> : null}
-          </View>
-        ))}
+      <Card style={{ gap: 0, paddingVertical: Spacing.one }}>
+        {data.collections.map((c, i) => {
+          const tracked = c.isPublic && c.count > 0;
+          const browsable = tracked && isBrowsable(c.key);
+          return (
+            <Pressable
+              key={c.key}
+              disabled={!browsable}
+              accessibilityRole={browsable ? 'button' : undefined}
+              onPress={() => router.push({ pathname: '/collection/[characterId]/[key]', params: { characterId: String(id), key: c.key, label: c.label } })}
+              style={({ pressed }) => [
+                styles.collectionRow,
+                i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+                pressed && { opacity: 0.7 },
+              ]}>
+              <View style={styles.jobTop}>
+                <ThemedText type="small">{c.label}</ThemedText>
+                <ThemedText type="smallBold" themeColor={tracked ? 'text' : 'textSecondary'}>
+                  {!c.isPublic
+                    ? 'Privé'
+                    : c.count === 0
+                      ? 'Non renseigné'
+                      : `${formatNumber(c.count)} / ${formatNumber(c.total)} · ${percent(c.count, c.total)} %${browsable ? '  ›' : ''}`}
+                </ThemedText>
+              </View>
+              {tracked ? <ProgressBar value={c.total ? c.count / c.total : 0} /> : null}
+            </Pressable>
+          );
+        })}
       </Card>
       <Empty>
         « Non renseigné » : collection que le Lodestone ne publie pas, à cocher soi-même sur FFXIV Collect.{'\n'}
@@ -334,9 +401,19 @@ function FollowActions({ profile }: { profile: CharacterProfile }) {
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', gap: Spacing.three, alignItems: 'center' },
-  portrait: { width: 96, height: 128, borderRadius: 12 },
-  headerText: { flex: 1, gap: Spacing.half },
-  jobRow: { gap: Spacing.one, paddingVertical: Spacing.one },
-  jobLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: Spacing.two },
+  // Fond sombre fixe : le texte est blanc sur le portrait, quel que soit le thème.
+  hero: { height: 380, borderRadius: 20, overflow: 'hidden', justifyContent: 'flex-end', backgroundColor: '#151B2B' },
+  heroText: { padding: Spacing.three, gap: Spacing.half },
+  heroTitle: { color: '#E8C987' },
+  heroName: { color: '#FFFFFF' },
+  heroMuted: { color: 'rgba(255,255,255,0.78)' },
+  heroJob: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.one },
+  heroJobIcon: { width: 24, height: 24 },
+  iconRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.one },
+  stats: { flexDirection: 'row', gap: Spacing.two },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  jobTile: { flexBasis: '31%', flexGrow: 1, maxWidth: '32.5%', borderRadius: 14, padding: Spacing.two, gap: Spacing.one },
+  jobTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
+  gearRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two },
+  collectionRow: { gap: Spacing.one, paddingVertical: Spacing.two },
 });

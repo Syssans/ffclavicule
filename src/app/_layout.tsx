@@ -32,6 +32,7 @@ export default function RootLayout() {
           <Stack.Screen name="character/search" options={{ title: 'Ajouter un personnage', presentation: 'modal' }} />
           <Stack.Screen name="character/[id]" options={{ title: '' }} />
           <Stack.Screen name="item/[id]" options={{ title: '' }} />
+          <Stack.Screen name="collection/[characterId]/[key]" options={{ title: '' }} />
         </Stack>
       </ThemeProvider>
     </QueryClientProvider>

@@ -7,7 +7,7 @@
  *   à un élément (ou à une liste d'éléments si ROOT.multiple est vrai).
  */
 import { selectAll, selectOne } from 'css-select';
-import render from 'dom-serializer';
+import { render } from 'dom-serializer';
 import type { AnyNode, Document, Element } from 'domhandler';
 import { getAttributeValue, textContent } from 'domutils';
 import { parse, parseFragment } from 'parse5';

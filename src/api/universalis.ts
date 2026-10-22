@@ -133,3 +133,54 @@ const REGION_LABELS: Record<string, string> = {
 export function regionLabel(region: string): string {
   return REGION_LABELS[region] ?? region;
 }
+
+// ---------------------------------------------------------------------------
+// Historique des ventes
+// ---------------------------------------------------------------------------
+
+export interface HistorySale {
+  pricePerUnit: number;
+  quantity: number;
+  hq: boolean;
+  /** En secondes. */
+  timestamp: number;
+  worldName?: string;
+}
+
+interface HistoryData {
+  itemID: number;
+  entries: HistorySale[];
+}
+
+interface MultiHistoryData {
+  items: Record<string, HistoryData>;
+}
+
+const DAY_SECONDS = 86400;
+
+function historyUrl(scope: string, ids: number[], days: number): string {
+  const params = new URLSearchParams({ entriesWithin: String(days * DAY_SECONDS), entriesToReturn: '999999' });
+  return `${BASE}/v2/history/${encodeURIComponent(scope)}/${ids.join(',')}?${params}`;
+}
+
+/** Ventes d'un objet sur les `days` derniers jours. */
+export async function getHistory(scope: string, itemId: number, days: number): Promise<HistorySale[]> {
+  const data = await getJson<HistoryData>(historyUrl(scope, [itemId], days), { source: SOURCE });
+  return data.entries ?? [];
+}
+
+/** Ventes de plusieurs objets (liste de favoris), par paquets de 100. */
+export async function getHistories(scope: string, itemIds: number[], days: number): Promise<Map<number, HistorySale[]>> {
+  const unique = [...new Set(itemIds)];
+  const result = new Map<number, HistorySale[]>();
+  for (let i = 0; i < unique.length; i += MAX_ITEMS_PER_REQUEST) {
+    const chunk = unique.slice(i, i + MAX_ITEMS_PER_REQUEST);
+    if (chunk.length === 1) {
+      result.set(chunk[0], await getHistory(scope, chunk[0], days));
+      continue;
+    }
+    const data = await getJson<MultiHistoryData>(historyUrl(scope, chunk, days), { source: SOURCE });
+    for (const id of chunk) result.set(id, data.items?.[String(id)]?.entries ?? []);
+  }
+  return result;
+}
