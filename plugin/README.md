@@ -33,6 +33,8 @@ Tu peux retirer le code ensuite.
 
 Le plugin envoie aussi tes **collections**, lues directement en jeu : montures, mascottes, rouleaux d’orchestrion, emotes, coiffures, bardes de chocobo, accessoires de mode et de visage, cartes Triple Triade, sorts de mage bleu, et hauts faits (points compris). Le jeu ne charge les hauts faits que sur demande : le plugin les demande une fois par connexion, comme le fait la fenêtre « Hauts faits ».
 
+Avec les collections, le plugin envoie un **catalogue** : tout ce qui existe dans chaque collection, l’objet qui le débloque, s’il se vend au marché, et comment l’obtenir. La provenance est tirée des données du jeu : récompense de haut fait ou de quête, artisanat, boutiques (gils, sceaux, marques de loup, points du Gold Saucer…), description des rouleaux d’orchestrion. Le catalogue est construit une fois par session en tâche de fond, et renvoyé seulement s’il a changé, en pratique après une mise à jour du jeu. Les règles de provenance reprennent celles de [FFXIV Collect](https://github.com/fae-industries/ffxiv-collect) (licence MIT).
+
 Ces données ne sont visibles que sur les téléphones connectés, et tu peux les retirer depuis la même section. Quelques données ne sont lisibles qu’à certains moments, et le plugin garde la dernière version vue :
 
 - l’inventaire d’un servant : ouvre-le à la sonnette ;

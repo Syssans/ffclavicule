@@ -12,7 +12,7 @@ Projet perso, pour soi et ses amis. Appli non officielle, sans lien avec Square 
 | Fiche personnage · Profil | Titre, monde, race, divinité, Grande Compagnie, compagnie libre, présentation | [Lodestone](https://eu.finalfantasyxiv.com/lodestone/) |
 | Fiche personnage · Jobs | Niveau et expérience de chaque job, par rôle | Lodestone |
 | Fiche personnage · Équipement | Pièces portées, niveau d'objet, apparence, teinture, matérias | Lodestone |
-| Fiche personnage · Collections | Hauts faits, montures, mascottes, orchestrions, emotes, coiffures, bardes, cartes, sorts de mage bleu… avec progression | Plugin Clavicule (relevé en jeu, téléphone connecté) |
+| Fiche personnage · Collections | Hauts faits, montures, mascottes, orchestrions, emotes, coiffures, bardes, cartes, sorts de mage bleu… avec progression ; ce qui manque, comment l’obtenir, son prix au marché, et les objets de collection déjà en poche mais pas utilisés | Plugin Clavicule (relevé en jeu, téléphone connecté), Universalis pour les prix |
 | **Marché** | Recherche d'objets vendables, favoris avec le prix le plus bas | [XIVAPI](https://v2.xivapi.com), [Universalis](https://universalis.app) |
 | Fiche objet | Annonces, ventes récentes, prix moyen, ventes par jour ; centre de données ou région entière | Universalis |
 | Fiche personnage · Inventaire, servants, courrier | Sacs, arsenal, cristaux, sacoches, gil ; servants (missions, ventes, inventaires) ; lettres. Recherche d'un objet partout. Téléphone connecté par un code affiché dans le plugin | Plugin Dalamud |

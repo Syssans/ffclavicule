@@ -78,6 +78,38 @@ export interface AchievementSummary {
   pointsTotal: number;
 }
 
+/** Façon d'obtenir un élément de collection (type stable, voir SOURCE_LABELS). */
+export interface CatalogSource {
+  type: string;
+  text: string;
+  limited?: boolean;
+}
+
+/** Élément d'une collection, possédé ou non, avec l'objet qui le débloque et sa provenance. */
+export interface CatalogEntry {
+  id: number;
+  name: string;
+  icon: number;
+  item?: number;
+  /** L'objet se vend au tableau des ventes. */
+  tradeable: boolean;
+  sources: CatalogSource[];
+}
+
+export interface CatalogCollection {
+  key: string;
+  label: string;
+  items: CatalogEntry[];
+}
+
+/** Tout ce qui existe dans chaque collection, tiré des données du jeu par le plugin. */
+export interface CollectionCatalog {
+  schema: number;
+  builtAt: string;
+  gameVersion: string;
+  collections: CatalogCollection[];
+}
+
 export interface PrivateSnapshot {
   schema: number;
   updatedAt: string;
@@ -148,6 +180,19 @@ export async function getPrivate(characterId: number, token: string, baseUrl: st
   });
   if (response.status === 404) return null;
   return (await response.json()) as PrivateSnapshot;
+}
+
+/** Catalogue des collections ; null si le plugin ne l'a pas encore envoyé (version antérieure). */
+export async function getCatalog(characterId: number, token: string, baseUrl: string = SYNC_URL): Promise<CollectionCatalog | null> {
+  const response = await request(`${baseUrl}/v1/characters/${characterId}/catalog`, {
+    source: SOURCE,
+    headers: { Authorization: `Bearer ${token}` },
+    allow: [404],
+    timeoutMs: 30000,
+    messages: { 401: 'Ce téléphone n’est plus connecté à ce personnage. Reconnecte-le avec un nouveau code.' },
+  });
+  if (response.status === 404) return null;
+  return (await response.json()) as CollectionCatalog;
 }
 
 /** Déconnecte ce téléphone (le jeton ne fonctionnera plus). Les erreurs réseau sont ignorées. */

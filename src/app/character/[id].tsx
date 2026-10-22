@@ -26,7 +26,7 @@ import {
 } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { jobIconId, ROLE_LABELS, ROLE_ORDER } from '@/data/jobs';
-import { usePrivate } from '@/hooks/use-private';
+import { useCatalog, usePrivate } from '@/hooks/use-private';
 import { useTheme } from '@/hooks/use-theme';
 import {
   getCharacter,
@@ -38,6 +38,7 @@ import {
   type JobLevel,
 } from '@/lodestone/client';
 import { useAppStore } from '@/store/app-store';
+import { usableItems } from '@/utils/collections';
 import { formatAgo, formatNumber, percent } from '@/utils/format';
 
 type Tab = 'profile' | 'jobs' | 'gear' | 'collections';
@@ -392,6 +393,7 @@ function CollectionsUnlinked({ id, name }: { id: number; name: string }) {
 
 function CollectionsTab({ id, data }: { id: number; data: PrivateSnapshot | null }) {
   const theme = useTheme();
+  const catalog = useCatalog(id);
   if (!data?.collections) {
     return (
       <Card>
@@ -403,6 +405,7 @@ function CollectionsTab({ id, data }: { id: number; data: PrivateSnapshot | null
     );
   }
   const achievements = data.achievements;
+  const usable = usableItems(catalog.data, data);
   const rows = [
     ...(achievements
       ? [{ key: 'achievements', label: 'Hauts faits', count: achievements.count, total: achievements.total, browsable: false }]
@@ -411,6 +414,40 @@ function CollectionsTab({ id, data }: { id: number; data: PrivateSnapshot | null
   ];
   return (
     <>
+      {usable.length > 0 ? (
+        <Card>
+          <ThemedText type="smallBold">
+            {usable.length === 1 ? '1 objet de collection à utiliser' : `${usable.length} objets de collection à utiliser`}
+          </ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            Tu les as déjà, mais ils ne sont pas encore dans ta collection.
+          </ThemedText>
+          {usable.slice(0, 5).map((u) => (
+            <Pressable
+              key={`${u.key}-${u.entry.id}`}
+              accessibilityRole="button"
+              onPress={() =>
+                router.push({ pathname: '/collection/[characterId]/[key]', params: { characterId: String(id), key: u.key, label: u.label, filter: 'inventory' } })
+              }
+              style={({ pressed }) => [styles.usableRow, pressed && { opacity: 0.7 }]}>
+              <GameIcon uri={u.entry.icon ? gameIconUrl(u.entry.icon) : null} size={36} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <ThemedText type="small" numberOfLines={1}>
+                  {u.entry.name}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                  {u.label} · {u.places.join(', ')}
+                </ThemedText>
+              </View>
+            </Pressable>
+          ))}
+          {usable.length > 5 ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              Et {usable.length - 5} autre(s).
+            </ThemedText>
+          ) : null}
+        </Card>
+      ) : null}
       {achievements ? (
         <View style={styles.stats}>
           <StatTile
@@ -526,6 +563,7 @@ const styles = StyleSheet.create({
   heroJobIcon: { width: 24, height: 24 },
   iconRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.one },
   stats: { flexDirection: 'row', gap: Spacing.two },
+  usableRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   jobTile: { flexBasis: '31%', flexGrow: 1, maxWidth: '32.5%', borderRadius: 14, padding: Spacing.two, gap: Spacing.one },
   jobTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },

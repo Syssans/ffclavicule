@@ -58,6 +58,7 @@ Pour pointer l’appli vers le service local : `EXPO_PUBLIC_SYNC_URL=http://loca
 | PUT / GET | `/v1/characters/:id/debug` | secret (PUT) / aucune (GET) | diagnostic des couleurs (.zip) |
 | PUT | `/v1/characters/:id/private` | secret du personnage | inventaire, servants, courrier (JSON, 2 Mo maximum) |
 | GET | `/v1/characters/:id/private` | jeton du téléphone | lecture de ces données (ETag) |
+| PUT / GET | `/v1/characters/:id/catalog` | secret (PUT) / jeton du téléphone (GET) | catalogue des collections : tout ce qui existe et comment l’obtenir (envoyé rarement) |
 | POST | `/v1/characters/:id/pairing` | secret du personnage | code à 6 chiffres pour connecter un téléphone (10 min, une fois) |
 | POST | `/v1/pair` | aucune (10 essais par minute et par adresse) | `{ code, device }` → jeton du téléphone |
 | GET | `/v1/characters/:id/devices` | secret du personnage | téléphones connectés |
