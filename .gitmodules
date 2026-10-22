@@ -1,0 +1,3 @@
+[submodule "plugin/vendor/Meddle"]
+	path = plugin/vendor/Meddle
+	url = https://github.com/PassiveModding/Meddle.git

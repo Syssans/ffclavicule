@@ -1,0 +1,39 @@
+# Compile le plugin Dalamud et publie le zip installable en artefact.
+name: Plugin Dalamud
+
+on:
+  push:
+    paths: ['plugin/**', '.github/workflows/plugin.yml']
+  pull_request:
+    paths: ['plugin/**', '.github/workflows/plugin.yml']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Télécharger Dalamud (bibliothèques de référence)
+        run: |
+          mkdir -p "$RUNNER_TEMP/dalamud"
+          curl -sSL -o "$RUNNER_TEMP/dalamud.zip" https://raw.githubusercontent.com/goatcorp/dalamud-distrib/main/latest.zip
+          unzip -q "$RUNNER_TEMP/dalamud.zip" -d "$RUNNER_TEMP/dalamud"
+          echo "DALAMUD_HOME=$RUNNER_TEMP/dalamud/" >> "$GITHUB_ENV"
+
+      - name: Tests
+        run: dotnet test plugin/Clavicule.Core.Tests -c Release
+
+      - name: Compilation du plugin
+        run: dotnet build plugin/Clavicule.Plugin -c Release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clavicule-plugin
+          path: plugin/Clavicule.Plugin/bin/Release/Clavicule/latest.zip

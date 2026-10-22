@@ -1,0 +1,29 @@
+<Project Sdk="Dalamud.NET.Sdk/15.0.0">
+    <!--
+        Plugin Dalamud de Clavicule : exporte automatiquement le modèle 3D du personnage
+        (via Meddle, en sous-module dans vendor/) et l'envoie au service de synchro du groupe.
+        Licence AGPL-3.0, comme Meddle dont il réutilise le code.
+    -->
+    <PropertyGroup>
+        <Version>0.1.0</Version>
+        <AssemblyName>Clavicule</AssemblyName>
+        <RootNamespace>Clavicule.Plugin</RootNamespace>
+        <TargetFramework>net10.0-windows</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>14</LangVersion>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <!-- Permet de compiler sous Linux (CI). -->
+        <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Clavicule.Core\Clavicule.Core.csproj" />
+        <ProjectReference Include="..\vendor\Meddle\Meddle\Meddle.Plugin\Meddle.Plugin.csproj" />
+        <Reference Include="OtterTex">
+            <HintPath>..\vendor\Meddle\Meddle\Meddle.Utils\Lib\OtterTex.dll</HintPath>
+        </Reference>
+        <Reference Include="InteropGenerator.Runtime" Private="false" />
+        <Reference Include="FFXIVClientStructs" Private="false" />
+    </ItemGroup>
+</Project>

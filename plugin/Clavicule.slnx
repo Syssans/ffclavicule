@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="Clavicule.Core/Clavicule.Core.csproj" />
+  <Project Path="Clavicule.Core.Tests/Clavicule.Core.Tests.csproj" />
+  <Project Path="Clavicule.Plugin/Clavicule.Plugin.csproj" />
+</Solution>

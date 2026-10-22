@@ -19,6 +19,16 @@ Projet perso, pour soi et ses amis. Appli non officielle, sans lien avec Square 
 
 Tout est lu directement depuis le téléphone : pas de serveur à héberger, pas de compte à créer. Les personnages suivis et les favoris sont enregistrés sur le téléphone.
 
+## Apparence 3D (facultatif)
+
+La fiche d'un personnage peut afficher son **modèle 3D**, à faire tourner du doigt, avec un cadrage corps ou visage. Pour cela, trois pièces travaillent ensemble :
+
+1. **Le plugin Dalamud** (`plugin/`) : il exporte le personnage automatiquement, à la connexion et à chaque changement de tenue, puis l'envoie au service.
+2. **Le service de synchro** (`server/`) : il est hébergé gratuitement sur Cloudflare et stocke un modèle par personnage.
+3. **L'appli** : dans Réglages → Modèles 3D, renseigne l'adresse du service et la clé de lecture du groupe. Sur la fiche, le bouton **3D** apparaît dès qu'un modèle existe.
+
+Mise en place : [server/README.md](server/README.md), puis [plugin/README.md](plugin/README.md).
+
 ## Essayer sur ton téléphone
 
 Il faut [Node.js](https://nodejs.org) 20 ou plus sur ton ordinateur, et l'appli **Expo Go** sur ton téléphone ([iPhone](https://apps.apple.com/app/expo-go/id982107779), [Android](https://play.google.com/store/apps/details?id=host.exp.exponent)).
@@ -43,9 +53,8 @@ Pour installer l'appli sans Expo Go et la partager avec tes amis, il faudra la c
 
 ## Prochaines étapes
 
-1. **Plugin Dalamud** : synchroniser depuis le jeu ce qu'aucun site public ne montre (inventaire, servants et leurs inventaires, quêtes en cours).
+1. **Plugin Dalamud** : synchroniser aussi ce qu'aucun site public ne montre (inventaire, servants et leurs inventaires, quêtes en cours).
 2. Recettes et récolte, alertes de prix, plus de collections en détail.
-3. Apparence 3D du personnage : à étudier (données d'apparence et droits sur les modèles du jeu).
 
 ## Développement
 
@@ -59,9 +68,11 @@ npm run lint
 |---|---|
 | `src/app/` | Écrans (Expo Router) : onglets, fiche personnage, fiche objet |
 | `src/lodestone/` | Lecture des pages du Lodestone : interpréteur des sélecteurs communautaires, client, sélecteurs copiés |
-| `src/api/` | Clients Universalis, XIVAPI, FFXIV Collect |
+| `src/api/` | Clients Universalis, XIVAPI, FFXIV Collect, service de synchro 3D (avec cache local) |
 | `src/store/` | Réglages, personnages suivis, favoris (enregistrés sur le téléphone) |
-| `src/components/` | Composants d'interface |
+| `src/components/` | Composants d'interface, graphiques, visionneuse 3D |
+| `server/` | Service de synchro des modèles 3D (Cloudflare Worker + R2) |
+| `plugin/` | Plugin Dalamud (C#) qui exporte et envoie le modèle 3D |
 
 Les tests de lecture du Lodestone génèrent des pages qui respectent les sélecteurs communautaires (`src/lodestone/__tests__/build-html.ts`) et vérifient ce que l'appli en extrait.
 

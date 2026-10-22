@@ -1,0 +1,8 @@
+{
+  "Author": "Clavicule",
+  "Name": "Clavicule",
+  "Punchline": "Envoie l'apparence 3D de ton personnage à l'appli Clavicule.",
+  "Description": "Exporte automatiquement le modèle 3D de ton personnage (à la connexion et quand ta tenue change) et l'envoie au service de synchro de ton groupe, pour l'afficher dans l'appli mobile Clavicule. Utilise le code de Meddle (AGPL-3.0).",
+  "Tags": ["model", "glTF", "companion"],
+  "RepoUrl": "https://github.com/Syssans/ffclavicule"
+}

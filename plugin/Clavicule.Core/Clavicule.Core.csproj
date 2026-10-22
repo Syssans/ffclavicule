@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- Code sans dépendance au jeu (cuisson des matériaux, Lodestone, envoi) : testable partout. -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <LangVersion>14</LangVersion>
+    </PropertyGroup>
+    <ItemGroup>
+        <!-- Mêmes versions que Meddle.Utils, pour partager les assemblies dans le plugin. -->
+        <PackageReference Include="SharpGLTF.Toolkit" Version="1.0.5" />
+        <PackageReference Include="SkiaSharp" Version="3.119.0" />
+    </ItemGroup>
+</Project>
