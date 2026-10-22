@@ -16,7 +16,11 @@ it('décrit chaque source, avec le détail technique en cas d’échec', async (
   const results = await runDiagnostics('eu');
   const by = Object.fromEntries(results.map((r) => [r.source, r]));
 
-  expect(by.Lodestone).toMatchObject({ ok: false, detail: expect.stringContaining('Lodestone mobile') });
+  expect(by.Lodestone).toMatchObject({
+    ok: false,
+    summary: 'La page reçue ne contient aucun personnage : ce n’est pas la page attendue.',
+    detail: expect.stringContaining('0 fiches dans le HTML, 0 lues'),
+  });
   expect(by.XIVAPI).toMatchObject({
     ok: false,
     summary: 'Impossible de joindre XIVAPI. Vérifie ta connexion.',

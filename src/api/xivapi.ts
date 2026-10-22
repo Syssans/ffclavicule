@@ -21,13 +21,20 @@ interface Reference<F> {
   fields?: F;
 }
 
+/**
+ * Un champ demandé avec un décorateur revient sous son nom complet, décorateur compris
+ * (boilmaster, bm_http/src/api1/filter.rs : `key: format!("{field}{decorator_input}")`).
+ */
+const LEVEL_ITEM = 'LevelItem@as(raw)';
+const SEARCH_CATEGORY = 'ItemSearchCategory@as(raw)';
+
 interface ItemFields {
   Name: string;
   Description?: string;
   Icon?: IconValue;
-  LevelItem?: number;
+  [LEVEL_ITEM]?: number;
   LevelEquip?: number;
-  ItemSearchCategory?: number;
+  [SEARCH_CATEGORY]?: number;
   StackSize?: number;
   Rarity?: number;
   ItemUICategory?: Reference<{ Name?: string }>;
@@ -61,9 +68,9 @@ const ITEM_FIELDS = [
   'Name',
   'Description',
   'Icon',
-  'LevelItem@as(raw)',
+  LEVEL_ITEM,
   'LevelEquip',
-  'ItemSearchCategory@as(raw)',
+  SEARCH_CATEGORY,
   'StackSize',
   'Rarity',
   'ItemUICategory.Name',
@@ -81,10 +88,10 @@ function toItem(row: RowResult<ItemFields>): Item {
     name: f.Name,
     description: f.Description?.trim() || null,
     icon: iconUrl(f.Icon),
-    itemLevel: f.LevelItem || null,
+    itemLevel: f[LEVEL_ITEM] || null,
     equipLevel: f.LevelEquip || null,
     category: f.ItemUICategory?.fields?.Name || null,
-    marketable: (f.ItemSearchCategory ?? 0) > 0,
+    marketable: (f[SEARCH_CATEGORY] ?? 0) > 0,
     stackSize: f.StackSize ?? null,
     rarity: f.Rarity ?? null,
   };

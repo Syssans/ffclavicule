@@ -6,7 +6,12 @@
  * - groupe : { CLE: définition, ... }, avec une clé ROOT optionnelle qui restreint la recherche
  *   à un élément (ou à une liste d'éléments si ROOT.multiple est vrai).
  */
-import { HTMLElement, parse } from 'node-html-parser';
+import { selectAll, selectOne } from 'css-select';
+import render from 'dom-serializer';
+import type { AnyNode, Document, Element } from 'domhandler';
+import { getAttributeValue, textContent } from 'domutils';
+import { parse, parseFragment } from 'parse5';
+import { adapter } from 'parse5-htmlparser2-tree-adapter';
 
 export type SelectorType = string | Record<string, string>;
 
@@ -34,13 +39,25 @@ function isLeaf(def: Definition): def is SelectorLeaf {
   return typeof (def as SelectorLeaf).selector === 'string';
 }
 
-export function parseHtml(html: string): HTMLElement {
-  return parse(html);
+type Scope = Document | Element;
+
+/**
+ * Analyse une page comme le ferait un navigateur (algorithme HTML standard de parse5) :
+ * les sélecteurs communautaires ont été relevés dans un navigateur, l'arbre doit être le même.
+ */
+export function parseHtml(html: string): Document {
+  return parse(html, { treeAdapter: adapter }) as unknown as Document;
 }
 
 /** Décode les entités HTML et retire les balises. */
 function htmlToText(html: string): string {
-  return parse(html).text.replace(/\s+/g, ' ').trim();
+  const fragment = parseFragment(html, { treeAdapter: adapter }) as unknown as AnyNode;
+  return textContent(fragment).replace(/\s+/g, ' ').trim();
+}
+
+/** Comme `innerHTML` d'un navigateur : seuls &, <, > et " sont encodés (« ♀ » reste « ♀ »). */
+function innerHtml(el: Element): string {
+  return render(el.children, { encodeEntities: 'utf8' });
 }
 
 /** "1,234,567" -> 1234567 ; "-" ou vide -> null. */
@@ -79,9 +96,9 @@ function convert(value: string, type: string | undefined): string | number | nul
   return text === '' ? null : text;
 }
 
-function extract(el: HTMLElement | null, def: SelectorLeaf): Extracted {
+function extract(el: Element | null, def: SelectorLeaf): Extracted {
   if (!el) return null;
-  const raw = def.attribute ? (el.getAttribute(def.attribute) ?? '') : el.innerHTML;
+  const raw = def.attribute ? (getAttributeValue(el, def.attribute) ?? '') : innerHtml(el);
 
   if (def.regex) {
     const match = translateRegex(def.regex).exec(raw);
@@ -98,7 +115,7 @@ function extract(el: HTMLElement | null, def: SelectorLeaf): Extracted {
   return convert(raw, typeof def.type === 'string' ? def.type : 'string');
 }
 
-function evaluateGroup(group: SelectorGroup, scope: HTMLElement): ExtractedObject {
+function evaluateGroup(group: SelectorGroup, scope: Scope): ExtractedObject {
   const out: ExtractedObject = {};
   for (const [key, def] of Object.entries(group)) {
     if (key === 'ROOT') continue;
@@ -107,18 +124,18 @@ function evaluateGroup(group: SelectorGroup, scope: HTMLElement): ExtractedObjec
   return out;
 }
 
-export function evaluate(def: Definition, scope: HTMLElement): Extracted {
+export function evaluate(def: Definition, scope: Scope): Extracted {
   if (isLeaf(def)) {
-    if (def.multiple) return scope.querySelectorAll(def.selector).map((el) => extract(el, def));
-    return extract(scope.querySelector(def.selector), def);
+    if (def.multiple) return selectAll<AnyNode, Element>(def.selector, scope).map((el) => extract(el, def));
+    return extract(selectOne<AnyNode, Element>(def.selector, scope), def);
   }
 
   const root = def.ROOT;
   if (root && isLeaf(root)) {
     if (root.multiple) {
-      return scope.querySelectorAll(root.selector).map((el) => evaluateGroup(def, el));
+      return selectAll<AnyNode, Element>(root.selector, scope).map((el) => evaluateGroup(def, el));
     }
-    const el = scope.querySelector(root.selector);
+    const el = selectOne<AnyNode, Element>(root.selector, scope);
     return el ? evaluateGroup(def, el) : null;
   }
   return evaluateGroup(def, scope);

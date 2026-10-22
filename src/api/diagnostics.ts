@@ -35,18 +35,24 @@ export function runDiagnostics(region: LodestoneRegion): Promise<ProbeResult[]> 
   return Promise.all([
     probe('Lodestone', async () => {
       const p = await probeLodestone(region);
-      if (!p.recognized) {
-        return {
-          ok: false,
-          summary: 'Page reçue mais pas reconnue : ce n’est pas la version du Lodestone que l’appli sait lire.',
-          detail: `${p.bytes} caractères, titre : ${p.title ?? 'aucun'}`,
-        };
-      }
-      return { ok: true, summary: `Page lue, ${p.results} personnages trouvés pour « Warrior ».` };
+      const counts = `${p.bytes} caractères, ${p.rawEntries} fiches dans le HTML, ${p.results} lues par l’appli`;
+      if (p.results > 0) return { ok: true, summary: `Page lue, ${p.results} personnages trouvés pour « Warrior ».` };
+      return {
+        ok: false,
+        summary:
+          p.rawEntries > 0
+            ? 'La page contient des personnages, mais l’appli n’arrive pas à les lire.'
+            : 'La page reçue ne contient aucun personnage : ce n’est pas la page attendue.',
+        detail: `${counts}. Titre : ${p.title ?? 'aucun'}.\n${p.excerpt}`,
+      };
     }),
     probe('XIVAPI', async () => {
-      const items = await searchItems('fer', { limit: 5 });
-      return { ok: items.length > 0, summary: `${items.length} objets trouvés pour « fer ».` };
+      const items = await searchItems('fer', { limit: 20 });
+      const marketable = items.filter((i) => i.marketable).length;
+      return {
+        ok: items.length > 0 && marketable > 0,
+        summary: `${items.length} objets trouvés pour « fer », dont ${marketable} vendables.`,
+      };
     }),
     probe('Universalis', async () => {
       const dcs = await getDataCenters();

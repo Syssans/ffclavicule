@@ -107,9 +107,10 @@ const itemRow = (rowId: number, name: string, searchCategory: number) => ({
     Name: name,
     Description: '  Un minerai.  ',
     Icon: { id: 21206, path: 'ui/icon/021000/021206.tex', path_hr1: 'ui/icon/021000/021206_hr1.tex' },
-    LevelItem: 10,
+    // Champs demandés avec @as(raw) : XIVAPI les renvoie sous ce nom complet.
+    'LevelItem@as(raw)': 10,
     LevelEquip: 1,
-    ItemSearchCategory: searchCategory,
+    'ItemSearchCategory@as(raw)': searchCategory,
     StackSize: 999,
     Rarity: 1,
     ItemUICategory: { value: 48, sheet: 'ItemUICategory', row_id: 48, fields: { Name: 'Matériau' } },

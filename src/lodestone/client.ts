@@ -247,19 +247,29 @@ export function lodestoneProfileUrl(region: LodestoneRegion, id: number): string
 export interface LodestoneProbe {
   /** La page ressemble à la version ordinateur du Lodestone, celle que l'appli sait lire. */
   recognized: boolean;
+  /** Fiches de personnage présentes dans le HTML reçu (comptées sans l'analyseur). */
+  rawEntries: number;
+  /** Fiches que l'appli a réussi à lire. */
   results: number;
   bytes: number;
   title: string | null;
+  /** Extrait du HTML autour de la première fiche, ou du début de la page. */
+  excerpt: string;
 }
 
 /** Lit une page de recherche et dit si l'appli la reconnaît. */
 export async function probeLodestone(region: LodestoneRegion): Promise<LodestoneProbe> {
   const html = await fetchPage(`${baseUrl(region)}/character/?${new URLSearchParams({ q: 'Warrior' })}`);
   const title = /<title>([^<]*)<\/title>/i.exec(html)?.[1]?.trim() ?? null;
+  const first = html.indexOf('entry__name');
+  const body = html.indexOf('<body');
+  const from = first >= 0 ? Math.max(0, first - 600) : Math.max(0, body);
   return {
     recognized: html.includes('ldst__window'),
+    rawEntries: html.split('entry__name').length - 1,
     results: parseCharacterSearch(html).results.length,
     bytes: html.length,
     title,
+    excerpt: html.slice(from, from + 900).replace(/\s+/g, ' '),
   };
 }

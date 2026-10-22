@@ -73,7 +73,7 @@ describe('interpréteur de sélecteurs', () => {
     const doc = parseHtml('<html><body></body></html>');
     for (const file of [characterSelectors, classJobSelectors, gearSelectors]) {
       for (const { leaf } of leaves(file as Group)) {
-        expect(() => doc.querySelector(leaf.selector)).not.toThrow();
+        expect(() => evaluate({ selector: leaf.selector }, doc)).not.toThrow();
         expect(() => parseSelector(leaf.selector)).not.toThrow();
       }
     }
@@ -106,6 +106,27 @@ describe('recherche de personnages', () => {
         { id: 87654321, name: 'Anton Other', world: 'Cerberus', dataCenter: 'Chaos', avatar: null },
       ],
     });
+  });
+
+  it('lit une page mal formée comme le ferait un navigateur', () => {
+    // Balises non fermées et <div> dans un <p> : fréquent sur un vrai site.
+    const html = `<!DOCTYPE html><html><head><title>Lodestone</title>
+      <script>var t = "<div class='entry'>faux</div>";</script></head><body>
+      <header><span class="unclosed"><p class="notice">Info <div>bloc</div>
+      <div class="ldst__window">
+        <div class="entry"><a class="entry__link" href="/lodestone/character/111/">
+          <div class="entry__chara__face"><img src="https://img/a.jpg" alt=""></div>
+          <div class="entry__box"><p class="entry__name">Six Clavicule</p>
+          <p class="entry__world"><i class="xiv-lds js__tooltip" data-tooltip="Home World"></i>Moogle [Chaos]</p>
+          <ul class="entry__chara_info"><li><i><img src="x.png"></i><span>100</span></li></ul></div></a></div>
+        <div class="entry"><a class="entry__link" href="/lodestone/character/222/"><p class="entry__name">Six Autre</p></a></div>
+      </div></body></html>`;
+    const page = parseCharacterSearch(html);
+    expect(page.results.map((r) => [r.id, r.name, r.world])).toEqual([
+      [111, 'Six Clavicule', 'Moogle'],
+      [222, 'Six Autre', null],
+    ]);
+    expect(page.results[0].avatar).toBe('https://img/a.jpg');
   });
 
   it('renvoie une liste vide sans résultat', () => {
