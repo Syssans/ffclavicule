@@ -8,6 +8,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { loadModel } from '@/api/model-cache';
 import { CharacterViewer } from '@/components/character-viewer';
+import { POSES, type PoseKey } from '@/components/three/poses';
 import { ThemedText } from '@/components/themed-text';
 import { Button, ErrorBox, Loading } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
@@ -23,7 +24,7 @@ const FRAMINGS: { value: FramingMode; label: string }[] = [
 ];
 
 /** Part basse de l'écran occupée par le panneau de commandes. */
-const PANEL_INSET = 0.28;
+const PANEL_INSET = 0.34;
 
 export default function ModelScreen() {
   const { id: rawId, name = '' } = useLocalSearchParams<{ id: string; name?: string }>();
@@ -33,6 +34,7 @@ export default function ModelScreen() {
   const background = viewerBackground(backgroundKey);
   const [orbit] = useState(() => new OrbitState());
   const [mode, setMode] = useState<FramingMode>('body');
+  const [pose, setPose] = useState<PoseKey>('jeu');
   const [autoRotate, setAutoRotate] = useState(true);
   // Dans un écran plein écran, iOS peut annoncer une marge nulle au premier affichage :
   // on garde au moins la hauteur de la barre d'état et de l'encoche.
@@ -69,6 +71,7 @@ export default function ModelScreen() {
           name={name}
           orbit={orbit}
           mode={mode}
+          pose={pose}
           background={background}
           bottomInset={PANEL_INSET}
           style={StyleSheet.absoluteFill}
@@ -112,6 +115,25 @@ export default function ModelScreen() {
             })}
           </View>
 
+          <View style={styles.row} accessibilityRole="tablist">
+            {POSES.map((p) => {
+              const selected = p.key === pose;
+              return (
+                <Pressable
+                  key={p.key}
+                  accessibilityRole="tab"
+                  accessibilityLabel={`Pose ${p.label}`}
+                  accessibilityState={{ selected }}
+                  onPress={() => setPose(p.key)}
+                  style={[styles.chip, styles.chipSmall, selected && styles.chipSelected]}>
+                  <ThemedText type="smallBold" style={{ color: selected ? '#151B2B' : '#FFFFFF', fontSize: 12 }} numberOfLines={1}>
+                    {p.label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+
           <View style={styles.row}>
             {VIEWER_BACKGROUNDS.map((b) => {
               const selected = b.key === background.key;
@@ -144,7 +166,7 @@ export default function ModelScreen() {
             </View>
           </View>
           <ThemedText type="small" style={styles.hint}>
-            Glisse pour tourner ou incliner · pince pour zoomer · touche deux fois pour recentrer
+            Glisse pour tourner · pince pour zoomer · double toucher pour recentrer
           </ThemedText>
         </View>
       </SafeAreaView>
@@ -181,7 +203,7 @@ const styles = StyleSheet.create({
   panel: {
     margin: Spacing.three,
     padding: Spacing.three,
-    gap: Spacing.three,
+    gap: Spacing.two,
     borderRadius: 20,
     backgroundColor: 'rgba(8,11,20,0.78)',
   },
@@ -196,6 +218,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   chipSelected: { backgroundColor: '#E8C987' },
+  chipSmall: { minHeight: 32, paddingHorizontal: 2 },
   swatchWrap: { flex: 1, alignItems: 'center', gap: 4 },
   swatch: { width: 40, height: 40, borderRadius: 20, borderWidth: 2, borderColor: 'transparent' },
   swatchSelected: { borderColor: '#E8C987' },

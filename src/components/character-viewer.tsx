@@ -19,22 +19,43 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 import { ThemedText } from '@/components/themed-text';
 import { Canvas, useFrame, useThree } from '@/components/three/fiber';
+import { animateRig, buildRig, landmarks, type PoseKey, type PoseRig } from '@/components/three/poses';
 import { Spacing } from '@/constants/theme';
 import type { ViewerBackground } from '@/constants/viewer';
-import { computeFraming, type Bounds, type FramingMode } from '@/utils/framing';
+import { computeFraming, type Bounds, type FramingMode, type Landmarks } from '@/utils/framing';
 import type { OrbitState } from '@/utils/orbit';
 import { ensureTextDecoder } from '@/utils/utf8';
 
 const FOV = 30;
 
-async function parseGlb(data: ArrayBuffer): Promise<THREE.Group> {
+interface LoadedModel {
+  scene: THREE.Group;
+  rig: PoseRig | null;
+  bounds: Bounds;
+  marks: Landmarks;
+}
+
+async function parseGlb(data: ArrayBuffer): Promise<LoadedModel> {
   ensureTextDecoder();
   const gltf = await new GLTFLoader().parseAsync(data, '');
   gltf.scene.traverse((node) => {
+    const mesh = node as THREE.Mesh;
+    if (!mesh.isMesh) return;
     // Les maillages animés (skinning) peuvent sortir de leur boîte : on ne les élimine jamais du rendu.
-    if ((node as THREE.Mesh).isMesh) node.frustumCulled = false;
+    mesh.frustumCulled = false;
+    // Les « couleurs de sommet » du jeu sont des données pour ses shaders, pas des couleurs :
+    // les appliquer teinte la peau en vert-bleu. Les couleurs sont déjà cuites dans les textures.
+    if (mesh.geometry.hasAttribute('color')) mesh.geometry.deleteAttribute('color');
+    // Les formes (expressions, morphologie) en portent aussi ; sans couleur de base, three.js ne compilerait plus.
+    delete mesh.geometry.morphAttributes.color;
+    for (const material of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+      if (material && 'vertexColors' in material) material.vertexColors = false;
+    }
   });
-  return gltf.scene;
+  // Pose du personnage en jeu au moment de l'envoi (animation « pose » exportée par le plugin).
+  const gamePose = gltf.animations.find((clip) => clip.name === 'pose') ?? gltf.animations[0];
+  const rig = buildRig(gltf.scene, gamePose);
+  return { scene: gltf.scene, rig, bounds: boundsOf(gltf.scene), marks: landmarks(rig, gltf.scene) };
 }
 
 function dispose(root: THREE.Object3D) {
@@ -52,8 +73,18 @@ function dispose(root: THREE.Object3D) {
   });
 }
 
+/** Armes (w1234…) et montures : exclues du cadrage, qui vise le personnage lui-même. */
+function isCharacterMesh(mesh: THREE.Object3D): boolean {
+  return !/^(w|m)\d{4}/.test(mesh.name);
+}
+
 function boundsOf(object: THREE.Object3D): Bounds {
-  const box = new THREE.Box3().setFromObject(object, true);
+  object.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  object.traverse((node) => {
+    if ((node as THREE.Mesh).isMesh && isCharacterMesh(node)) box.expandByObject(node, true);
+  });
+  if (box.isEmpty()) box.setFromObject(object, true);
   if (box.isEmpty()) return { min: [-0.5, 0, -0.5], max: [0.5, 1.7, 0.5] };
   return { min: box.min.toArray(), max: box.max.toArray() };
 }
@@ -97,15 +128,19 @@ function shadowTexture(): THREE.DataTexture {
 }
 
 function Scene({
-  scene,
+  model,
   orbit,
   mode,
+  pose,
+  breathing,
   background,
   bottomInset,
 }: {
-  scene: THREE.Group;
+  model: LoadedModel;
   orbit: OrbitState;
   mode: FramingMode;
+  pose: PoseKey;
+  breathing: boolean;
   background: ViewerBackground;
   bottomInset: number;
 }) {
@@ -113,7 +148,7 @@ function Scene({
   const placed = useRef(false);
   const lookY = useRef(0);
   const size = useThree((s) => s.size);
-  const bounds = useMemo(() => boundsOf(scene), [scene]);
+  const { scene, rig, bounds, marks } = model;
   // Centre le personnage sur l'axe de rotation (X et Z), sans toucher à la hauteur.
   const offset = useMemo<[number, number, number]>(
     () => [-(bounds.min[0] + bounds.max[0]) / 2, 0, -(bounds.min[2] + bounds.max[2]) / 2],
@@ -121,8 +156,8 @@ function Scene({
   );
   const footprint = Math.max(bounds.max[0] - bounds.min[0], bounds.max[2] - bounds.min[2], 0.4) * 1.3;
   const target = useMemo(
-    () => computeFraming(bounds, mode, FOV, size.width / Math.max(size.height, 1), bottomInset),
-    [bounds, mode, size, bottomInset],
+    () => computeFraming(bounds, mode, FOV, size.width / Math.max(size.height, 1), bottomInset, marks),
+    [bounds, mode, size, bottomInset, marks],
   );
   const backdrop = useMemo(() => gradientTexture(background.top, background.bottom), [background]);
   const shadow = useMemo(() => shadowTexture(), []);
@@ -130,6 +165,7 @@ function Scene({
   useEffect(() => () => shadow.dispose(), [shadow]);
 
   useFrame((state, delta) => {
+    if (rig) animateRig(rig, pose, 1 - Math.exp(-delta * 6), state.clock.elapsedTime, breathing);
     const yaw = orbit.tick(delta);
     if (group.current) group.current.rotation.y = yaw;
     // Glisse doucement vers le cadrage voulu (instantané à la première image).
@@ -201,6 +237,8 @@ export function CharacterViewer({
   name,
   orbit,
   mode,
+  pose = 'jeu',
+  breathing = true,
   background,
   bottomInset = 0,
   style,
@@ -210,13 +248,16 @@ export function CharacterViewer({
   name: string;
   orbit: OrbitState;
   mode: FramingMode;
+  pose?: PoseKey;
+  /** Légère respiration du personnage. */
+  breathing?: boolean;
   background: ViewerBackground;
   /** Part basse de la vue couverte par des commandes (0 à 0,5). */
   bottomInset?: number;
   style?: StyleProp<ViewStyle>;
 }) {
   // Résultat de la lecture, rattaché au fichier lu : un nouveau fichier repart de zéro.
-  const [parsed, setParsed] = useState<{ source: ArrayBuffer; scene?: THREE.Group; error?: string } | null>(null);
+  const [parsed, setParsed] = useState<{ source: ArrayBuffer; model?: LoadedModel; error?: string } | null>(null);
   const [tracker] = useState(() => new GestureTracker());
   const [pan] = useState(() =>
     PanResponder.create({
@@ -245,10 +286,10 @@ export function CharacterViewer({
     let alive = true;
     let loaded: THREE.Group | null = null;
     parseGlb(data)
-      .then((group) => {
-        loaded = group;
-        if (alive) setParsed({ source: data, scene: group });
-        else dispose(group);
+      .then((model) => {
+        loaded = model.scene;
+        if (alive) setParsed({ source: data, model });
+        else dispose(model.scene);
       })
       .catch((e: unknown) => {
         if (alive) setParsed({ source: data, error: e instanceof Error ? e.message : String(e) });
@@ -272,7 +313,7 @@ export function CharacterViewer({
   }, [orbit]);
 
   const current = parsed?.source === data ? parsed : null;
-  const scene = current?.scene ?? null;
+  const model = current?.model ?? null;
   const failed = current?.error ?? null;
 
   return (
@@ -283,10 +324,20 @@ export function CharacterViewer({
       accessibilityLabel={`Modèle 3D de ${name}. Glisse pour le faire tourner, pince pour zoomer.`}
       {...pan.panHandlers}>
       <Canvas camera={{ fov: FOV, near: 0.01, far: 100, position: [0, 1, 4] }} style={StyleSheet.absoluteFill}>
-        {scene ? <Scene scene={scene} orbit={orbit} mode={mode} background={background} bottomInset={bottomInset} /> : null}
+        {model ? (
+          <Scene
+            model={model}
+            orbit={orbit}
+            mode={mode}
+            pose={pose}
+            breathing={breathing}
+            background={background}
+            bottomInset={bottomInset}
+          />
+        ) : null}
       </Canvas>
 
-      {!scene ? (
+      {!model ? (
         <View style={styles.center} pointerEvents="none">
           {failed ? (
             <ThemedText type="small" style={styles.light}>

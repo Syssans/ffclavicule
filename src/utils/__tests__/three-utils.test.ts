@@ -44,6 +44,31 @@ describe('computeFraming', () => {
     expect(inset.targetY - half).toBeLessThan(-0.25 * 1.7 * 0.9);
   });
 
+  it('cadre la tête sur le squelette, même avec une grosse tête (Lalafell)', () => {
+    // Lalafell : 1 m, cou à 0,70 m ; la tête fait 30 % de la hauteur.
+    const lala = { min: [-0.3, 0, -0.2] as [number, number, number], max: [0.3, 1, 0.2] as [number, number, number] };
+    const face = computeFraming(lala, 'face', 30, 0.8, 0, { neckY: 0.7 });
+    expect(face.targetY).toBeCloseTo(0.835, 2);
+    // Toute la tête tient dans le champ.
+    const half = Math.tan((15 * Math.PI) / 180) * (face.distance - 0.1);
+    expect(face.targetY + half).toBeGreaterThan(1);
+    expect(face.targetY - half).toBeLessThan(0.7);
+    const bust = computeFraming(lala, 'bust', 30, 0.8, 0, { waistY: 0.43 });
+    expect(bust.targetY).toBeGreaterThan(0.6);
+  });
+
+  it('centre la tête dans la partie libre au-dessus du panneau, sur un écran de téléphone', () => {
+    const lala = { min: [-0.24, 0, -0.24] as [number, number, number], max: [0.2, 0.93, 0.16] as [number, number, number] };
+    const inset = 0.34;
+    const f = computeFraming(lala, 'face', 30, 390 / 844, inset, { neckY: 0.65 });
+    const half = Math.tan((15 * Math.PI) / 180) * f.distance;
+    const headCenter = 0.93 - ((0.93 - 0.65) * 1.1) / 2;
+    // Position du centre de la tête à l'écran (-1 en bas, +1 en haut) : au milieu de la partie libre.
+    expect((headCenter - f.targetY) / half).toBeCloseTo(inset, 5);
+    // Et la tête entière reste au-dessus du panneau.
+    expect((0.65 - f.targetY) / half).toBeGreaterThan(-1 + 2 * inset);
+  });
+
   it('recule davantage sur un écran étroit pour un modèle large', () => {
     const wide = { min: [-1, 0, -0.2] as [number, number, number], max: [1, 1.7, 0.2] as [number, number, number] };
     expect(computeFraming(wide, 'body', 30, 0.5).distance).toBeGreaterThan(computeFraming(wide, 'body', 30, 2).distance);
