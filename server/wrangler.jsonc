@@ -4,5 +4,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "r2_buckets": [{ "binding": "MODELS", "bucket_name": "clavicule-models" }],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Alertes de prix du marché : vérification toutes les 10 minutes.
+  "triggers": { "crons": ["*/10 * * * *"] }
 }

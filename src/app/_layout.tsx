@@ -6,6 +6,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Platform, useColorScheme } from 'react-native';
 
+import { NotificationsBridge } from '@/components/notifications-bridge';
 import { useAppStore } from '@/store/app-store';
 
 SplashScreen.preventAutoHideAsync();
@@ -34,12 +35,15 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <NotificationsBridge />
         <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="character/search" options={{ title: 'Ajouter un personnage', presentation: 'modal' }} />
           <Stack.Screen name="character/[id]/index" options={{ title: '' }} />
           <Stack.Screen name="character/[id]/[section]" options={{ title: '' }} />
           <Stack.Screen name="settings" options={{ title: 'Réglages' }} />
+          <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+          <Stack.Screen name="alert" options={{ title: 'Alerte de prix', presentation: 'modal' }} />
           <Stack.Screen name="item/[id]" options={{ title: '' }} />
           <Stack.Screen name="connect" options={{ title: 'Connecter mon personnage', presentation: 'modal' }} />
           <Stack.Screen name="private/[id]" options={{ title: '' }} />

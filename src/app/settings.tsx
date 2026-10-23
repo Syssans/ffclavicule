@@ -1,4 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -37,6 +38,10 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
+      <Section title="Notifications">
+        <Button label="Alertes du marché et rappels du jeu" variant="secondary" onPress={() => router.push('/notifications')} />
+      </Section>
+
       <Section title="Lodestone">
         <Segmented
           options={[

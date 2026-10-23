@@ -6,7 +6,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { MenuGrid, MenuIcon, MenuTile } from '@/components/game-ui';
 import { SettingsButton, useMainCharacter, Welcome } from '@/components/home';
 import { ThemedText } from '@/components/themed-text';
-import { Button, Card, Screen, Section } from '@/components/ui';
+import { Button, Card, Chip, Screen, Section } from '@/components/ui';
 import { MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
@@ -81,7 +81,7 @@ export default function HomeScreen() {
         </Card>
       ) : null}
 
-      <Section title="Réinitialisations">
+      <Section title="Réinitialisations" right={<Chip label="Me prévenir" onPress={() => router.push('/notifications')} />}>
         <Card style={styles.list}>
           {upcomingResets(now, region).map((r, i) => (
             <View key={r.key} style={[styles.reset, i > 0 && styles.separated]}>

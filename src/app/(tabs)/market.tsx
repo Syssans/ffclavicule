@@ -5,14 +5,17 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { getHistories, getPriceSummaries } from '@/api/universalis';
 import { searchItems } from '@/api/xivapi';
+import { MenuRow } from '@/components/game-ui';
 import { SettingsButton } from '@/components/home';
 import { Sparkline } from '@/components/price-chart';
 import { ThemedText } from '@/components/themed-text';
 import { Badge, Card, Empty, ErrorBox, GameIcon, Input, Loading, Screen, Section } from '@/components/ui';
+import { MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppStore, type WatchedItem } from '@/store/app-store';
+import { useNotificationStore } from '@/store/notification-store';
 import { formatGil } from '@/utils/format';
 import { dailyPrices, trendPercent, type PricePoint } from '@/utils/prices';
 
@@ -37,8 +40,30 @@ export default function MarketScreen() {
         clearButtonMode="while-editing"
         accessibilityLabel="Rechercher un objet"
       />
-      {searching ? <SearchResults query={query} /> : <Watchlist />}
+      {searching ? (
+        <SearchResults query={query} />
+      ) : (
+        <>
+          <AlertsLink />
+          <Watchlist />
+        </>
+      )}
     </Screen>
+  );
+}
+
+function AlertsLink() {
+  const alerts = useNotificationStore((s) => s.alerts);
+  const active = alerts.filter((a) => a.enabled).length;
+  return (
+    <Card style={styles.list}>
+      <MenuRow
+        icon={MenuIcons.devises}
+        title="Alertes de prix"
+        subtitle={alerts.length ? `${active} alerte(s) active(s)` : 'Être prévenu quand un objet passe sous un prix'}
+        onPress={() => router.push('/notifications')}
+      />
+    </Card>
   );
 }
 

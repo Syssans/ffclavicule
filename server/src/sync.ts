@@ -40,6 +40,7 @@ import {
   type Owner,
 } from './common';
 import { handleHud } from './hud';
+import { handleNotify } from './notify';
 import { handlePrivate } from './private';
 
 export { error, type Env } from './common';
@@ -275,6 +276,8 @@ export async function handle(request: Request, env: Env): Promise<Response> {
   if (privateResponse) return privateResponse;
   const hudResponse = await handleHud(request, env, url);
   if (hudResponse) return hudResponse;
+  const notifyResponse = await handleNotify(request, env, url);
+  if (notifyResponse) return notifyResponse;
 
   const match = /^\/v1\/characters\/([^/]+)\/(model|model\/info|claim|claim\/verify|debug)$/.exec(url.pathname);
   if (!match) return error(404, 'Route inconnue.', 'not-found');

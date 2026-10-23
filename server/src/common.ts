@@ -6,6 +6,10 @@ export interface Env {
   ADMIN_TOKEN?: string;
   /** Facultatif : autre adresse du Lodestone (tests). */
   LODESTONE_URL?: string;
+  /** Facultatif : autre adresse d'Universalis (tests). */
+  UNIVERSALIS_URL?: string;
+  /** Facultatif : autre adresse du service de notifications d'Expo (tests). */
+  EXPO_PUSH_URL?: string;
 }
 
 export interface Owner {

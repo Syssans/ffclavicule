@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
@@ -7,7 +7,7 @@ import { getDataCenters, getHistory, getMarket, regionLabel, type Listing, type 
 import { getItem } from '@/api/xivapi';
 import { PriceChart } from '@/components/price-chart';
 import { ThemedText } from '@/components/themed-text';
-import { Badge, Card, Empty, ErrorBox, GameIcon, Loading, Screen, Segmented, StatTile } from '@/components/ui';
+import { Badge, Button, Card, Empty, ErrorBox, GameIcon, Loading, Screen, Segmented, StatTile } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/store/app-store';
@@ -106,6 +106,13 @@ export default function ItemScreen() {
             <Empty>Cet objet ne se vend pas au marché.</Empty>
           ) : (
             <>
+              <Button
+                label="Créer une alerte de prix"
+                variant="secondary"
+                onPress={() =>
+                  router.push({ pathname: '/alert', params: { itemId: String(id), name: item.data.name, icon: item.data.icon ?? '' } })
+                }
+              />
               {region ? (
                 <Segmented
                   options={[
