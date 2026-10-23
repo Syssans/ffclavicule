@@ -11,9 +11,12 @@ erreur() {
 }
 
 echo "Mise à jour du code…"
+# package-lock.json est réécrit par npm sur chaque ordinateur : on reprend toujours celui du dépôt.
+git checkout -- package-lock.json 2>/dev/null
 git pull || erreur
 echo "Mise à jour des bibliothèques…"
 npm install --no-audit --no-fund || erreur
+git checkout -- package-lock.json 2>/dev/null
 echo
 echo "Scanne le QR code avec l’appareil photo de ton iPhone."
 npx expo start --clear
