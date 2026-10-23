@@ -22,6 +22,21 @@ export const SOURCE_LABELS: Record<string, string> = {
   trial: 'Défi',
   raid: 'Raid',
   other: 'Autre',
+  beastmaster: 'Dresseur',
+  bozja: 'Bozja',
+  'blue-mage': 'Mage bleu',
+  'chaotic-raid': 'Raid chaotique',
+  cosmic: 'Exploration cosmique',
+  'deep-dungeon': 'Donjon sans fond',
+  eureka: 'Eurêka',
+  gathering: 'Récolte',
+  npc: 'PNJ',
+  occult: 'L’île de Lunule',
+  treasure: 'Chasse aux trésors',
+  tribal: 'Tribus',
+  ultimate: 'Raid fatal',
+  venture: 'Tâches de servant',
+  voyages: 'Expéditions',
 };
 
 export function sourceLabel(type: string): string {

@@ -61,7 +61,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test": "jest",
-    "typecheck": "node scripts/ensure-expo-env.js && tsc --noEmit"
+    "typecheck": "node scripts/ensure-expo-env.js && tsc --noEmit",
+    "donnees:collect": "node scripts/update-collect-reference.mjs"
   },
   "private": true,
   "jest": {

@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import type { CatalogEntry } from '@/api/private';
 import { getPriceSummaries } from '@/api/universalis';
 import { gameIconUrl } from '@/api/xivapi';
 import { ThemedText } from '@/components/themed-text';
@@ -22,15 +21,34 @@ import {
   sourceLabel,
   type MissingFilter,
 } from '@/utils/collections';
+import { enrich, findReference, formatRarity, indexReference, loadReference, type Enriched } from '@/utils/collect-reference';
 import { formatAgo, formatGil } from '@/utils/format';
 import { fold } from '@/utils/inventory';
 
 type Tab = 'owned' | 'missing';
+type Sort = 'name' | 'rare' | 'common';
+
+const SORTS: { value: Sort; label: string }[] = [
+  { value: 'name', label: 'A → Z' },
+  { value: 'common', label: 'Plus courants' },
+  { value: 'rare', label: 'Plus rares' },
+];
 
 interface Tile {
   id: number;
   name: string;
   icon: number;
+  rarity?: number;
+}
+
+/** Tri par nom, ou par part des joueurs qui possèdent l'élément (les inconnus à la fin). */
+function sortTiles<T extends Tile>(tiles: T[], sort: Sort): T[] {
+  if (sort === 'name') return [...tiles].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+  const sign = sort === 'rare' ? 1 : -1;
+  return [...tiles].sort((a, b) => {
+    if (a.rarity === undefined || b.rarity === undefined) return (a.rarity === undefined ? 1 : 0) - (b.rarity === undefined ? 1 : 0);
+    return sign * (a.rarity - b.rarity) || a.name.localeCompare(b.name, 'fr');
+  });
 }
 
 /** Une collection relevée en jeu : éléments possédés, et ceux qui manquent avec la façon de les obtenir. */
@@ -45,26 +63,43 @@ export default function CollectionScreen() {
   const [filter, setFilter] = useState<MissingFilter>((params.filter as MissingFilter | undefined) ?? 'all');
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<number | null>(null);
+  const [sort, setSort] = useState<Sort>('name');
 
   const snapshot = query.data;
   const collection = snapshot?.collections?.find((c) => c.key === key);
-  const catalogCollection = catalog.data?.collections.find((c) => c.key === key);
+  const reference = useMemo(() => indexReference(key, loadReference().collections[key]), [key]);
+  // Catalogue du plugin complété par FFXIV Collect : provenances des butins, boutique en ligne… et rareté.
+  const catalogCollection = useMemo(() => {
+    const raw = catalog.data?.collections.find((c) => c.key === key);
+    return raw ? { ...raw, items: raw.items.map((e) => enrich(reference, e)) } : undefined;
+  }, [catalog.data, key, reference]);
   const places = useMemo(() => itemPlaces(snapshot), [snapshot]);
-  const missing = useMemo(() => missingEntries(catalogCollection, ownedIds(snapshot, key)), [catalogCollection, snapshot, key]);
+  const missing = useMemo(
+    () => missingEntries(catalogCollection, ownedIds(snapshot, key)) as Enriched[],
+    [catalogCollection, snapshot, key],
+  );
   const counts = useMemo(() => sourceCounts(missing), [missing]);
 
   const owned = useMemo(() => {
     const needle = fold(search.trim());
-    return [...(collection?.owned ?? [])]
+    const tiles = (collection?.owned ?? [])
       .filter((c) => !needle || fold(c.name).includes(needle))
-      .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
-  }, [collection, search]);
-  const shownMissing = useMemo(() => filterEntries(missing, filter, search, places), [missing, filter, search, places]);
+      .map((c) => {
+        const entry = catalogCollection?.items.find((e) => e.id === c.id);
+        return { ...c, rarity: entry?.rarity ?? findReference(reference, c)?.o };
+      });
+    return sortTiles(tiles, sort);
+  }, [collection, search, catalogCollection, reference, sort]);
+  const shownMissing = useMemo(
+    () => sortTiles(filterEntries(missing, filter, search, places) as Enriched[], sort),
+    [missing, filter, search, places, sort],
+  );
   const inPocket = missing.filter((e) => e.item !== undefined && places.has(e.item)).length;
   const onMarket = missing.filter((e) => e.tradeable).length;
 
   const entryOf = (tileId: number) => catalogCollection?.items.find((e) => e.id === tileId);
   const detail = selected !== null ? entryOf(selected) : undefined;
+  const referenceDate = new Date(loadReference().updatedAt).toLocaleDateString('fr-FR');
 
   return (
     <Screen>
@@ -90,6 +125,11 @@ export default function CollectionScreen() {
             }}
           />
           <Input value={search} onChangeText={setSearch} placeholder="Chercher" accessibilityLabel="Chercher dans la collection" />
+          <View style={styles.sorts}>
+            {SORTS.map((o) => (
+              <Chip key={o.value} label={o.label} selected={sort === o.value} onPress={() => setSort(o.value)} />
+            ))}
+          </View>
 
           {tab === 'missing' && !catalogCollection ? (
             catalog.isPending ? (
@@ -121,7 +161,12 @@ export default function CollectionScreen() {
             owned.length === 0 ? (
               <Empty>{search ? 'Aucun résultat.' : 'Aucun élément possédé dans cette collection.'}</Empty>
             ) : (
-              <Grid tiles={owned} selected={selected} onPress={(t) => setSelected(catalogCollection ? t.id : null)} />
+              <Grid
+                tiles={owned}
+                selected={selected}
+                onPress={(t) => setSelected(catalogCollection ? t.id : null)}
+                caption={(t) => (t.rarity !== undefined ? { text: `${formatRarity(t.rarity)} des joueurs` } : undefined)}
+              />
             )
           ) : null}
           {tab === 'missing' && catalogCollection ? (
@@ -135,15 +180,16 @@ export default function CollectionScreen() {
                 caption={(t) => {
                   const entry = entryOf(t.id);
                   if (entry?.item !== undefined && places.has(entry.item)) return { text: 'Dans ton inventaire', accent: true };
-                  return entry?.sources[0] ? { text: sourceLabel(entry.sources[0].type) } : undefined;
+                  const parts = [entry?.sources[0] ? sourceLabel(entry.sources[0].type) : undefined, formatRarity(entry?.rarity)].filter(Boolean);
+                  return parts.length ? { text: parts.join(' · ') } : undefined;
                 }}
               />
             )
           ) : null}
           {tab === 'missing' && catalog.data ? (
             <ThemedText type="small" themeColor="textSecondary" style={{ color: theme.textSecondary }}>
-              Provenances tirées des données du jeu par le plugin (boutiques, artisanat, quêtes, hauts faits). Certaines, comme les butins de
-              donjon, n’y figurent pas.
+              Provenances et part des joueurs : FFXIV Collect (instantané du {referenceDate}), complété par les données du jeu lues par le
+              plugin pour ce qui vient de sortir.
             </ThemedText>
           ) : null}
         </>
@@ -196,7 +242,7 @@ function Grid({
 }
 
 /** Détail d'un élément : comment l'obtenir, s'il est déjà dans l'inventaire, et son prix au marché. */
-function EntryDetail({ entry, places, owned, onClose }: { entry: CatalogEntry; places?: string[]; owned: boolean; onClose: () => void }) {
+function EntryDetail({ entry, places, owned, onClose }: { entry: Enriched; places?: string[]; owned: boolean; onClose: () => void }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const scope = useAppStore((s) => s.marketScope);
@@ -214,9 +260,14 @@ function EntryDetail({ entry, places, owned, onClose }: { entry: CatalogEntry; p
         <Card>
           <View style={styles.detailHead}>
             <GameIcon uri={entry.icon ? gameIconUrl(entry.icon) : null} size={48} />
-            <ThemedText type="smallBold" style={styles.flex}>
-              {entry.name}
-            </ThemedText>
+            <View style={styles.flex}>
+              <ThemedText type="smallBold">{entry.name}</ThemedText>
+              {entry.rarity !== undefined ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Possédé par {formatRarity(entry.rarity)} des joueurs suivis par FFXIV Collect
+                </ThemedText>
+              ) : null}
+            </View>
             <Pressable onPress={onClose} accessibilityRole="button" accessibilityLabel="Fermer" hitSlop={10}>
               <ThemedText type="smallBold" themeColor="textSecondary">
                 ✕
@@ -274,6 +325,7 @@ const styles = StyleSheet.create({
   name: { textAlign: 'center', fontSize: 13, lineHeight: 17 },
   meta: { fontSize: 11, lineHeight: 14 },
   detailHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  sorts: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
   sourceRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.two },
   flex: { flex: 1, minWidth: 0 },
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },

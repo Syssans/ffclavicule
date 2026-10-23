@@ -15,6 +15,7 @@ const SOURCES = [
   { name: 'Lodestone', url: 'https://eu.finalfantasyxiv.com/lodestone/', what: 'fiches des personnages' },
   { name: 'Universalis', url: 'https://universalis.app', what: 'prix du marché' },
   { name: 'XIVAPI', url: 'https://v2.xivapi.com', what: 'objets et icônes' },
+  { name: 'FFXIV Collect', url: 'https://ffxivcollect.com', what: 'provenances et rareté des collections (instantané intégré)' },
   { name: 'lodestone-css-selectors', url: 'https://github.com/xivapi/lodestone-css-selectors', what: 'lecture du Lodestone' },
 ];
 
