@@ -1,11 +1,36 @@
 /**
- * Rappels du jeu (réinitialisations, roulettes, pêche en mer…) : leurs horaires sont fixes, en heure UTC.
- * Chaque rappel devient une notification locale répétée (chaque jour ou chaque semaine) à l'heure locale du
- * téléphone, programmée par le téléphone lui-même : rien ne passe par un serveur.
+ * Rappels du jeu (roulettes, contrats de chasse, Jumbo Cactpot, pêche en mer…), activables un par un. Leurs
+ * horaires sont fixes, en heure UTC. Chaque rappel devient une notification locale répétée (chaque jour ou chaque
+ * semaine) à l'heure locale du téléphone, programmée par le téléphone lui-même : rien ne passe par un serveur.
+ * Les rappels qui tombent à la même minute sont réunis en une seule notification.
  */
+import { GameIcons } from '@/constants/game-icons';
 import { nextUtc } from '@/utils/timers';
 
-export type ReminderKey = 'roulettes' | 'gc' | 'weekly' | 'cactpot' | 'fashion' | 'leves' | 'ocean';
+export { GameIcons };
+
+export type ReminderKey =
+  | 'roulettes'
+  | 'allies'
+  | 'huntDaily'
+  | 'gc'
+  | 'leves'
+  | 'tomestones'
+  | 'raids'
+  | 'wondrous'
+  | 'deliveries'
+  | 'huntElite'
+  | 'challenge'
+  | 'carnival'
+  | 'island'
+  | 'miniCactpot'
+  | 'jumboCactpot'
+  | 'fashionTheme'
+  | 'fashionJudging'
+  | 'ocean'
+  | 'ventures';
+
+export type ReminderCategory = 'daily' | 'weekly' | 'goldSaucer' | 'ocean' | 'plugin';
 
 export interface ReminderSetting {
   enabled: boolean;
@@ -19,20 +44,62 @@ export interface ReminderSettings {
   oceanHours: number[];
 }
 
+/** Quand tombe un rappel, en heure UTC (jour de la semaine : 0 = dimanche). */
+export type Schedule =
+  | { kind: 'daily'; hours: number[] }
+  | { kind: 'weekly'; weekday: number; hour: number }
+  | { kind: 'cactpot' }
+  | { kind: 'ocean' }
+  | { kind: 'ventures' };
+
 export interface ReminderInfo {
   key: ReminderKey;
   label: string;
   detail: string;
+  /** Icône du jeu (ui/icon). */
+  icon: number;
+  category: ReminderCategory;
+  schedule: Schedule;
+  /** Texte de la notification, après « … » : ce qui se passe. */
+  what: string;
 }
 
+const DAILY: Schedule = { kind: 'daily', hours: [15] };
+const WEEKLY: Schedule = { kind: 'weekly', weekday: 2, hour: 8 };
+
 export const REMINDERS: ReminderInfo[] = [
-  { key: 'roulettes', label: 'Roulettes et réinitialisation quotidienne', detail: 'Roulettes, défis du jour, tribus, mini Cactpot' },
-  { key: 'gc', label: 'Grande Compagnie', detail: 'Approvisionnement et ravitaillement' },
-  { key: 'weekly', label: 'Réinitialisation hebdomadaire', detail: 'Mémoquartz, raids, Aventures imaginaires, commandes' },
-  { key: 'cactpot', label: 'Jumbo Cactpot', detail: 'Tirage au Gold Saucer' },
-  { key: 'fashion', label: 'Défilé de mode', detail: 'Nouveau thème au Gold Saucer' },
-  { key: 'leves', label: 'Mandats', detail: 'Nouvelles autorisations (toutes les 12 h)' },
-  { key: 'ocean', label: 'Pêche en mer', detail: 'Embarquement à Limsa Lominsa (15 min pour s’inscrire)' },
+  // Chaque jour, à la réinitialisation quotidienne (15 h UTC) sauf mention contraire.
+  { key: 'roulettes', category: 'daily', icon: GameIcons.roulettes, schedule: DAILY, label: 'Missions aléatoires', detail: 'Bonus quotidiens des roulettes', what: 'bonus des roulettes renouvelés' },
+  { key: 'allies', category: 'daily', icon: GameIcons.allies, schedule: DAILY, label: 'Quêtes des peuples alliés', detail: 'Nouvelles autorisations du jour', what: 'nouvelles quêtes des peuples alliés' },
+  { key: 'huntDaily', category: 'daily', icon: GameIcons.hunts, schedule: DAILY, label: 'Contrats de chasse', detail: 'Contrats quotidiens', what: 'nouveaux contrats de chasse quotidiens' },
+  { key: 'gc', category: 'daily', icon: GameIcons.grandCompany, schedule: { kind: 'daily', hours: [20] }, label: 'Grande Compagnie', detail: 'Approvisionnement et ravitaillement', what: 'nouvelles commandes d’approvisionnement et de ravitaillement' },
+  { key: 'leves', category: 'daily', icon: GameIcons.leves, schedule: { kind: 'daily', hours: [0, 12] }, label: 'Mandats', detail: 'Nouvelles autorisations toutes les 12 h', what: 'nouvelles autorisations de mandats' },
+  // Chaque semaine, à la réinitialisation du mardi (8 h UTC).
+  { key: 'tomestones', category: 'weekly', icon: GameIcons.tomestone, schedule: WEEKLY, label: 'Mémoquartz', detail: 'Nouveau plafond hebdomadaire', what: 'plafond de mémoquartz remis à zéro' },
+  { key: 'raids', category: 'weekly', icon: GameIcons.raids, schedule: WEEKLY, label: 'Raids', detail: 'Butin hebdomadaire de nouveau disponible', what: 'butin des raids de nouveau disponible' },
+  { key: 'wondrous', category: 'weekly', icon: GameIcons.wondrous, schedule: WEEKLY, label: 'Aventures imaginaires', detail: 'Nouveau carnet de Khloe', what: 'nouveau carnet de Khloe' },
+  { key: 'deliveries', category: 'weekly', icon: GameIcons.deliveries, schedule: WEEKLY, label: 'Commandes spéciales', detail: 'Livraisons de la semaine', what: 'nouvelles commandes spéciales' },
+  { key: 'huntElite', category: 'weekly', icon: GameIcons.hunts, schedule: WEEKLY, label: 'Contrats de chasse d’élite', detail: 'Contrats hebdomadaires', what: 'nouveaux contrats de chasse d’élite' },
+  { key: 'challenge', category: 'weekly', icon: GameIcons.challengeLog, schedule: WEEKLY, label: 'Carnet d’objectifs', detail: 'Objectifs de la semaine', what: 'nouveaux objectifs de la semaine' },
+  { key: 'carnival', category: 'weekly', icon: GameIcons.carnival, schedule: WEEKLY, label: 'La Grande Mascarade', detail: 'Cibles de la semaine', what: 'nouvelles cibles de la Grande Mascarade' },
+  { key: 'island', category: 'weekly', icon: GameIcons.island, schedule: WEEKLY, label: 'Félicité insulaire', detail: 'Nouvelle semaine d’ateliers', what: 'nouvelle semaine d’ateliers sur ton île' },
+  // Gold Saucer.
+  { key: 'miniCactpot', category: 'goldSaucer', icon: GameIcons.mgp, schedule: DAILY, label: 'Mini Cactpot', detail: 'Trois tickets par jour', what: 'nouveaux tickets de Mini Cactpot' },
+  { key: 'jumboCactpot', category: 'goldSaucer', icon: GameIcons.goldSaucer, schedule: { kind: 'cactpot' }, label: 'Jumbo Cactpot', detail: 'Tirage de la semaine', what: 'tirage du Jumbo Cactpot : vérifie tes billets' },
+  { key: 'fashionTheme', category: 'goldSaucer', icon: GameIcons.fashion, schedule: WEEKLY, label: 'Défilé de mode : thème', detail: 'Annonce du nouveau thème (mardi)', what: 'nouveau thème du Défilé de mode' },
+  { key: 'fashionJudging', category: 'goldSaucer', icon: GameIcons.fashion, schedule: { kind: 'weekly', weekday: 5, hour: 8 }, label: 'Défilé de mode : jugement', detail: 'Ouverture des notes (vendredi)', what: 'jugement du Défilé de mode ouvert' },
+  // Pêche en mer : un rappel par départ choisi.
+  { key: 'ocean', category: 'ocean', icon: GameIcons.ocean, schedule: { kind: 'ocean' }, label: 'Pêche en mer', detail: 'Embarquement à Limsa Lominsa (15 min pour s’inscrire)', what: 'embarquement au port de Limsa Lominsa' },
+  // Avec le plugin : heures de retour connues grâce au relevé des servants.
+  { key: 'ventures', category: 'plugin', icon: GameIcons.retainers, schedule: { kind: 'ventures' }, label: 'Missions des servants', detail: 'Quand un servant revient de mission', what: 'mission terminée' },
+];
+
+export const CATEGORIES: { key: ReminderCategory; label: string; detail: string; icon: number }[] = [
+  { key: 'daily', label: 'Chaque jour', detail: 'Réinitialisation quotidienne', icon: GameIcons.roulettes },
+  { key: 'weekly', label: 'Chaque semaine', detail: 'Réinitialisation du mardi', icon: GameIcons.calendar },
+  { key: 'goldSaucer', label: 'Gold Saucer', detail: 'Cactpot et Défilé de mode', icon: GameIcons.goldSaucer },
+  { key: 'ocean', label: 'Pêche en mer', detail: 'Départs toutes les deux heures', icon: GameIcons.ocean },
+  { key: 'plugin', label: 'Avec le plugin', detail: 'Grâce au relevé de tes servants', icon: GameIcons.retainers },
 ];
 
 /** Avances proposées, en minutes. */
@@ -42,25 +109,42 @@ export const LEADS = [0, 5, 15, 30, 60];
 export const OCEAN_HOURS = Array.from({ length: 12 }, (_, i) => i * 2);
 
 export const DEFAULT_SETTINGS: ReminderSettings = {
-  reminders: {
-    roulettes: { enabled: false, lead: 0 },
-    gc: { enabled: false, lead: 0 },
-    weekly: { enabled: false, lead: 0 },
-    cactpot: { enabled: false, lead: 30 },
-    fashion: { enabled: false, lead: 0 },
-    leves: { enabled: false, lead: 0 },
-    ocean: { enabled: false, lead: 15 },
-  },
+  reminders: Object.fromEntries(
+    REMINDERS.map((r) => [r.key, { enabled: false, lead: r.key === 'jumboCactpot' ? 30 : r.key === 'ocean' ? 15 : 0 }]),
+  ) as Record<ReminderKey, ReminderSetting>,
   oceanHours: OCEAN_HOURS,
 };
 
-export type ReminderTrigger = { type: 'daily'; hour: number; minute: number } | { type: 'weekly'; weekday: number; hour: number; minute: number };
+/** Anciens réglages (rappels par grandes familles) : chaque famille active les rappels qu'elle couvrait. */
+const LEGACY: Record<string, ReminderKey[]> = {
+  roulettes: ['roulettes', 'allies', 'miniCactpot'],
+  weekly: ['tomestones', 'raids', 'wondrous', 'deliveries'],
+  cactpot: ['jumboCactpot'],
+  fashion: ['fashionJudging'],
+};
+
+/** À n'appliquer qu'une fois, aux réglages enregistrés avant le détail des rappels. */
+export function migrateReminders(saved: Record<string, ReminderSetting> | undefined): Record<ReminderKey, ReminderSetting> {
+  const out = { ...DEFAULT_SETTINGS.reminders };
+  for (const [key, setting] of Object.entries(saved ?? {})) {
+    if (key in out) out[key as ReminderKey] = { ...out[key as ReminderKey], ...setting };
+    if (setting?.enabled) for (const target of LEGACY[key] ?? []) out[target] = { enabled: true, lead: setting.lead };
+  }
+  return out;
+}
+
+export type ReminderTrigger =
+  | { type: 'daily'; hour: number; minute: number }
+  | { type: 'weekly'; weekday: number; hour: number; minute: number }
+  | { type: 'date'; at: number };
 
 export interface PlannedReminder {
   id: string;
   title: string;
   body: string;
   trigger: ReminderTrigger;
+  /** Page ouverte quand on touche la notification. */
+  url?: string;
 }
 
 /** Heure locale d'un instant ; weekday de 1 (dimanche) à 7, comme les notifications. */
@@ -75,9 +159,27 @@ export function deviceClock(at: number): LocalClock {
   return { hour: d.getHours(), minute: d.getMinutes(), weekday: d.getDay() + 1 };
 }
 
-function withLead(lead: number): string {
+export function withLead(lead: number): string {
   return lead === 0 ? 'maintenant' : lead >= 60 ? `dans ${lead / 60} h` : `dans ${lead} min`;
 }
+
+/** Heure UTC du tirage du Jumbo Cactpot : samedi 19 h en Europe, dimanche 2 h en Amérique du Nord. */
+export function cactpotDraw(region: 'eu' | 'na'): { weekday: number; hour: number } {
+  return region === 'eu' ? { weekday: 6, hour: 19 } : { weekday: 0, hour: 2 };
+}
+
+/** Mission d'un servant, telle que relevée par le plugin. */
+export interface VentureReturn {
+  characterId: number;
+  retainer: string;
+  /** Instant du retour, en secondes. */
+  at: number;
+}
+
+/** iOS garde au plus 64 notifications programmées par appli. */
+const MAX_SCHEDULED = 60;
+
+const pad = (n: number) => String(n).padStart(2, '0');
 
 /**
  * Notifications à programmer. Les heures UTC du jeu sont converties en heure locale ; à refaire à chaque
@@ -88,38 +190,81 @@ export function planReminders(
   region: 'eu' | 'na',
   now = Date.now(),
   toLocal: (at: number) => LocalClock = deviceClock,
+  ventures: VentureReturn[] = [],
 ): PlannedReminder[] {
-  const planned: PlannedReminder[] = [];
-  const daily = (id: string, utcHour: number, lead: number, title: string, body: string) => {
+  // Rappels répétés, regroupés par minute de déclenchement.
+  const groups = new Map<string, { trigger: ReminderTrigger; items: ReminderInfo[]; lead: number; label?: string }>();
+  const add = (trigger: ReminderTrigger, info: ReminderInfo, lead: number, label?: string) => {
+    const id =
+      trigger.type === 'daily'
+        ? `rappel-j-${pad(trigger.hour)}${pad(trigger.minute)}`
+        : trigger.type === 'weekly'
+          ? `rappel-s-${trigger.weekday}-${pad(trigger.hour)}${pad(trigger.minute)}`
+          : `rappel-d-${trigger.at}`;
+    const group = groups.get(id) ?? { trigger, items: [], lead, label };
+    group.items.push(info);
+    groups.set(id, group);
+  };
+  const daily = (utcHour: number, lead: number): ReminderTrigger => {
     const local = toLocal(nextUtc(now, utcHour) - lead * 60_000);
-    planned.push({ id, title, body, trigger: { type: 'daily', hour: local.hour, minute: local.minute } });
+    return { type: 'daily', hour: local.hour, minute: local.minute };
   };
-  const weekly = (id: string, utcHour: number, utcWeekday: number, lead: number, title: string, body: string) => {
+  const weekly = (utcHour: number, utcWeekday: number, lead: number): ReminderTrigger => {
     const local = toLocal(nextUtc(now, utcHour, utcWeekday) - lead * 60_000);
-    planned.push({ id, title, body, trigger: { type: 'weekly', weekday: local.weekday, hour: local.hour, minute: local.minute } });
+    return { type: 'weekly', weekday: local.weekday, hour: local.hour, minute: local.minute };
   };
-  const r = settings.reminders;
 
-  if (r.roulettes.enabled) {
-    daily('rappel-roulettes', 15, r.roulettes.lead, 'Réinitialisation quotidienne', `Roulettes et défis du jour : ${withLead(r.roulettes.lead)}.`);
+  for (const info of REMINDERS) {
+    const setting = settings.reminders[info.key];
+    if (!setting?.enabled) continue;
+    const { lead } = setting;
+    const s = info.schedule;
+    if (s.kind === 'daily') for (const hour of s.hours) add(daily(hour, lead), info, lead);
+    else if (s.kind === 'weekly') add(weekly(s.hour, s.weekday, lead), info, lead);
+    else if (s.kind === 'cactpot') {
+      const draw = cactpotDraw(region);
+      add(weekly(draw.hour, draw.weekday, lead), info, lead);
+    } else if (s.kind === 'ocean') {
+      for (const hour of settings.oceanHours.filter((h) => OCEAN_HOURS.includes(h))) add(daily(hour, lead), info, lead);
+    }
   }
-  if (r.gc.enabled) daily('rappel-gc', 20, r.gc.lead, 'Grande Compagnie', `Approvisionnement et ravitaillement renouvelés ${withLead(r.gc.lead)}.`);
-  if (r.weekly.enabled) {
-    weekly('rappel-hebdo', 8, 2, r.weekly.lead, 'Réinitialisation hebdomadaire', `Mémoquartz, raids et Aventures imaginaires : ${withLead(r.weekly.lead)}.`);
+
+  const planned: PlannedReminder[] = [];
+  for (const [id, { trigger, items, lead }] of groups) {
+    const when = withLead(lead);
+    if (items.length === 1) {
+      const [info] = items;
+      const what = info.what.charAt(0).toUpperCase() + info.what.slice(1);
+      planned.push({ id, trigger, title: info.label, body: `${what} ${when}.` });
+    } else {
+      const title = items.every((i) => i.schedule === WEEKLY)
+        ? 'Réinitialisation hebdomadaire'
+        : items.every((i) => i.schedule === DAILY)
+          ? 'Réinitialisation quotidienne'
+          : 'Rappels du jeu';
+      planned.push({ id, trigger, title, body: `${items.map((i) => i.label).join(', ')} : ${when}.` });
+    }
   }
-  if (r.cactpot.enabled) {
-    const [hour, weekday] = region === 'eu' ? [19, 6] : [2, 0];
-    weekly('rappel-cactpot', hour, weekday, r.cactpot.lead, 'Jumbo Cactpot', `Tirage au Gold Saucer ${withLead(r.cactpot.lead)} : vérifie tes billets.`);
-  }
-  if (r.fashion.enabled) {
-    weekly('rappel-mode', 8, 5, r.fashion.lead, 'Défilé de mode', `Nouveau thème ${withLead(r.fashion.lead)} au Gold Saucer.`);
-  }
-  if (r.leves.enabled) {
-    for (const hour of [0, 12]) daily(`rappel-mandats-${hour}`, hour, r.leves.lead, 'Mandats', `Nouvelles autorisations de mandats ${withLead(r.leves.lead)}.`);
-  }
-  if (r.ocean.enabled) {
-    for (const hour of settings.oceanHours.filter((h) => OCEAN_HOURS.includes(h))) {
-      daily(`rappel-peche-${hour}`, hour, r.ocean.lead, 'Pêche en mer', `Embarquement ${withLead(r.ocean.lead)} au port de Limsa Lominsa (inscriptions pendant 15 min).`);
+
+  // Missions des servants : une notification par retour (ceux qui reviennent ensemble sont réunis).
+  const ventureSetting = settings.reminders.ventures;
+  if (ventureSetting?.enabled) {
+    const byMinute = new Map<number, VentureReturn[]>();
+    for (const v of ventures) {
+      const at = Math.floor((v.at * 1000 - ventureSetting.lead * 60_000) / 60_000) * 60_000;
+      if (at <= now) continue;
+      byMinute.set(at, [...(byMinute.get(at) ?? []), v]);
+    }
+    const slots = [...byMinute.entries()].sort((a, b) => a[0] - b[0]).slice(0, Math.max(0, MAX_SCHEDULED - planned.length));
+    for (const [at, list] of slots) {
+      const names = list.map((v) => v.retainer).join(', ');
+      planned.push({
+        id: `rappel-servant-${at}`,
+        trigger: { type: 'date', at },
+        title: list.length > 1 ? 'Missions des servants' : `Mission de ${names}`,
+        body: ventureSetting.lead ? `Retour de ${names} ${withLead(ventureSetting.lead)}.` : `${names} ${list.length > 1 ? 'sont revenus' : 'est revenu'} de mission.`,
+        url: `/retainers/${list[0].characterId}`,
+      });
     }
   }
   return planned;
@@ -128,5 +273,28 @@ export function planReminders(
 /** Heure locale d'un départ de pêche en mer (pour choisir lesquels annoncer). */
 export function oceanLocalLabel(utcHour: number, now = Date.now(), toLocal: (at: number) => LocalClock = deviceClock): string {
   const { hour, minute } = toLocal(nextUtc(now, utcHour));
-  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  return `${pad(hour)}:${pad(minute)}`;
 }
+
+/** Heure locale lisible d'un rappel : « tous les jours à 17:00 », « le mardi à 10:00 »… */
+export function describeSchedule(info: ReminderInfo, region: 'eu' | 'na', now = Date.now(), toLocal: (at: number) => LocalClock = deviceClock): string {
+  const at = (hour: number, weekday?: number) => {
+    const local = toLocal(nextUtc(now, hour, weekday));
+    return { time: `${pad(local.hour)}:${pad(local.minute)}`, day: WEEKDAYS[local.weekday - 1] };
+  };
+  const s = info.schedule;
+  if (s.kind === 'daily') return `Chaque jour à ${s.hours.map((h) => at(h).time).join(' et ')}`;
+  if (s.kind === 'weekly') {
+    const { day, time } = at(s.hour, s.weekday);
+    return `Le ${day} à ${time}`;
+  }
+  if (s.kind === 'cactpot') {
+    const draw = cactpotDraw(region);
+    const { day, time } = at(draw.hour, draw.weekday);
+    return `Le ${day} à ${time}`;
+  }
+  if (s.kind === 'ocean') return 'Aux départs choisis';
+  return 'À chaque retour de mission';
+}
+
+const WEEKDAYS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];

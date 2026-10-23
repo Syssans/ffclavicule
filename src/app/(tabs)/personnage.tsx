@@ -1,4 +1,4 @@
-/** Onglet Personnage : la fiche du personnage choisi (le principal par défaut). */
+/** Onglet Personnages : la fiche du personnage choisi (le principal par défaut). */
 import { useState } from 'react';
 
 import { CharacterView } from '@/components/character/character-view';
@@ -13,7 +13,7 @@ export default function PersonnageScreen() {
   const selected = chosen !== null && characters.some((c) => c.id === chosen) ? chosen : (main?.id ?? null);
 
   return (
-    <Screen title="Personnage" tab right={<SettingsButton />}>
+    <Screen title="Personnages" tab right={<SettingsButton />}>
       {selected === null ? (
         <Welcome />
       ) : (

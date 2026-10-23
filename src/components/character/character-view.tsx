@@ -12,6 +12,8 @@ import { MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
 import { useLodestoneCollection } from '@/hooks/use-lodestone-collection';
 import { usePrivate } from '@/hooks/use-private';
+import { PrivateIcons } from '@/components/private/shared';
+import { disconnect } from '@/api/private';
 import { getCharacter } from '@/lodestone/client';
 import { useAppStore } from '@/store/app-store';
 import { summarize } from '@/utils/character-summary';
@@ -23,8 +25,9 @@ export function openSection(id: number, section: CharacterSection) {
   router.push({ pathname: '/character/[id]/[section]', params: { id: String(id), section } });
 }
 
-function openPrivate(id: number, tab: 'inventory' | 'retainers' | 'mail') {
-  router.push({ pathname: '/private/[id]', params: { id: String(id), tab } });
+function openPrivate(id: number, screen: 'inventory' | 'retainers' | 'mail') {
+  const pathname = screen === 'inventory' ? '/inventory/[id]' : screen === 'retainers' ? '/retainers/[id]' : '/mail/[id]';
+  router.push({ pathname, params: { id: String(id) } });
 }
 
 export function CharacterView({ id }: { id: number }) {
@@ -41,6 +44,7 @@ export function CharacterView({ id }: { id: number }) {
   const minions = useLodestoneCollection(id, 'minion', !link);
   const saved = useAppStore((s) => s.characters.find((c) => c.id === id));
   const saveCharacter = useAppStore((s) => s.saveCharacter);
+  const setPrivateLink = useAppStore((s) => s.setPrivateLink);
 
   // Un personnage ajouté depuis le plugin n'a parfois ni nom ni avatar : le Lodestone les complète.
   const fresh = profile.data;
@@ -97,7 +101,7 @@ export function CharacterView({ id }: { id: number }) {
             onPress={() => openPrivate(id, 'inventory')}
           />
           <MenuTile
-            icon={MenuIcons.objets}
+            icon={PrivateIcons.retainers}
             title="Servants"
             subtitle={
               summary
@@ -111,7 +115,7 @@ export function CharacterView({ id }: { id: number }) {
             onPress={() => openPrivate(id, 'retainers')}
           />
           <MenuTile
-            icon={MenuIcons.journal}
+            icon={PrivateIcons.mailbox}
             title="Courrier"
             subtitle={summary ? (summary.unreadLetters ? `${summary.unreadLetters} non lu(s)` : 'Rien de nouveau') : 'Lettres et pièces jointes'}
             badge={summary?.unreadLetters ? String(summary.unreadLetters) : pluginHint}
@@ -155,6 +159,17 @@ export function CharacterView({ id }: { id: number }) {
 
       <View style={{ gap: Spacing.two }}>
         <FollowActions profile={p} />
+        {link ? (
+          <Button
+            label="Déconnecter ce téléphone du plugin"
+            variant="danger"
+            onPress={async () => {
+              // Même si le service ne répond pas, ce téléphone oublie le lien.
+              await disconnect(id, link.token).catch(() => undefined);
+              setPrivateLink(id, null);
+            }}
+          />
+        ) : null}
       </View>
     </>
   );

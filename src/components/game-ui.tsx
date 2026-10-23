@@ -1,5 +1,6 @@
 /** Briques visuelles à l'image de l'interface du jeu : icônes du menu principal, tuiles de menu, anneaux de progression. */
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
@@ -128,7 +129,114 @@ export function MenuRow({ icon, title, subtitle, right, onPress }: { icon: numbe
   );
 }
 
+/**
+ * Fenêtre à la façon du jeu : bandeau titré avec son icône sur un dégradé doré, filet, puis le contenu.
+ * Le contenu est libre (lignes, puces, texte).
+ */
+export function GameWindow({
+  icon,
+  title,
+  subtitle,
+  right,
+  children,
+  style,
+}: {
+  icon: number;
+  title: string;
+  subtitle?: string | null;
+  right?: ReactNode;
+  children?: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const theme = useTheme();
+  return (
+    <View style={[styles.window, { borderColor: theme.frame, backgroundColor: theme.backgroundElement }, style]}>
+      <LinearGradient
+        colors={[`${theme.ornament}38`, `${theme.ornament}08`]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.windowHead}>
+        <MenuIcon id={icon} size={40} />
+        <View style={styles.rowText}>
+          <ThemedText type="display" accessibilityRole="header" numberOfLines={1} style={{ color: theme.ornament }}>
+            {title}
+          </ThemedText>
+          {subtitle ? (
+            <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+              {subtitle}
+            </ThemedText>
+          ) : null}
+        </View>
+        {right}
+      </LinearGradient>
+      <View style={[styles.windowRule, { backgroundColor: theme.frame }]} />
+      {children ? <View style={styles.windowBody}>{children}</View> : null}
+    </View>
+  );
+}
+
+/** Grande entrée de menu : grosse icône du jeu, titre, état (« 3 actives »), flèche. */
+export function MenuEntry({
+  icon,
+  title,
+  subtitle,
+  status,
+  onPress,
+}: {
+  icon: number;
+  title: string;
+  subtitle?: string | null;
+  status?: string | null;
+  onPress: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={[title, status, subtitle].filter(Boolean).join(', ')}
+      onPress={onPress}
+      style={({ pressed }) => [styles.entry, { borderColor: theme.frame, backgroundColor: theme.backgroundElement }, pressed && { opacity: 0.8 }]}>
+      <LinearGradient colors={[`${theme.ornament}30`, 'transparent']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+      <MenuIcon id={icon} size={56} />
+      <View style={styles.rowText}>
+        <ThemedText type="display" numberOfLines={1} style={{ color: theme.ornament }}>
+          {title}
+        </ThemedText>
+        {subtitle ? (
+          <ThemedText type="small" themeColor="textSecondary" numberOfLines={2}>
+            {subtitle}
+          </ThemedText>
+        ) : null}
+        {status ? (
+          <View style={[styles.entryStatus, { backgroundColor: theme.backgroundSelected }]}>
+            <ThemedText type="smallBold" style={[styles.badgeText, { color: theme.accent }]}>
+              {status}
+            </ThemedText>
+          </View>
+        ) : null}
+      </View>
+      <ThemedText type="subtitle" style={{ color: theme.ornament }}>
+        ›
+      </ThemedText>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  window: { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
+  windowHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
+  windowRule: { height: 1 },
+  windowBody: { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two, gap: Spacing.two },
+  entry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.three,
+    padding: Spacing.three,
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  entryStatus: { alignSelf: 'flex-start', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2, marginTop: Spacing.one },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   tile: {
     flexBasis: '47%',

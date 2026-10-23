@@ -42,11 +42,15 @@ export default function RootLayout() {
           <Stack.Screen name="character/[id]/index" options={{ title: '' }} />
           <Stack.Screen name="character/[id]/[section]" options={{ title: '' }} />
           <Stack.Screen name="settings" options={{ title: 'Réglages' }} />
-          <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
+          <Stack.Screen name="notifications/index" options={{ title: 'Notifications' }} />
+          <Stack.Screen name="notifications/marche" options={{ title: 'Alertes du marché' }} />
+          <Stack.Screen name="notifications/jeu" options={{ title: 'Rappels du jeu' }} />
           <Stack.Screen name="alert" options={{ title: 'Alerte de prix', presentation: 'modal' }} />
           <Stack.Screen name="item/[id]" options={{ title: '' }} />
           <Stack.Screen name="connect" options={{ title: 'Connecter mon personnage', presentation: 'modal' }} />
-          <Stack.Screen name="private/[id]" options={{ title: '' }} />
+          <Stack.Screen name="inventory/[id]" options={{ title: 'Inventaire' }} />
+          <Stack.Screen name="retainers/[id]" options={{ title: 'Servants' }} />
+          <Stack.Screen name="mail/[id]" options={{ title: 'Courrier' }} />
           <Stack.Screen name="hud/[id]" options={{ title: 'ATH du jeu' }} />
           <Stack.Screen name="hotbars/[id]" options={{ title: 'Barres d’actions' }} />
           <Stack.Screen name="model/[id]" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />

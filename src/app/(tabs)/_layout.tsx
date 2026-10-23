@@ -24,7 +24,7 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon src={ICONS.accueil} renderingMode="template" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="personnage">
-        <NativeTabs.Trigger.Label>Personnage</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Label>Personnages</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon src={ICONS.personnage} renderingMode="template" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="collections">

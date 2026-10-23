@@ -120,7 +120,7 @@ function AlertForm({ item, existing, onChangeItem }: { item: ChosenItem; existin
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     });
     // Première alerte : il reste à activer les notifications.
-    if (!secret) router.replace('/notifications');
+    if (!secret) router.replace('/notifications/marche');
     else router.back();
   };
 

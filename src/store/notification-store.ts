@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { DEFAULT_SETTINGS, type ReminderKey, type ReminderSetting } from '@/notifications/reminders';
+import { DEFAULT_SETTINGS, migrateReminders, type ReminderKey, type ReminderSetting } from '@/notifications/reminders';
 
 export interface PriceAlert {
   id: string;
@@ -50,8 +50,13 @@ export const useNotificationStore = create<NotificationState>()(
     }),
     {
       name: 'clavicule-notifications',
-      version: 1,
+      version: 2,
       storage: createJSONStorage(() => AsyncStorage),
+      // Version 1 : rappels par grandes familles, répartis sur les rappels détaillés.
+      migrate: (persisted, version) => {
+        const saved = (persisted ?? {}) as Partial<NotificationState>;
+        return version < 2 ? { ...saved, reminders: migrateReminders(saved.reminders) } : saved;
+      },
       // Nouveaux rappels ajoutés plus tard : ils prennent leur réglage par défaut.
       merge: (persisted, current) => {
         const saved = (persisted ?? {}) as Partial<NotificationState>;

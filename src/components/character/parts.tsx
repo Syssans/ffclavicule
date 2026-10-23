@@ -27,7 +27,7 @@ import { formatAgo, formatNumber } from '@/utils/format';
 import { fold } from '@/utils/inventory';
 
 /** Grand portrait du Lodestone, avec le nom et le job actif par-dessus ; bouton 3D si un modèle existe. */
-export function Hero({ profile }: { profile: CharacterProfile }) {
+export function Hero({ profile, height }: { profile: CharacterProfile; height?: number }) {
   const image = profile.portrait ?? profile.avatar;
   const info = useQuery({
     queryKey: ['sync', 'info', profile.id],
@@ -37,7 +37,7 @@ export function Hero({ profile }: { profile: CharacterProfile }) {
   });
 
   return (
-    <View style={styles.hero}>
+    <View style={[styles.hero, height ? { height } : null]}>
       {image ? (
         <Image
           source={image}

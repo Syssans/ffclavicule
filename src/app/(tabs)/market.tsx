@@ -10,7 +10,7 @@ import { SettingsButton } from '@/components/home';
 import { Sparkline } from '@/components/price-chart';
 import { ThemedText } from '@/components/themed-text';
 import { Badge, Card, Empty, ErrorBox, GameIcon, Input, Loading, Screen, Section } from '@/components/ui';
-import { MenuIcons } from '@/constants/menu-icons';
+import { GameIcons } from '@/constants/game-icons';
 import { Spacing } from '@/constants/theme';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTheme } from '@/hooks/use-theme';
@@ -58,10 +58,10 @@ function AlertsLink() {
   return (
     <Card style={styles.list}>
       <MenuRow
-        icon={MenuIcons.devises}
+        icon={GameIcons.marketBoard}
         title="Alertes de prix"
         subtitle={alerts.length ? `${active} alerte(s) active(s)` : 'Être prévenu quand un objet passe sous un prix'}
-        onPress={() => router.push('/notifications')}
+        onPress={() => router.push('/notifications/marche')}
       />
     </Card>
   );

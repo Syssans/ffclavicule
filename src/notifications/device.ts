@@ -6,7 +6,7 @@ import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-import { planReminders, type ReminderSettings } from '@/notifications/reminders';
+import { planReminders, type PlannedReminder, type ReminderSettings, type VentureReturn } from '@/notifications/reminders';
 
 export const notificationsSupported = Platform.OS !== 'web';
 
@@ -28,9 +28,9 @@ export async function ensurePermission(): Promise<boolean> {
 }
 
 /** Remplace les rappels programmés par ceux des réglages (à chaque ouverture et chaque changement). */
-export async function applyReminders(settings: ReminderSettings, region: 'eu' | 'na'): Promise<number> {
+export async function applyReminders(settings: ReminderSettings, region: 'eu' | 'na', ventures: VentureReturn[] = []): Promise<number> {
   if (!notificationsSupported) return 0;
-  const planned = planReminders(settings, region);
+  const planned = planReminders(settings, region, Date.now(), undefined, ventures);
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   await Promise.all(
     scheduled.filter((n) => n.identifier.startsWith('rappel-')).map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
@@ -40,19 +40,19 @@ export async function applyReminders(settings: ReminderSettings, region: 'eu' | 
   for (const p of planned) {
     await Notifications.scheduleNotificationAsync({
       identifier: p.id,
-      content: { title: p.title, body: p.body, sound: 'default' },
-      trigger:
-        p.trigger.type === 'daily'
-          ? { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: p.trigger.hour, minute: p.trigger.minute }
-          : {
-              type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-              weekday: p.trigger.weekday,
-              hour: p.trigger.hour,
-              minute: p.trigger.minute,
-            },
+      content: { title: p.title, body: p.body, sound: 'default', data: p.url ? { url: p.url } : {} },
+      trigger: toTrigger(p.trigger),
     });
   }
   return planned.length;
+}
+
+function toTrigger(trigger: PlannedReminder['trigger']): Notifications.NotificationTriggerInput {
+  if (trigger.type === 'daily') return { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: trigger.hour, minute: trigger.minute };
+  if (trigger.type === 'weekly') {
+    return { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: trigger.weekday, hour: trigger.hour, minute: trigger.minute };
+  }
+  return { type: Notifications.SchedulableTriggerInputTypes.DATE, date: trigger.at };
 }
 
 /** Projet Expo (EAS) de l'appli : nécessaire pour recevoir les notifications envoyées par le service. */

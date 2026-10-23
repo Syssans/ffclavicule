@@ -25,7 +25,7 @@ export default function ConnectScreen() {
       if (!characters.some((c) => c.id === result.characterId)) {
         saveCharacter({ id: result.characterId, name: result.name ?? `Personnage ${result.characterId}`, world: result.world, dataCenter: null, avatar: null });
       }
-      router.replace({ pathname: '/private/[id]', params: { id: String(result.characterId) } });
+      router.replace({ pathname: '/character/[id]', params: { id: String(result.characterId) } });
     },
   });
 

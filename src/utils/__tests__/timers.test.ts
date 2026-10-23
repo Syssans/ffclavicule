@@ -1,4 +1,4 @@
-import { eorzeaTime, formatCountdown, formatEorzeaTime, nextUtc, upcomingResets } from '@/utils/timers';
+import { cycleProgress, eorzeaTime, formatCountdown, formatEorzeaTime, nextUtc, upcomingResets } from '@/utils/timers';
 
 // Mercredi 22 octobre 2026, 14 h 30 UTC.
 const NOW = Date.UTC(2026, 9, 22, 14, 30);
@@ -23,8 +23,14 @@ describe('heure d’Éorzéa et réinitialisations', () => {
 
   it('range les réinitialisations de la plus proche à la plus lointaine', () => {
     const resets = upcomingResets(NOW, 'eu');
-    expect(resets.map((r) => r.key)).toEqual(['daily', 'gc', 'cactpot', 'weekly']);
+    // 14 h 30 : pêche en mer à 16 h, quotidienne à 15 h, GC à 20 h, mandats à minuit…
+    expect(resets.map((r) => r.key)).toEqual(['daily', 'ocean', 'gc', 'leves', 'fashion', 'cactpot', 'weekly']);
     expect(resets[0].at - NOW).toBe(30 * 60_000);
+    expect(cycleProgress(resets[0], NOW)).toBeCloseTo(1 - 30 / 1440);
+    // 16 h 05 : les inscriptions de la pêche en mer sont ouvertes jusqu'à 16 h 15.
+    const ocean = upcomingResets(Date.UTC(2026, 9, 22, 16, 5), 'eu').find((r) => r.key === 'ocean')!;
+    expect(ocean.live).toBe('Inscriptions ouvertes');
+    expect(ocean.at).toBe(Date.UTC(2026, 9, 22, 16, 15));
   });
 
   it('formate un compte à rebours', () => {
