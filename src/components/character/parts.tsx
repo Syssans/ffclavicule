@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { PrivateSnapshot } from '@/api/private';
@@ -11,16 +12,19 @@ import { getModelInfo, isSyncAvailable } from '@/api/sync';
 import { gameIconUrl } from '@/api/xivapi';
 import { ThemedText } from '@/components/themed-text';
 import { MenuIcon, ProgressRing } from '@/components/game-ui';
-import { Badge, Button, Card, Empty, GameIcon, ProgressBar, Section, StatTile } from '@/components/ui';
+import { Badge, Button, Card, Empty, ErrorBox, GameIcon, Input, Loading, ProgressBar, Section, StatTile } from '@/components/ui';
 import { CollectionIcons, MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
 import { jobIconId, ROLE_LABELS, ROLE_ORDER } from '@/data/jobs';
+import { LODESTONE_COLLECTIONS, useLodestoneCollection } from '@/hooks/use-lodestone-collection';
 import { useCatalog } from '@/hooks/use-private';
 import { useTheme } from '@/hooks/use-theme';
-import { lodestoneProfileUrl, type CharacterProfile, type GearPiece, type JobLevel } from '@/lodestone/client';
+import { lodestoneProfileUrl, type CharacterProfile, type GearPiece, type JobLevel, type LodestoneCollectionKind } from '@/lodestone/client';
 import { useAppStore } from '@/store/app-store';
-import { usableItems } from '@/utils/collections';
+import { formatRarity } from '@/utils/collect-reference';
+import { sourceLabel, usableItems } from '@/utils/collections';
 import { formatAgo, formatNumber } from '@/utils/format';
+import { fold } from '@/utils/inventory';
 
 /** Grand portrait du Lodestone, avec le nom et le job actif par-dessus ; bouton 3D si un modèle existe. */
 export function Hero({ profile }: { profile: CharacterProfile }) {
@@ -221,15 +225,105 @@ export function GearSection({ gear }: { gear: GearPiece[] }) {
 }
 
 /** Les collections viennent du plugin : il faut que ce téléphone soit connecté au personnage. */
+/** Sans le plugin : montures et mascottes lues sur le Lodestone, le reste reste réservé au plugin. */
 export function CollectionsUnlinked({ id, name }: { id: number; name: string }) {
+  const theme = useTheme();
+  const [kind, setKind] = useState<LodestoneCollectionKind>('mount');
+  const [search, setSearch] = useState('');
+  const mounts = useLodestoneCollection(id, 'mount');
+  const minions = useLodestoneCollection(id, 'minion');
+  const current = kind === 'mount' ? mounts : minions;
+  const label = LODESTONE_COLLECTIONS.find((c) => c.kind === kind)!.label.toLowerCase();
+
+  const needle = fold(search.trim());
+  const shown = (current.data?.entries ?? [])
+    .filter((e) => !needle || fold(e.name).includes(needle))
+    .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+
   return (
-    <Card>
-      <ThemedText type="small">
-        Les collections (montures, mascottes, hauts faits…) sont relevées en jeu par le plugin Clavicule : elles sont toujours à jour, mais
-        seulement pour tes personnages.
-      </ThemedText>
-      <Button label="Connecter ce personnage" variant="secondary" onPress={() => router.push({ pathname: '/connect', params: { id: String(id), name } })} />
-    </Card>
+    <>
+      <View style={styles.collectionGrid}>
+        {LODESTONE_COLLECTIONS.map((c) => {
+          const q = c.kind === 'mount' ? mounts : minions;
+          const count = q.data?.owned ?? 0;
+          const total = q.data?.total ?? 0;
+          const active = c.kind === kind;
+          return (
+            <Pressable
+              key={c.kind}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+              accessibilityLabel={`${c.label} : ${count} sur ${total}`}
+              onPress={() => setKind(c.kind)}
+              style={({ pressed }) => [
+                styles.collectionTile,
+                styles.lodestoneTile,
+                { backgroundColor: theme.backgroundElement, borderColor: active ? theme.accent : theme.frame },
+                pressed && { opacity: 0.75 },
+              ]}>
+              <ProgressRing value={total ? count / total : 0} size={64} stroke={4}>
+                <MenuIcon id={CollectionIcons[c.key] ?? MenuIcons.hautsFaits} size={40} />
+              </ProgressRing>
+              <ThemedText type="smallBold" numberOfLines={1} style={styles.collectionLabel}>
+                {c.label}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary" style={styles.collectionCount}>
+                {q.isPending ? '…' : q.data?.hidden ? 'Masquées' : `${formatNumber(count)} / ${formatNumber(total)}`}
+              </ThemedText>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {current.isPending ? <Loading label="Lecture du Lodestone…" /> : null}
+      {current.error ? <ErrorBox error={current.error} onRetry={() => current.refetch()} /> : null}
+      {current.data?.hidden ? (
+        <Empty>{name || 'Ce personnage'} a masqué ses {label} dans ses réglages du Lodestone.</Empty>
+      ) : current.data ? (
+        <>
+          <Input value={search} onChangeText={setSearch} placeholder={`Chercher dans les ${label}`} accessibilityLabel={`Chercher dans les ${label}`} />
+          {current.data.entries.length === 0 && current.data.owned > 0 ? (
+            <Empty>Le Lodestone n’a donné que le nombre, pas la liste. Tire vers le bas pour réessayer.</Empty>
+          ) : shown.length === 0 ? (
+            <Empty>{current.data.owned === 0 ? `Aucune pour l’instant.` : 'Aucun résultat.'}</Empty>
+          ) : (
+            <Card style={styles.lodestoneList}>
+              {shown.map((e, i) => (
+                <View key={`${e.name}-${i}`} style={[styles.lodestoneRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }]}>
+                  <GameIcon uri={e.icon} size={36} />
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <ThemedText type="small" numberOfLines={1}>
+                      {e.name}
+                    </ThemedText>
+                    {e.sources[0] ? (
+                      <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                        {sourceLabel(e.sources[0].type)} · {e.sources[0].text}
+                      </ThemedText>
+                    ) : null}
+                  </View>
+                  {e.rarity !== undefined ? <Badge label={formatRarity(e.rarity)!} /> : null}
+                </View>
+              ))}
+            </Card>
+          )}
+          <Empty>Lu sur le Lodestone. Provenance et part des joueurs qui le possèdent : FFXIV Collect.</Empty>
+        </>
+      ) : null}
+
+      <Card>
+        <View style={styles.pluginHead}>
+          <ThemedText type="smallBold" style={{ flex: 1 }}>
+            Le reste des collections
+          </ThemedText>
+          <Badge label="Avec le plugin" tone="accent" />
+        </View>
+        <ThemedText type="small" themeColor="textSecondary">
+          Hauts faits, orchestrions, emotes, cartes, coiffures, bardes, armoire… et tout ce qu’il te manque avec la façon de l’obtenir : le
+          plugin Clavicule les relève en jeu, seulement pour tes personnages.
+        </ThemedText>
+        <Button label="Connecter ce personnage" variant="secondary" onPress={() => router.push({ pathname: '/connect', params: { id: String(id), name } })} />
+      </Card>
+    </>
   );
 }
 
@@ -426,6 +520,10 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
   },
+  lodestoneTile: { maxWidth: '49%', borderWidth: 1 },
+  lodestoneList: { gap: 0, paddingVertical: Spacing.one },
+  lodestoneRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two },
+  pluginHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   collectionLabel: { textAlign: 'center', fontSize: 13 },
   collectionCount: { textAlign: 'center', fontSize: 12, lineHeight: 16 },
 });

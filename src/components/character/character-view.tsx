@@ -10,6 +10,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Button, Card, ErrorBox, Loading, Section } from '@/components/ui';
 import { MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
+import { useLodestoneCollection } from '@/hooks/use-lodestone-collection';
 import { usePrivate } from '@/hooks/use-private';
 import { getCharacter } from '@/lodestone/client';
 import { useAppStore } from '@/store/app-store';
@@ -35,6 +36,9 @@ export function CharacterView({ id }: { id: number }) {
   });
   const { link, query } = usePrivate(id);
   const summary = summarize(query.data);
+  // Sans le plugin, les montures et mascottes viennent du Lodestone.
+  const mounts = useLodestoneCollection(id, 'mount', !link);
+  const minions = useLodestoneCollection(id, 'minion', !link);
   const saved = useAppStore((s) => s.characters.find((c) => c.id === id));
   const saveCharacter = useAppStore((s) => s.saveCharacter);
 
@@ -70,8 +74,13 @@ export function CharacterView({ id }: { id: number }) {
           <MenuTile
             icon={MenuIcons.hautsFaits}
             title="Collections"
-            subtitle={summary?.collectionsTotal ? `${formatNumber(summary.collectionsOwned)} éléments obtenus` : 'Montures, mascottes, hauts faits…'}
-            badge={pluginHint}
+            subtitle={
+              summary?.collectionsTotal
+                ? `${formatNumber(summary.collectionsOwned)} éléments obtenus`
+                : !linked && mounts.data && minions.data && !mounts.data.hidden
+                  ? `${mounts.data.owned} montures · ${minions.data.owned} mascottes`
+                  : 'Montures, mascottes, hauts faits…'
+            }
             onPress={() => openSection(id, 'collections')}
           />
         </MenuGrid>

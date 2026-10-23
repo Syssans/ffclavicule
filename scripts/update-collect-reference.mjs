@@ -75,7 +75,7 @@ export function parseOwned(text) {
   return Number.isFinite(value) ? value : null;
 }
 
-/** Une entrée compacte : i (id du jeu), n (nom), t (objet), o (% de joueurs), s ([type, texte]). */
+/** Une entrée compacte : i (id du jeu), n (nom), t (objet), o (% de joueurs), s ([type, texte]) ; e (nom anglais) ajouté à part. */
 export function compact(record) {
   const entry = { i: record.id, n: record.name };
   if (record.item_id) entry.t = record.item_id;
@@ -90,8 +90,11 @@ export function compact(record) {
   return entry;
 }
 
-async function fetchCollection(path) {
-  const response = await fetch(`${API}/${path}?language=fr`, { headers: { 'User-Agent': 'Clavicule (companion FFXIV)' } });
+/** Collections que le Lodestone liste (en anglais) : on garde aussi le nom anglais pour les retrouver. */
+const WITH_ENGLISH = new Set(['mounts', 'minions']);
+
+async function fetchCollection(path, language = 'fr') {
+  const response = await fetch(`${API}/${path}?language=${language}`, { headers: { 'User-Agent': 'Clavicule (companion FFXIV)' } });
   if (!response.ok) throw new Error(`${path} : HTTP ${response.status}`);
   const body = await response.json();
   return Array.isArray(body) ? body : body.results;
@@ -102,6 +105,13 @@ async function main() {
   for (const [key, path] of Object.entries(COLLECTIONS)) {
     const records = await fetchCollection(path);
     collections[key] = records.map(compact).sort((a, b) => a.i - b.i);
+    if (WITH_ENGLISH.has(key)) {
+      const english = new Map((await fetchCollection(path, 'en')).map((r) => [r.id, r.name]));
+      for (const entry of collections[key]) {
+        const name = english.get(entry.i);
+        if (name) entry.e = name;
+      }
+    }
     console.log(`${key} : ${records.length}`);
   }
   const reference = {

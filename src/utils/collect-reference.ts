@@ -6,10 +6,11 @@
 import type { CatalogEntry, CatalogSource } from '@/api/private';
 import { fold } from '@/utils/inventory';
 
-/** i : id du jeu, n : nom, t : objet qui le débloque, o : % de joueurs, s : provenances [type, texte]. */
+/** i : id du jeu, n : nom, t : objet qui le débloque, o : % de joueurs, s : provenances [type, texte], e : nom anglais (montures, mascottes). */
 export interface ReferenceEntry {
   i: number;
   n: string;
+  e?: string;
   t?: number;
   o?: number;
   s?: [string, string][];
@@ -78,4 +79,34 @@ export function loadReference(): Reference {
 export function formatRarity(rarity: number | undefined): string | undefined {
   if (rarity === undefined) return undefined;
   return `${rarity < 1 ? rarity.toLocaleString('fr-FR', { maximumFractionDigits: 1 }) : Math.round(rarity)} %`;
+}
+
+/** Élément lu sur le Lodestone, traduit et complété par FFXIV Collect quand on le retrouve. */
+export interface LodestoneEntry {
+  id: number | null;
+  name: string;
+  icon: string | null;
+  rarity?: number;
+  sources: CatalogSource[];
+}
+
+/** Le Lodestone donne les noms anglais : on les retrouve dans la référence pour le nom français, la provenance et la rareté. */
+export function matchLodestone(key: 'mounts' | 'minions', items: { name: string; icon: string | null }[]): LodestoneEntry[] {
+  const byEnglish = new Map<string, ReferenceEntry>();
+  for (const e of loadReference().collections[key] ?? []) if (e.e) byEnglish.set(fold(e.e), e);
+  return items.map((item) => {
+    const ref = byEnglish.get(fold(item.name));
+    return {
+      id: ref?.i ?? null,
+      name: ref?.n ?? item.name,
+      icon: item.icon,
+      rarity: ref?.o,
+      sources: (ref?.s ?? []).map(([type, text]) => ({ type, text })),
+    };
+  });
+}
+
+/** Nombre d'éléments de la collection selon FFXIV Collect. */
+export function referenceTotal(key: string): number {
+  return loadReference().collections[key]?.length ?? 0;
 }

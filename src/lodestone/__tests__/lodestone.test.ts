@@ -3,7 +3,7 @@ import { parseHtml, evaluate, extractPage, toInt, translateRegex, type Definitio
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { getGear, parseCharacterProfile, parseCharacterSearch, parseClassJobs, parseGearTooltip } from '../client';
+import { getGear, parseCharacterProfile, parseCharacterSearch, parseClassJobs, parseGearTooltip, parseLodestoneCollection } from '../client';
 import characterSelectors from '../selectors/profile/character.json';
 import classJobSelectors from '../selectors/profile/classjob.json';
 import gearSelectors from '../selectors/profile/gearset.json';
@@ -332,5 +332,28 @@ describe('équipement chargé pièce par pièce', () => {
         .map(({ path, leaf }) => ({ selector: leaf.selector, html: path[0] === 'NAME' ? 'Alys' : '-' })),
     );
     expect(parseCharacterProfile(1, html).bio).toBeNull();
+  });
+});
+
+describe('montures et mascottes', () => {
+  // Même structure que la page servie à un navigateur de téléphone (octobre 2026).
+  const item = (name: string, icon: string) =>
+    `<li class="mount__list__item"data-tooltip_href="/x"><div class="mount__list__inner"><div class="mount__list__icon"><div class="mount__list__icon__inner "><img src="${icon}" width="32" height="32" alt="" class="mount__list__icon__image lazy_loading"></div></div><div class="mount__list__text"><span class="mount__name">${name}</span></div></div></li>`;
+  const page = (items: string) =>
+    `<html><body><div class="character__minions"><div class="select-pulldown__minion_mount"><p class="minion__sort__total com">Total: <span>2</span></p></div><ul class="mount__list">${items}</ul></div></body></html>`;
+
+  it('lit les noms et les icônes', () => {
+    const result = parseLodestoneCollection('mount', page(item('Company Chocobo', 'https://img/a.png') + item('Archon Throne &amp; Co', 'https://img/b.png')));
+    expect(result.hidden).toBe(false);
+    expect(result.total).toBe(2);
+    expect(result.items).toEqual([
+      { name: 'Company Chocobo', icon: 'https://img/a.png' },
+      { name: 'Archon Throne & Co', icon: 'https://img/b.png' },
+    ]);
+  });
+
+  it('reconnaît une page masquée par le joueur', () => {
+    const result = parseLodestoneCollection('minion', '<html><body><p class="parts__zero">You do not have permission to view this page.</p></body></html>');
+    expect(result).toEqual({ items: [], total: null, hidden: true });
   });
 });

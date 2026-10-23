@@ -11,6 +11,8 @@ import characterSelectors from './selectors/profile/character.json';
 import classJobSelectors from './selectors/profile/classjob.json';
 import gearSelectors from './selectors/profile/gearset.json';
 import meta from './selectors/meta.json';
+import minionSelectors from './selectors/profile/minion.json';
+import mountSelectors from './selectors/profile/mount.json';
 import searchSelectors from './selectors/search/character.json';
 
 export type LodestoneRegion = 'eu' | 'na';
@@ -320,6 +322,41 @@ export function parseClassJobs(html: string): JobLevel[] {
 
 export async function getClassJobs(region: LodestoneRegion, id: number): Promise<JobLevel[]> {
   return parseClassJobs(await fetchPage(`${baseUrl(region)}/character/${id}/class_job/`));
+}
+
+// ---------------------------------------------------------------------------
+// Montures et mascottes
+// ---------------------------------------------------------------------------
+
+export type LodestoneCollectionKind = 'mount' | 'minion';
+
+export interface LodestoneCollection {
+  /** Noms anglais, tels qu'affichés par le Lodestone. */
+  items: { name: string; icon: string | null }[];
+  /** Nombre affiché par la page (null si elle est masquée). */
+  total: number | null;
+  /** Le joueur a masqué cette page dans ses réglages du Lodestone. */
+  hidden: boolean;
+}
+
+export function parseLodestoneCollection(kind: LodestoneCollectionKind, html: string): LodestoneCollection {
+  const raw = extractPage(html, (kind === 'mount' ? mountSelectors : minionSelectors) as Definition);
+  const list = raw[kind === 'mount' ? 'MOUNTS' : 'MINIONS'];
+  const items = (Array.isArray(list) ? list : [])
+    .map((entry) => {
+      const e = obj(entry);
+      const name = str(e?.NAME)?.replace(/&amp;/g, '&').trim();
+      return name ? { name, icon: str(e?.ICON) } : null;
+    })
+    .filter((item): item is { name: string; icon: string | null } => item !== null);
+  const total = num(raw.TOTAL);
+  return { items, total, hidden: items.length === 0 && total === null };
+}
+
+/** La version ordinateur n'affiche que le total : la liste complète n'est servie qu'à un navigateur de téléphone. */
+export async function getLodestoneCollection(region: LodestoneRegion, id: number, kind: LodestoneCollectionKind): Promise<LodestoneCollection> {
+  const html = await getText(`${baseUrl(region)}/character/${id}/${kind}/`, { source: SOURCE, headers: { 'User-Agent': meta.userAgentMobile } });
+  return parseLodestoneCollection(kind, html);
 }
 
 export function lodestoneProfileUrl(region: LodestoneRegion, id: number): string {

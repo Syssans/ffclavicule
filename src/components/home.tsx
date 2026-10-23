@@ -2,6 +2,7 @@
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import Svg, { Circle, Rect } from 'react-native-svg';
 
 import { MenuIcon } from '@/components/game-ui';
 import { ThemedText } from '@/components/themed-text';
@@ -50,21 +51,26 @@ export function CharacterSwitcher({ selected, onSelect }: { selected: number | n
   const theme = useTheme();
   const characters = useAppStore((s) => s.characters);
   const mainId = useAppStore((s) => s.mainCharacterId);
+  const links = useAppStore((s) => s.privateLinks);
   const sorted = [...characters].sort((a, b) => (a.id === mainId ? -1 : b.id === mainId ? 1 : a.name.localeCompare(b.name)));
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.switcher}>
       {sorted.map((c) => {
         const active = c.id === selected;
+        const linked = Boolean(links[c.id]);
         return (
           <Pressable
             key={c.id}
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
-            accessibilityLabel={c.name}
+            accessibilityLabel={linked ? `${c.name}, téléphone connecté` : c.name}
             onPress={() => onSelect(c.id)}
             style={styles.switchItem}>
-            <View style={[styles.avatarRing, { borderColor: active ? theme.accent : theme.frame }]}>
-              {c.avatar ? <Image source={c.avatar} style={styles.avatar} /> : <View style={[styles.avatar, { backgroundColor: theme.backgroundSelected }]} />}
+            <View>
+              <View style={[styles.avatarRing, { borderColor: active ? theme.accent : theme.frame }]}>
+                {c.avatar ? <Image source={c.avatar} style={styles.avatar} /> : <View style={[styles.avatar, { backgroundColor: theme.backgroundSelected }]} />}
+              </View>
+              {linked ? <PhoneBadge /> : null}
             </View>
             <ThemedText type="small" numberOfLines={1} style={[styles.switchName, { color: active ? theme.text : theme.textSecondary }]}>
               {c.name.split(' ')[0]}
@@ -86,7 +92,32 @@ export function CharacterSwitcher({ selected, onSelect }: { selected: number | n
   );
 }
 
+/** Pastille dorée « téléphone connecté » en bas à droite du portrait. */
+function PhoneBadge() {
+  const theme = useTheme();
+  return (
+    <View style={[styles.phoneBadge, { backgroundColor: theme.background, borderColor: theme.accent }]}>
+      <Svg width={12} height={12} viewBox="0 0 24 24">
+        <Rect x={6} y={1.5} width={12} height={21} rx={2.5} fill={theme.accent} />
+        <Rect x={8} y={4} width={8} height={13} rx={0.8} fill={theme.background} />
+        <Circle cx={12} cy={19.6} r={1.2} fill={theme.background} />
+      </Svg>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  phoneBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   flex: { flex: 1, minWidth: 0 },
   welcomeHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   switcher: { gap: Spacing.three, paddingVertical: Spacing.one },

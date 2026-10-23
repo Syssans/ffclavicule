@@ -6,6 +6,7 @@ import { RefreshControl } from 'react-native';
 import type { CharacterSection } from '@/components/character/character-view';
 import { CollectionsOverview, CollectionsUnlinked, GearSection, JobsSection, ProfileSection } from '@/components/character/parts';
 import { ErrorBox, Loading, Screen } from '@/components/ui';
+import { useLodestoneCollection } from '@/hooks/use-lodestone-collection';
 import { usePrivate } from '@/hooks/use-private';
 import { getCharacter, getClassJobs, getGear } from '@/lodestone/client';
 import { useAppStore } from '@/store/app-store';
@@ -39,10 +40,21 @@ export default function CharacterSectionScreen() {
     enabled: profile.data !== undefined && section === 'equipement',
   });
   const { link, query: collections } = usePrivate(id, section === 'collections');
+  // Sans le plugin, les collections viennent du Lodestone (mêmes requêtes que l'écran).
+  const fromLodestone = section === 'collections' && !link;
+  const mounts = useLodestoneCollection(id, 'mount', fromLodestone);
+  const minions = useLodestoneCollection(id, 'minion', fromLodestone);
 
   const current = section === 'jobs' ? jobs : section === 'equipement' ? gear : section === 'collections' ? collections : profile;
+  const refreshing = fromLodestone ? mounts.isRefetching || minions.isRefetching : current.isRefetching;
+  const refresh = () => {
+    if (fromLodestone) {
+      mounts.refetch();
+      minions.refetch();
+    } else current.refetch();
+  };
   return (
-    <Screen refreshControl={<RefreshControl refreshing={current.isRefetching} onRefresh={() => current.refetch()} />}>
+    <Screen refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
       <Stack.Screen options={{ title: TITLES[section] ?? '' }} />
       {profile.error ? <ErrorBox error={profile.error} onRetry={() => profile.refetch()} /> : null}
       {section === 'profil' ? profile.data ? <ProfileSection profile={profile.data} /> : <Loading label="Lecture du Lodestone…" /> : null}
