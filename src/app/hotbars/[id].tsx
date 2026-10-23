@@ -6,6 +6,7 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import type { HotbarJob, HotbarSlotChange } from '@/api/hud';
 import { gameIconUrl } from '@/api/xivapi';
 import { ChangeList, useHud } from '@/components/hud-changes';
+import { HudMiniature } from '@/components/hud-miniature';
 import { ThemedText } from '@/components/themed-text';
 import { Badge, Button, Card, Chip, Empty, ErrorBox, GameIcon, Loading, Screen } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
@@ -56,6 +57,9 @@ export default function HotbarsScreen() {
   const merged = useMemo(() => ({ ...base, ...edits }), [base, edits]);
   const count = countHotbarChanges(jobs, merged, base);
   const bars = job ? effectiveBars(job, merged) : [];
+  // Disposition d'ATH affichée en jeu : où sont les barres, et lesquelles sont masquées.
+  const layoutElements = hud.data?.layouts.find((l) => l.index === hud.data?.currentLayout)?.elements ?? [];
+  const hiddenBars = new Set(layoutElements.filter((e) => e.hotbar !== undefined && !e.visible).map((e) => e.hotbar!));
   const before = job ? effectiveBars(job, base) : [];
   const pickedSlot = picked ? bars[picked.bar]?.slots[picked.slot] : null;
 
@@ -124,6 +128,15 @@ export default function HotbarsScreen() {
             {job.name}
           </ThemedText>
 
+          {layoutElements.length > 0 ? (
+            <View style={styles.miniature}>
+              <HudMiniature elements={layoutElements} screen={hud.data!.screen} highlight={picked?.bar ?? null} />
+              <ThemedText type="small" themeColor="textSecondary">
+                Emplacement des barres dans ta disposition d’ATH actuelle{picked ? ` : barre ${picked.bar + 1} en doré` : ''}.
+              </ThemedText>
+            </View>
+          ) : null}
+
           <Card style={styles.sticky}>
             {pickedSlot ? (
               <View style={styles.pickedRow}>
@@ -177,6 +190,12 @@ export default function HotbarsScreen() {
                 <View style={styles.barHead}>
                   <ThemedText type="smallBold">Barre {bar.id + 1}</ThemedText>
                   {bar.shared ? <Badge label="Commune à tous les jobs" /> : null}
+                  {hiddenBars.has(bar.id) ? <Badge label="Masquée en jeu" tone="down" /> : null}
+                  {layoutElements.length > 0 && !hiddenBars.has(bar.id) ? (
+                    <View style={styles.barMap}>
+                      <HudMiniature elements={layoutElements} screen={hud.data!.screen} highlight={bar.id} compact />
+                    </View>
+                  ) : null}
                 </View>
                 <View style={styles.grid}>
                   {bar.slots.map((slot, index) => {
@@ -229,6 +248,8 @@ export default function HotbarsScreen() {
 const styles = StyleSheet.create({
   jobs: { gap: Spacing.one, paddingVertical: Spacing.one },
   jobName: { textTransform: 'capitalize' },
+  miniature: { gap: Spacing.one },
+  barMap: { marginLeft: 'auto' },
   sticky: { gap: Spacing.two },
   pickedRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   actions: { flexDirection: 'row', gap: Spacing.two },

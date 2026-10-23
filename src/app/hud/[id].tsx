@@ -5,6 +5,7 @@ import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import type { HudElement, HudElementChange } from '@/api/hud';
 import { HudCanvas } from '@/components/hud-canvas';
+import { HudFullscreen } from '@/components/hud-fullscreen';
 import { ChangeList, useHud } from '@/components/hud-changes';
 import { ThemedText } from '@/components/themed-text';
 import { Badge, Button, Card, Chip, Empty, ErrorBox, Loading, Screen, Section, Segmented } from '@/components/ui';
@@ -55,6 +56,7 @@ export default function HudScreen() {
   const [filters, setFilters] = useState<Set<Filter>>(new Set(['hotbar', 'main', 'gauge']));
   const [showHidden, setShowHidden] = useState(false);
   const [step, setStep] = useState(1);
+  const [fullscreen, setFullscreen] = useState(false);
 
   const snapshot = hud.data;
   const layout = layoutIndex ?? snapshot?.currentLayout ?? 0;
@@ -176,12 +178,53 @@ export default function HudScreen() {
             modified={modified}
             onSelect={setSelected}
             onMove={(hash, position) => edit(hash, position)}
+            onPreviewPress={() => setFullscreen(true)}
           />
+          <Button label="Modifier en plein écran" onPress={() => setFullscreen(true)} />
           <ThemedText type="small" themeColor="textSecondary">
-            Fais glisser un cadre pour le déplacer (il s’aimante au centre et aux bords), touche-le pour le régler.
+            Le téléphone passe en paysage : fais glisser un cadre pour le déplacer (il s’aimante au centre et aux bords), touche-le pour
+            le régler.
           </ThemedText>
 
-          {element ? (
+          <HudFullscreen
+            visible={fullscreen}
+            onClose={() => setFullscreen(false)}
+            title={`Disposition ${layout + 1}${pendingChanges.length ? ` · ${pendingChanges.length} modif.` : ''}`}
+            elements={shown}
+            screen={snapshot.screen}
+            selected={selected}
+            modified={modified}
+            onSelect={setSelected}
+            onMove={(hash, position) => edit(hash, position)}
+            toolbar={
+              <View style={styles.chips}>
+                <Chip label="Masqués" selected={showHidden} onPress={() => setShowHidden((v) => !v)} />
+                {pendingChanges.length > 0 ? (
+                  <Chip label="Tout annuler" onPress={() => setEdits((all) => ({ ...all, [layout]: {} }))} />
+                ) : null}
+              </View>
+            }
+            panel={
+              element ? (
+                <ElementPanel
+                  element={element}
+                  modified={modified.has(element.hash) || layoutEdits[element.hash] !== undefined}
+                  step={step}
+                  onStep={setStep}
+                  onEdit={(change) => edit(element.hash, change)}
+                  onNudge={nudge}
+                  onReset={() => reset(element.hash)}
+                  screenSize={snapshot.screen}
+                />
+              ) : (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Touche un élément pour le régler, ou fais-le glisser pour le déplacer. « Terminé » pour revenir, puis « Envoyer au jeu ».
+                </ThemedText>
+              )
+            }
+          />
+
+          {element && !fullscreen ? (
             <ElementPanel
               element={element}
               modified={modified.has(element.hash) || layoutEdits[element.hash] !== undefined}

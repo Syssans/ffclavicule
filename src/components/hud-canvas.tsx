@@ -3,7 +3,7 @@
  * Le déplacement reste local pendant le geste ; la position n'est remontée qu'au lâcher.
  */
 import { useMemo, useState } from 'react';
-import { StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
+import { Pressable, StyleSheet, View, type GestureResponderEvent, type LayoutChangeEvent } from 'react-native';
 
 import type { HudElement } from '@/api/hud';
 import { ThemedText } from '@/components/themed-text';
@@ -44,6 +44,7 @@ export function HudCanvas({
   modified,
   onSelect,
   onMove,
+  onPreviewPress,
 }: {
   elements: HudElement[];
   screen: HudScreen;
@@ -51,6 +52,8 @@ export function HudCanvas({
   modified: Set<number>;
   onSelect: (hash: number) => void;
   onMove: (hash: number, position: { x: number; y: number }) => void;
+  /** Aperçu seulement : un toucher appelle cette fonction (ouverture de l'éditeur plein écran) au lieu de déplacer. */
+  onPreviewPress?: () => void;
 }) {
   const theme = useTheme();
   const [width, setWidth] = useState(0);
@@ -148,7 +151,15 @@ export function HudCanvas({
       {drag?.guideY !== undefined ? (
         <View pointerEvents="none" style={[styles.guide, { top: drag.guideY * k - 0.5, left: 0, right: 0, height: 1 }]} />
       ) : null}
-      {/* Calque transparent au-dessus des cadres : il reçoit le doigt, seulement s'il tombe sur un cadre (sinon la page défile). */}
+      {onPreviewPress ? (
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onPreviewPress}
+          accessibilityRole="button"
+          accessibilityLabel="Modifier l’ATH en plein écran"
+        />
+      ) : (
+      /* Calque transparent au-dessus des cadres : il reçoit le doigt, seulement s'il tombe sur un cadre (sinon la page défile). */
       <View
         style={StyleSheet.absoluteFill}
         onStartShouldSetResponder={(event) => hitAt(event) !== null}
@@ -158,6 +169,7 @@ export function HudCanvas({
         onResponderRelease={end}
         onResponderTerminate={cancel}
       />
+      )}
     </View>
   );
 }
