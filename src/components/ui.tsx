@@ -25,9 +25,10 @@ import { useTheme } from '@/hooks/use-theme';
 export function Screen({
   title,
   tab = false,
+  right,
   children,
   ...scrollProps
-}: { title?: string; tab?: boolean; children: ReactNode } & ScrollViewProps) {
+}: { title?: string; tab?: boolean; right?: ReactNode; children: ReactNode } & ScrollViewProps) {
   const theme = useTheme();
   const content = (
     <ScrollView
@@ -41,9 +42,12 @@ export function Screen({
       keyboardShouldPersistTaps="handled"
       {...scrollProps}>
       {title ? (
-        <ThemedText type="title" accessibilityRole="header">
-          {title}
-        </ThemedText>
+        <View style={styles.titleRow}>
+          <ThemedText type="title" accessibilityRole="header" style={styles.titleText}>
+            {title}
+          </ThemedText>
+          {right}
+        </View>
       ) : null}
       {children}
     </ScrollView>
@@ -59,16 +63,19 @@ export function Screen({
 
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
-  return <View style={[styles.card, { backgroundColor: theme.backgroundElement }, style]}>{children}</View>;
+  return <View style={[styles.card, { backgroundColor: theme.backgroundElement, borderColor: theme.frame }, style]}>{children}</View>;
 }
 
+/** Section titrée à la façon des fenêtres du jeu : titre en capitales dorées et filet ornemental. */
 export function Section({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
+  const theme = useTheme();
   return (
     <View style={styles.section}>
       <View style={styles.sectionHeader}>
-        <ThemedText type="subtitle" accessibilityRole="header">
+        <ThemedText type="display" accessibilityRole="header" style={{ color: theme.ornament }}>
           {title}
         </ThemedText>
+        <View style={[styles.ornament, { backgroundColor: theme.frame }]} />
         {right}
       </View>
       {children}
@@ -271,13 +278,17 @@ const styles = StyleSheet.create({
     maxWidth: MaxContentWidth,
     alignSelf: 'center',
   },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  titleText: { flex: 1 },
   card: {
-    borderRadius: 16,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
     padding: Spacing.three,
     gap: Spacing.two,
   },
   section: { gap: Spacing.two },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
+  ornament: { flex: 1, height: StyleSheet.hairlineWidth, marginTop: 2 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.three },
   infoLabel: { flexShrink: 0 },
   infoValue: { flexShrink: 1, textAlign: 'right' },

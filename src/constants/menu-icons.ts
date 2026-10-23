@@ -1,0 +1,58 @@
+/**
+ * Icônes du menu principal du jeu (feuille MainCommand), or sur fond rouge : ui/icon/000000/0000NN.
+ * Elles donnent à l'appli l'allure de l'interface de FFXIV.
+ */
+export const MenuIcons = {
+  personnage: 1,
+  inventaire: 2,
+  actions: 4,
+  journal: 5,
+  hautsFaits: 6,
+  carte: 7,
+  emotes: 9,
+  bestiaire: 21,
+  artisanat: 22,
+  recolte: 23,
+  peche: 24,
+  configuration: 29,
+  ath: 31,
+  arsenal: 32,
+  barres: 44,
+  calendrier: 47,
+  apparence: 48,
+  compagnon: 49,
+  nomenclature: 50,
+  logement: 52,
+  montures: 58,
+  mascottes: 59,
+  goldSaucer: 62,
+  devises: 63,
+  guides: 65,
+  orchestrion: 67,
+  objets: 68,
+  grimoire: 78,
+  alea: 81,
+  objetsPrecieux: 85,
+  mode: 86,
+  portraits: 88,
+  carteDePersonnage: 90,
+  visage: 92,
+} as const;
+
+/** Icône de chaque collection. */
+export const CollectionIcons: Record<string, number> = {
+  achievements: MenuIcons.hautsFaits,
+  mounts: MenuIcons.montures,
+  minions: MenuIcons.mascottes,
+  orchestrions: MenuIcons.orchestrion,
+  emotes: MenuIcons.emotes,
+  hairstyles: MenuIcons.apparence,
+  bardings: MenuIcons.compagnon,
+  fashions: MenuIcons.mode,
+  facewear: MenuIcons.visage,
+  cards: MenuIcons.goldSaucer,
+  spells: MenuIcons.grimoire,
+  titles: MenuIcons.carteDePersonnage,
+  armoire: MenuIcons.arsenal,
+  leves: MenuIcons.journal,
+};

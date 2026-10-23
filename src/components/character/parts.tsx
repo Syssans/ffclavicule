@@ -1,135 +1,29 @@
+/** Briques de la fiche d'un personnage : portrait, profil, jobs, équipement, collections, suivi. */
 import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
-import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { PrivateSnapshot } from '@/api/private';
 import { getModelInfo, isSyncAvailable } from '@/api/sync';
 import { gameIconUrl } from '@/api/xivapi';
 import { ThemedText } from '@/components/themed-text';
-import {
-  Badge,
-  Button,
-  Card,
-  Empty,
-  ErrorBox,
-  GameIcon,
-  Loading,
-  ProgressBar,
-  Screen,
-  Section,
-  Segmented,
-  StatTile,
-} from '@/components/ui';
+import { MenuIcon, ProgressRing } from '@/components/game-ui';
+import { Badge, Button, Card, Empty, GameIcon, ProgressBar, Section, StatTile } from '@/components/ui';
+import { CollectionIcons, MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
 import { jobIconId, ROLE_LABELS, ROLE_ORDER } from '@/data/jobs';
-import { useCatalog, usePrivate } from '@/hooks/use-private';
+import { useCatalog } from '@/hooks/use-private';
 import { useTheme } from '@/hooks/use-theme';
-import {
-  getCharacter,
-  getClassJobs,
-  getGear,
-  lodestoneProfileUrl,
-  type CharacterProfile,
-  type GearPiece,
-  type JobLevel,
-} from '@/lodestone/client';
+import { lodestoneProfileUrl, type CharacterProfile, type GearPiece, type JobLevel } from '@/lodestone/client';
 import { useAppStore } from '@/store/app-store';
 import { usableItems } from '@/utils/collections';
-import { formatAgo, formatNumber, percent } from '@/utils/format';
-
-type Tab = 'profile' | 'jobs' | 'gear' | 'collections';
-
-const TABS: { value: Tab; label: string }[] = [
-  { value: 'profile', label: 'Profil' },
-  { value: 'jobs', label: 'Jobs' },
-  { value: 'gear', label: 'Équip.' },
-  { value: 'collections', label: 'Collec.' },
-];
-
-export default function CharacterScreen() {
-  const { id: rawId } = useLocalSearchParams<{ id: string }>();
-  const id = Number(rawId);
-  const region = useAppStore((s) => s.region);
-  const [tab, setTab] = useState<Tab>('profile');
-
-  const profile = useQuery({
-    queryKey: ['lodestone', 'character', region, id],
-    queryFn: () => getCharacter(region, id),
-    enabled: Number.isFinite(id),
-  });
-  const jobs = useQuery({
-    queryKey: ['lodestone', 'classjob', region, id],
-    queryFn: () => getClassJobs(region, id),
-    enabled: Number.isFinite(id) && tab === 'jobs',
-  });
-  const { link, query: collections } = usePrivate(id, tab === 'collections');
-  const gear = useQuery({
-    queryKey: ['lodestone', 'gear', region, id, profile.dataUpdatedAt],
-    queryFn: () => getGear(region, profile.data!),
-    enabled: profile.data !== undefined && tab === 'gear',
-  });
-
-  const refreshing = profile.isRefetching || jobs.isRefetching || collections.isRefetching || gear.isRefetching;
-  const refresh = () => {
-    profile.refetch();
-    if (tab === 'jobs') jobs.refetch();
-    if (tab === 'collections') collections.refetch();
-  };
-
-  return (
-    <Screen refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
-      <Stack.Screen options={{ title: profile.data?.name ?? '' }} />
-      {profile.isPending ? <Loading label="Lecture du Lodestone…" /> : null}
-      {profile.error ? <ErrorBox error={profile.error} onRetry={() => profile.refetch()} /> : null}
-      {profile.data ? (
-        <>
-          <Hero profile={profile.data} />
-          <PrivateEntry id={id} name={profile.data.name} />
-          <HudEntry id={id} />
-          <Segmented options={TABS} value={tab} onChange={setTab} />
-          {tab === 'profile' ? <ProfileTab profile={profile.data} /> : null}
-          {tab === 'jobs' ? (
-            jobs.isPending ? (
-              <Loading />
-            ) : jobs.error ? (
-              <ErrorBox error={jobs.error} onRetry={() => jobs.refetch()} />
-            ) : (
-              <JobsTab jobs={jobs.data ?? []} />
-            )
-          ) : null}
-          {tab === 'gear' ? (
-            gear.isPending ? (
-              <Loading label="Lecture de l’équipement…" />
-            ) : gear.error ? (
-              <ErrorBox error={gear.error} onRetry={() => gear.refetch()} />
-            ) : (
-              <GearTab gear={gear.data ?? []} />
-            )
-          ) : null}
-          {tab === 'collections' ? (
-            !link ? (
-              <CollectionsUnlinked id={id} name={profile.data.name} />
-            ) : collections.isPending ? (
-              <Loading label="Lecture de tes collections…" />
-            ) : collections.error ? (
-              <ErrorBox error={collections.error} onRetry={() => collections.refetch()} />
-            ) : (
-              <CollectionsTab id={id} data={collections.data ?? null} />
-            )
-          ) : null}
-          <FollowActions profile={profile.data} />
-        </>
-      ) : null}
-    </Screen>
-  );
-}
+import { formatAgo, formatNumber } from '@/utils/format';
 
 /** Grand portrait du Lodestone, avec le nom et le job actif par-dessus ; bouton 3D si un modèle existe. */
-function Hero({ profile }: { profile: CharacterProfile }) {
+export function Hero({ profile }: { profile: CharacterProfile }) {
   const image = profile.portrait ?? profile.avatar;
   const info = useQuery({
     queryKey: ['sync', 'info', profile.id],
@@ -188,59 +82,7 @@ function Hero({ profile }: { profile: CharacterProfile }) {
   );
 }
 
-/** Accès à l'inventaire, aux servants et au courrier (données du plugin, téléphone connecté par code). */
-function PrivateEntry({ id, name }: { id: number; name: string }) {
-  const theme = useTheme();
-  const linked = useAppStore((s) => Boolean(s.privateLinks[id]));
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={() =>
-        linked
-          ? router.push({ pathname: '/private/[id]', params: { id: String(id) } })
-          : router.push({ pathname: '/connect', params: { id: String(id), name } })
-      }
-      style={({ pressed }) => [styles.privateEntry, { backgroundColor: theme.backgroundElement }, pressed && { opacity: 0.8 }]}>
-      <View style={{ flex: 1 }}>
-        <ThemedText type="smallBold">Inventaire · Servants · Courrier</ThemedText>
-        <ThemedText type="small" themeColor="textSecondary">
-          {linked ? 'Données envoyées par le plugin Dalamud' : 'Connecte ce téléphone avec le code du plugin'}
-        </ThemedText>
-      </View>
-      <Badge label={linked ? 'Ouvrir' : 'Connecter'} tone="accent" />
-    </Pressable>
-  );
-}
 
-/** Modifier l'ATH et les barres d'actions du jeu (téléphone connecté). */
-function HudEntry({ id }: { id: number }) {
-  const theme = useTheme();
-  const linked = useAppStore((s) => Boolean(s.privateLinks[id]));
-  if (!linked) return null;
-  const rows = [
-    { title: 'ATH du jeu', subtitle: 'Déplacer, redimensionner, masquer les éléments', pathname: '/hud/[id]' as const },
-    { title: 'Barres d’actions', subtitle: 'Réorganiser les barres de chaque job', pathname: '/hotbars/[id]' as const },
-  ];
-  return (
-    <>
-      {rows.map((row) => (
-        <Pressable
-          key={row.pathname}
-          accessibilityRole="button"
-          onPress={() => router.push({ pathname: row.pathname, params: { id: String(id) } })}
-          style={({ pressed }) => [styles.privateEntry, { backgroundColor: theme.backgroundElement }, pressed && { opacity: 0.8 }]}>
-          <View style={{ flex: 1 }}>
-            <ThemedText type="smallBold">{row.title}</ThemedText>
-            <ThemedText type="small" themeColor="textSecondary">
-              {row.subtitle}
-            </ThemedText>
-          </View>
-          <Badge label="Modifier" tone="accent" />
-        </Pressable>
-      ))}
-    </>
-  );
-}
 
 function IconRow({ icon, label, value }: { icon?: string | null; label: string; value: string }) {
   return (
@@ -256,7 +98,7 @@ function IconRow({ icon, label, value }: { icon?: string | null; label: string; 
   );
 }
 
-function ProfileTab({ profile }: { profile: CharacterProfile }) {
+export function ProfileSection({ profile }: { profile: CharacterProfile }) {
   const rows: { label: string; value: string | null; icon?: string | null }[] = [
     { label: 'Race', value: [profile.race, profile.tribe].filter(Boolean).join(' · ') || null },
     { label: 'Sexe', value: profile.gender },
@@ -290,7 +132,7 @@ function ProfileTab({ profile }: { profile: CharacterProfile }) {
   );
 }
 
-function JobsTab({ jobs }: { jobs: JobLevel[] }) {
+export function JobsSection({ jobs }: { jobs: JobLevel[] }) {
   if (jobs.length === 0) return <Empty>Aucun job trouvé.</Empty>;
   const unlocked = jobs.filter((j) => j.level !== null);
   const maxed = unlocked.filter((j) => j.level === 100).length;
@@ -338,7 +180,7 @@ function JobTile({ job: { job, level, exp, maxExp } }: { job: JobLevel }) {
   );
 }
 
-function GearTab({ gear }: { gear: GearPiece[] }) {
+export function GearSection({ gear }: { gear: GearPiece[] }) {
   const theme = useTheme();
   if (gear.length === 0) return <Empty>Équipement introuvable sur le Lodestone.</Empty>;
   const levels = gear.filter((g) => g.slot !== 'SOULCRYSTAL' && g.itemLevel).map((g) => g.itemLevel!);
@@ -379,7 +221,7 @@ function GearTab({ gear }: { gear: GearPiece[] }) {
 }
 
 /** Les collections viennent du plugin : il faut que ce téléphone soit connecté au personnage. */
-function CollectionsUnlinked({ id, name }: { id: number; name: string }) {
+export function CollectionsUnlinked({ id, name }: { id: number; name: string }) {
   return (
     <Card>
       <ThemedText type="small">
@@ -391,7 +233,7 @@ function CollectionsUnlinked({ id, name }: { id: number; name: string }) {
   );
 }
 
-function CollectionsTab({ id, data }: { id: number; data: PrivateSnapshot | null }) {
+export function CollectionsOverview({ id, data }: { id: number; data: PrivateSnapshot | null }) {
   const theme = useTheme();
   const catalog = useCatalog(id);
   if (!data?.collections) {
@@ -461,28 +303,31 @@ function CollectionsTab({ id, data }: { id: number; data: PrivateSnapshot | null
           />
         </View>
       ) : null}
-      <Card style={{ gap: 0, paddingVertical: Spacing.one }}>
-        {rows.map((c, i) => (
+      <View style={styles.collectionGrid}>
+        {rows.map((c) => (
           <Pressable
             key={c.key}
             disabled={!c.browsable}
             accessibilityRole={c.browsable ? 'button' : undefined}
+            accessibilityLabel={`${c.label} : ${c.count} sur ${c.total}`}
             onPress={() => router.push({ pathname: '/collection/[characterId]/[key]', params: { characterId: String(id), key: c.key, label: c.label } })}
             style={({ pressed }) => [
-              styles.collectionRow,
-              i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
-              pressed && { opacity: 0.7 },
+              styles.collectionTile,
+              { backgroundColor: theme.backgroundElement, borderColor: theme.frame },
+              pressed && { opacity: 0.75 },
             ]}>
-            <View style={styles.jobTop}>
-              <ThemedText type="small">{c.label}</ThemedText>
-              <ThemedText type="smallBold">
-                {`${formatNumber(c.count)} / ${formatNumber(c.total)} · ${percent(c.count, c.total)} %${c.browsable ? '  ›' : ''}`}
-              </ThemedText>
-            </View>
-            <ProgressBar value={c.total ? c.count / c.total : 0} />
+            <ProgressRing value={c.total ? c.count / c.total : 0} size={64} stroke={4}>
+              <MenuIcon id={CollectionIcons[c.key] ?? MenuIcons.hautsFaits} size={40} />
+            </ProgressRing>
+            <ThemedText type="smallBold" numberOfLines={1} style={styles.collectionLabel}>
+              {c.label}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary" style={styles.collectionCount}>
+              {formatNumber(c.count)} / {formatNumber(c.total)}
+            </ThemedText>
           </Pressable>
         ))}
-      </Card>
+      </View>
       <Empty>
         Relevé en jeu par le plugin Clavicule, {formatAgo(Date.parse(data.updatedAt))}.
         {achievements
@@ -494,7 +339,7 @@ function CollectionsTab({ id, data }: { id: number; data: PrivateSnapshot | null
   );
 }
 
-function FollowActions({ profile }: { profile: CharacterProfile }) {
+export function FollowActions({ profile }: { profile: CharacterProfile }) {
   const region = useAppStore((s) => s.region);
   const saved = useAppStore((s) => s.characters.some((c) => c.id === profile.id));
   const isMain = useAppStore((s) => s.mainCharacterId === profile.id);
@@ -569,5 +414,18 @@ const styles = StyleSheet.create({
   jobTile: { flexBasis: '31%', flexGrow: 1, maxWidth: '32.5%', borderRadius: 14, padding: Spacing.two, gap: Spacing.one },
   jobTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
   gearRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two },
-  collectionRow: { gap: Spacing.one, paddingVertical: Spacing.two },
+  collectionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  collectionTile: {
+    flexBasis: '31%',
+    flexGrow: 1,
+    maxWidth: '32.5%',
+    alignItems: 'center',
+    gap: Spacing.one,
+    paddingVertical: Spacing.three,
+    paddingHorizontal: Spacing.one,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  collectionLabel: { textAlign: 'center', fontSize: 13 },
+  collectionCount: { textAlign: 'center', fontSize: 12, lineHeight: 16 },
 });

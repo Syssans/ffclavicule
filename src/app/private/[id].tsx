@@ -26,11 +26,11 @@ const TABS: { value: Tab; label: string }[] = [
 type Names = Map<number, ItemSummary>;
 
 export default function PrivateScreen() {
-  const { id: rawId } = useLocalSearchParams<{ id: string }>();
+  const { id: rawId, tab: initialTab } = useLocalSearchParams<{ id: string; tab?: Tab }>();
   const id = Number(rawId);
   const link = useAppStore((s) => s.privateLinks[id]);
   const setPrivateLink = useAppStore((s) => s.setPrivateLink);
-  const [tab, setTab] = useState<Tab>('inventory');
+  const [tab, setTab] = useState<Tab>(initialTab && TABS.some((t) => t.value === initialTab) ? initialTab : 'inventory');
 
   const data = useQuery({
     queryKey: ['private', id, link?.token],

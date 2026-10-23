@@ -1,10 +1,10 @@
 import { Platform, StyleSheet, Text, type TextProps } from 'react-native';
 
-import { Fonts, ThemeColor } from '@/constants/theme';
+import { DisplayFont, Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'display' | 'link' | 'linkPrimary' | 'code';
   themeColor?: ThemeColor;
 };
 
@@ -31,9 +31,16 @@ const styles = StyleSheet.create({
     fontWeight: 500,
   },
   title: {
-    fontSize: 32,
-    fontWeight: 700,
+    fontFamily: DisplayFont.bold,
+    fontSize: 30,
     lineHeight: 38,
+  },
+  /** Titres de section, à la façon des fenêtres du jeu. */
+  display: {
+    fontFamily: DisplayFont.regular,
+    fontSize: 18,
+    lineHeight: 24,
+    letterSpacing: 0.4,
   },
   subtitle: {
     fontSize: 20,

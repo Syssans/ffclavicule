@@ -1,3 +1,4 @@
+import { Cinzel_600SemiBold, Cinzel_700Bold, useFonts } from '@expo-google-fonts/cinzel';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -17,12 +18,15 @@ export default function RootLayout() {
       }),
   );
   const hydrated = useStoreHydrated();
+  // Police des titres ; en cas d'échec de chargement, l'appli démarre avec la police du système.
+  const [fontsLoaded, fontError] = useFonts({ Cinzel_600SemiBold, Cinzel_700Bold });
+  const ready = hydrated && (fontsLoaded || fontError !== null);
 
   useEffect(() => {
-    if (hydrated) SplashScreen.hideAsync();
-  }, [hydrated]);
+    if (ready) SplashScreen.hideAsync();
+  }, [ready]);
 
-  if (!hydrated) return null;
+  if (!ready) return null;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -30,7 +34,9 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="character/search" options={{ title: 'Ajouter un personnage', presentation: 'modal' }} />
-          <Stack.Screen name="character/[id]" options={{ title: '' }} />
+          <Stack.Screen name="character/[id]/index" options={{ title: '' }} />
+          <Stack.Screen name="character/[id]/[section]" options={{ title: '' }} />
+          <Stack.Screen name="settings" options={{ title: 'Réglages' }} />
           <Stack.Screen name="item/[id]" options={{ title: '' }} />
           <Stack.Screen name="connect" options={{ title: 'Connecter mon personnage', presentation: 'modal' }} />
           <Stack.Screen name="private/[id]" options={{ title: '' }} />

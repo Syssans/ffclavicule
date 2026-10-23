@@ -36,7 +36,7 @@ export default function SettingsScreen() {
   const byRegion = groupByRegion(dataCenters.data ?? []);
 
   return (
-    <Screen title="Réglages" tab>
+    <Screen>
       <Section title="Lodestone">
         <Segmented
           options={[

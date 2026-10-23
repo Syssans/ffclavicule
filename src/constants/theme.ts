@@ -23,6 +23,10 @@ export const Colors = {
     chart: '#B07A00',
     /** Grille et axes : un cran au-dessus de la surface. */
     grid: '#ECE6D8',
+    /** Liseré doré des cadres, comme les fenêtres du jeu. */
+    frame: '#DCCB9F',
+    /** Ornements (titres de section, séparateurs). */
+    ornament: '#A8853A',
   },
   dark: {
     text: '#F2EFE8',
@@ -37,6 +41,8 @@ export const Colors = {
     border: '#263049',
     chart: '#C98500',
     grid: '#222A40',
+    frame: 'rgba(217,179,108,0.28)',
+    ornament: '#B8955A',
   },
 } as const;
 
@@ -66,6 +72,12 @@ export const Fonts = Platform.select({
     mono: 'var(--font-mono)',
   },
 });
+
+/** Police des titres, proche de celle du logo du jeu (Cinzel, licence OFL), chargée au démarrage. */
+export const DisplayFont = {
+  regular: 'Cinzel_600SemiBold',
+  bold: 'Cinzel_700Bold',
+};
 
 export const Spacing = {
   half: 2,

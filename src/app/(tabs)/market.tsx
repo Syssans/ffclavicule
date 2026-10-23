@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { getHistories, getPriceSummaries } from '@/api/universalis';
 import { searchItems } from '@/api/xivapi';
+import { SettingsButton } from '@/components/home';
 import { Sparkline } from '@/components/price-chart';
 import { ThemedText } from '@/components/themed-text';
 import { Badge, Card, Empty, ErrorBox, GameIcon, Input, Loading, Screen, Section } from '@/components/ui';
@@ -27,7 +28,7 @@ export default function MarketScreen() {
   const searching = query.length >= 2;
 
   return (
-    <Screen title="Marché" tab>
+    <Screen title="Marché" tab right={<SettingsButton />}>
       <Input
         value={text}
         onChangeText={setText}
