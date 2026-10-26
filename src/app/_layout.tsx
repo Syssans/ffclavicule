@@ -49,6 +49,13 @@ export default function RootLayout() {
           <Stack.Screen name="item/[id]" options={{ title: '' }} />
           <Stack.Screen name="crafting/index" options={{ title: 'Artisanat' }} />
           <Stack.Screen name="fishing/index" options={{ title: 'Pêche' }} />
+          <Stack.Screen name="gathering/index" options={{ title: 'Récolte' }} />
+          <Stack.Screen name="gathering/timed" options={{ title: 'Points à horaires' }} />
+          <Stack.Screen name="gathering/items" options={{ title: 'Où récolter' }} />
+          <Stack.Screen name="gathering/item/[id]" options={{ title: 'Objet' }} />
+          <Stack.Screen name="gathering/node/[key]" options={{ title: 'Point de récolte' }} />
+          <Stack.Screen name="gathering/log" options={{ title: 'Carnet de récolte' }} />
+          <Stack.Screen name="gathering/job/[job]" options={{ title: 'Récolteur' }} />
           <Stack.Screen name="fishing/list" options={{ title: 'Poissons' }} />
           <Stack.Screen name="fishing/fish/[id]" options={{ title: 'Poisson' }} />
           <Stack.Screen name="fishing/weather" options={{ title: 'Météo d’Éorzéa' }} />

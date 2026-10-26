@@ -66,7 +66,8 @@
     "test": "jest",
     "typecheck": "node scripts/ensure-expo-env.js && tsc --noEmit",
     "donnees:collect": "node scripts/update-collect-reference.mjs",
-    "donnees:peche": "node scripts/update-fishing-data.mjs"
+    "donnees:peche": "node scripts/update-fishing-data.mjs",
+    "donnees:recolte": "node scripts/update-gathering-data.mjs"
   },
   "private": true,
   "jest": {

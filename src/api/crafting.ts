@@ -16,7 +16,7 @@ type Row<F> = { row_id: number; fields: F };
 type Page<F> = { next?: string; results: Row<F>[] };
 
 /** Recherche XIVAPI avec pagination : suit le curseur jusqu'à `max` résultats. */
-async function searchAll<F>(sheet: string, query: string, fields: string, max = 1000): Promise<Row<F>[]> {
+export async function searchAll<F>(sheet: string, query: string, fields: string, max = 1000): Promise<Row<F>[]> {
   const rows: Row<F>[] = [];
   let params = new URLSearchParams({ sheets: sheet, query, fields, language: 'fr', limit: '500' });
   for (;;) {

@@ -42,6 +42,7 @@ export const MenuIcons = {
 /** Icône de chaque collection. */
 export const CollectionIcons: Record<string, number> = {
   fish: MenuIcons.peche,
+  gathering: MenuIcons.recolte,
   spearfish: MenuIcons.peche,
   achievements: MenuIcons.hautsFaits,
   mounts: MenuIcons.montures,

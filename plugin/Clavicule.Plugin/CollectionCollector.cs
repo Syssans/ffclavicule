@@ -189,6 +189,27 @@ public sealed unsafe partial class CollectionCollector(IDataManager data, IPlugi
                       .Select(r => new Candidate(r.Item.RowId, r.Item.Value.Name.ExtractText(), r.Item.Value.Icon, r.RowId)).ToList(),
             id => PlayerState.Instance()->IsSpearfishCaught(id));
 
+        // Carnet de récolte : un objet peut avoir plusieurs lignes GatheringItem ; il est récolté si l'une l'est.
+        var gatheringRows = new Dictionary<uint, List<uint>>();
+        Add("gathering", "Carnet de récolte",
+            () =>
+            {
+                var candidates = new List<Candidate>();
+                foreach (var r in data.GetExcelSheet<GatheringItem>())
+                {
+                    if (r.Item.RowId == 0 || r.Item.RowId >= 2_000_000 || !r.Item.TryGetValue<Item>(out var item) || item.Name.IsEmpty) continue;
+                    if (!gatheringRows.TryGetValue(item.RowId, out var rows))
+                    {
+                        gatheringRows[item.RowId] = rows = [];
+                        candidates.Add(new Candidate(item.RowId, item.Name.ExtractText(), item.Icon, item.RowId));
+                    }
+                    rows.Add(r.RowId);
+                }
+                return candidates;
+            },
+            itemId => gatheringRows.TryGetValue(itemId, out var rows)
+                      && rows.Any(row => FFXIVClientStructs.FFXIV.Client.Game.QuestManager.IsGatheringItemGathered((ushort)row)));
+
         log.Information("Collections : {Count} catalogues ({Items} éléments)", list.Count, list.Sum(c => c.Items.Count));
         return list;
     }

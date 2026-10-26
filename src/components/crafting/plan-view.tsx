@@ -17,6 +17,7 @@ import { useCraftPrices, useItemSources, useOwnedItems, useRecipeBook } from '@/
 import { useTheme } from '@/hooks/use-theme';
 import { buyPrice, crafterOf, ownedCounts, planCrafts, recipeProfit, unitCosts, type Owned, type PlanEntry, type TreeNode } from '@/utils/crafting';
 import { formatGil, formatNumber } from '@/utils/format';
+import { gatherableItems } from '@/utils/gathering';
 
 /** Icônes des récolteurs (classes 16 à 18). */
 const GATHERER_ICONS = { miner: 62116, botanist: 62117, fisher: 62118 } as const;
@@ -269,7 +270,11 @@ function MaterialRow({
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/item/[id]', params: { id: String(entry.itemId) } })}
+      onPress={() =>
+        gatherableItems().has(entry.itemId)
+          ? router.push({ pathname: '/gathering/item/[id]', params: { id: String(entry.itemId) } })
+          : router.push({ pathname: '/item/[id]', params: { id: String(entry.itemId) } })
+      }
       style={({ pressed }) => [styles.material, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }, pressed && { opacity: 0.7 }]}>
       <GameIcon uri={entry.icon} size={36} dimmed={done} />
       <View style={styles.flex}>
