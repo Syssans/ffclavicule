@@ -2,7 +2,7 @@
  * Prix du marché via Universalis (https://universalis.app), données envoyées par les joueurs.
  * Champs repris de Universalis.Application/Views (V1 et V2).
  */
-import { getJson } from './http';
+import { ApiError, getJson } from './http';
 
 const BASE = 'https://universalis.app/api';
 const SOURCE = 'Universalis';
@@ -183,4 +183,75 @@ export async function getHistories(scope: string, itemIds: number[], days: numbe
     for (const id of chunk) result.set(id, data.items?.[String(id)]?.entries ?? []);
   }
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Prix agrégés (artisanat) : prix mini, prix moyen et ventes par jour, en NQ et en HQ
+// ---------------------------------------------------------------------------
+
+export interface QualityPrice {
+  /** Prix de l'annonce la moins chère. */
+  min: number | null;
+  /** Prix moyen des ventes récentes. */
+  average: number | null;
+  /** Ventes par jour. */
+  velocity: number;
+}
+
+export interface CraftPrice {
+  nq: QualityPrice;
+  hq: QualityPrice;
+}
+
+type Scoped<T> = { world?: T; dc?: T; region?: T };
+interface AggregatedQuality {
+  minListing?: Scoped<{ price: number }>;
+  averageSalePrice?: Scoped<{ price: number }>;
+  dailySaleVelocity?: Scoped<{ quantity: number }>;
+}
+interface AggregatedResponse {
+  results: { itemId: number; nq?: AggregatedQuality; hq?: AggregatedQuality }[];
+}
+
+/** Valeur la plus proche du serveur choisi : monde, sinon centre de données, sinon région. */
+function nearest<T>(value: Scoped<T> | undefined): T | undefined {
+  return value?.world ?? value?.dc ?? value?.region;
+}
+
+function quality(q: AggregatedQuality | undefined): QualityPrice {
+  const min = nearest(q?.minListing)?.price;
+  const average = nearest(q?.averageSalePrice)?.price;
+  return {
+    min: min && min > 0 ? min : null,
+    average: average && average > 0 ? Math.round(average) : null,
+    velocity: nearest(q?.dailySaleVelocity)?.quantity ?? 0,
+  };
+}
+
+export function parseAggregated(data: AggregatedResponse): Map<number, CraftPrice> {
+  const out = new Map<number, CraftPrice>();
+  for (const r of data.results ?? []) out.set(r.itemId, { nq: quality(r.nq), hq: quality(r.hq) });
+  return out;
+}
+
+/** Prix de beaucoup d'objets d'un coup (100 par requête), pour les coûts de fabrication. */
+export async function getCraftPrices(scope: string, itemIds: number[]): Promise<Map<number, CraftPrice>> {
+  const unique = [...new Set(itemIds.filter((id) => id > 0))];
+  const out = new Map<number, CraftPrice>();
+  // Universalis refuse (400) un paquet qui ne contient que des objets qu'il ne connaît pas encore (tout derniers
+  // ajouts du jeu) : on coupe le paquet en deux jusqu'à isoler ces objets, qui restent simplement sans prix.
+  const load = async (chunk: number[]): Promise<void> => {
+    try {
+      const data = await getJson<AggregatedResponse>(`${BASE}/v2/aggregated/${encodeURIComponent(scope)}/${chunk.join(',')}`, { source: SOURCE });
+      for (const [id, price] of parseAggregated(data)) out.set(id, price);
+    } catch (error) {
+      if (!(error instanceof ApiError && error.status === 400)) throw error;
+      if (chunk.length === 1) return;
+      const half = Math.ceil(chunk.length / 2);
+      await load(chunk.slice(0, half));
+      await load(chunk.slice(half));
+    }
+  };
+  for (let i = 0; i < unique.length; i += MAX_ITEMS_PER_REQUEST) await load(unique.slice(i, i + MAX_ITEMS_PER_REQUEST));
+  return out;
 }

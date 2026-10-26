@@ -47,6 +47,11 @@ export default function RootLayout() {
           <Stack.Screen name="notifications/jeu" options={{ title: 'Rappels du jeu' }} />
           <Stack.Screen name="alert" options={{ title: 'Alerte de prix', presentation: 'modal' }} />
           <Stack.Screen name="item/[id]" options={{ title: '' }} />
+          <Stack.Screen name="crafting/index" options={{ title: 'Artisanat' }} />
+          <Stack.Screen name="crafting/recipe/[id]" options={{ title: 'Recette' }} />
+          <Stack.Screen name="crafting/list" options={{ title: 'Ma liste d’artisanat' }} />
+          <Stack.Screen name="crafting/profit" options={{ title: 'Rentabilité' }} />
+          <Stack.Screen name="crafting/job/[craftType]" options={{ title: 'Artisan' }} />
           <Stack.Screen name="connect" options={{ title: 'Connecter mon personnage', presentation: 'modal' }} />
           <Stack.Screen name="inventory/[id]" options={{ title: 'Inventaire' }} />
           <Stack.Screen name="retainers/[id]" options={{ title: 'Servants' }} />

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { getDataCenters, getHistory, getMarket, regionLabel, type Listing, type Sale } from '@/api/universalis';
+import { recipesForItems } from '@/api/crafting';
 import { getItem } from '@/api/xivapi';
 import { PriceChart } from '@/components/price-chart';
 import { ThemedText } from '@/components/themed-text';
@@ -30,6 +31,7 @@ export default function ItemScreen() {
   const [listTab, setListTab] = useState<ListTab>('listings');
 
   const item = useQuery({ queryKey: ['xivapi', 'item', id], queryFn: () => getItem(id), enabled: Number.isFinite(id) });
+  const recipes = useQuery({ queryKey: ['craft', 'for-item', id], queryFn: () => recipesForItems([id]), enabled: Number.isFinite(id), staleTime: 24 * 3600_000 });
   const dataCenters = useQuery({ queryKey: ['universalis', 'data-centers'], queryFn: getDataCenters, staleTime: Infinity });
 
   // La région du centre de données choisi (ex. "Europe"), pour comparer avec les autres serveurs.
@@ -102,6 +104,13 @@ export default function ItemScreen() {
             </ThemedText>
           ) : null}
 
+          {recipes.data && recipes.data.length > 0 ? (
+            <Button
+              label={recipes.data.length > 1 ? `Fabriquer (${recipes.data.length} artisans)` : 'Fabriquer : voir la recette'}
+              variant="secondary"
+              onPress={() => router.push({ pathname: '/crafting/recipe/[id]', params: { id: String(recipes.data[0].id) } })}
+            />
+          ) : null}
           {!marketable ? (
             <Empty>Cet objet ne se vend pas au marché.</Empty>
           ) : (

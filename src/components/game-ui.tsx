@@ -135,13 +135,16 @@ export function MenuRow({ icon, title, subtitle, right, onPress }: { icon: numbe
  */
 export function GameWindow({
   icon,
+  image,
   title,
   subtitle,
   right,
   children,
   style,
 }: {
-  icon: number;
+  /** Icône du jeu par son numéro, ou `image` : adresse d'une icône (objet…). */
+  icon?: number;
+  image?: string | null;
   title: string;
   subtitle?: string | null;
   right?: ReactNode;
@@ -156,9 +159,13 @@ export function GameWindow({
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.windowHead}>
-        <MenuIcon id={icon} size={40} />
+        {image ? (
+          <Image source={image} style={{ width: 40, height: 40, borderRadius: 6 }} contentFit="contain" />
+        ) : icon !== undefined ? (
+          <MenuIcon id={icon} size={40} />
+        ) : null}
         <View style={styles.rowText}>
-          <ThemedText type="display" accessibilityRole="header" numberOfLines={1} style={{ color: theme.ornament }}>
+          <ThemedText type="display" accessibilityRole="header" numberOfLines={2} style={{ color: theme.ornament }}>
             {title}
           </ThemedText>
           {subtitle ? (
