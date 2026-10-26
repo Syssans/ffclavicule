@@ -173,6 +173,22 @@ public sealed unsafe partial class CollectionCollector(IDataManager data, IPlugi
                       .Select(r => new Candidate(r.RowId, r.Name.ExtractText(), (uint)Math.Max(0, r.IconIssuer), r.RowId)).ToList(),
             id => FFXIVClientStructs.FFXIV.Client.Game.QuestManager.Instance()->IsLevequestComplete((ushort)id));
 
+        // Carnet de pêche : identifiant de l'objet (le poisson) pour l'appli, ligne de FishParameter pour le jeu.
+        Add("fish", "Carnet de pêche",
+            () => data.GetExcelSheet<FishParameter>()
+                      .Where(r => r.IsInLog && r.Item.RowId > 0)
+                      .Select(r => r.Item.TryGetValue<Item>(out var item) && !item.Name.IsEmpty
+                                       ? new Candidate(item.RowId, item.Name.ExtractText(), item.Icon, r.RowId)
+                                       : null)
+                      .OfType<Candidate>().ToList(),
+            id => PlayerState.Instance()->IsFishCaught(id));
+
+        Add("spearfish", "Pêche au harpon",
+            () => data.GetExcelSheet<SpearfishingItem>()
+                      .Where(r => r.IsVisible && r.Item.RowId > 0 && r.Item.ValueNullable is { } item && !item.Name.IsEmpty)
+                      .Select(r => new Candidate(r.Item.RowId, r.Item.Value.Name.ExtractText(), r.Item.Value.Icon, r.RowId)).ToList(),
+            id => PlayerState.Instance()->IsSpearfishCaught(id));
+
         log.Information("Collections : {Count} catalogues ({Items} éléments)", list.Count, list.Sum(c => c.Items.Count));
         return list;
     }

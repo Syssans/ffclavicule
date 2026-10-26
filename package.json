@@ -65,7 +65,8 @@
     "lint": "expo lint",
     "test": "jest",
     "typecheck": "node scripts/ensure-expo-env.js && tsc --noEmit",
-    "donnees:collect": "node scripts/update-collect-reference.mjs"
+    "donnees:collect": "node scripts/update-collect-reference.mjs",
+    "donnees:peche": "node scripts/update-fishing-data.mjs"
   },
   "private": true,
   "jest": {

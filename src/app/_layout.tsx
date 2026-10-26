@@ -48,6 +48,12 @@ export default function RootLayout() {
           <Stack.Screen name="alert" options={{ title: 'Alerte de prix', presentation: 'modal' }} />
           <Stack.Screen name="item/[id]" options={{ title: '' }} />
           <Stack.Screen name="crafting/index" options={{ title: 'Artisanat' }} />
+          <Stack.Screen name="fishing/index" options={{ title: 'Pêche' }} />
+          <Stack.Screen name="fishing/list" options={{ title: 'Poissons' }} />
+          <Stack.Screen name="fishing/fish/[id]" options={{ title: 'Poisson' }} />
+          <Stack.Screen name="fishing/weather" options={{ title: 'Météo d’Éorzéa' }} />
+          <Stack.Screen name="fishing/ocean" options={{ title: 'Pêche en mer' }} />
+          <Stack.Screen name="fishing/log" options={{ title: 'Carnet de pêche' }} />
           <Stack.Screen name="crafting/recipe/[id]" options={{ title: 'Recette' }} />
           <Stack.Screen name="crafting/list" options={{ title: 'Ma liste d’artisanat' }} />
           <Stack.Screen name="crafting/profit" options={{ title: 'Rentabilité' }} />

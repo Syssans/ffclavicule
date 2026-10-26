@@ -8,7 +8,6 @@ import { MenuIcons } from '@/constants/menu-icons';
 
 const MODULES = [
   { icon: MenuIcons.journal, title: 'Quêtes', subtitle: 'Scénario, quêtes de job, enchaînements' },
-  { icon: MenuIcons.peche, title: 'Pêche', subtitle: 'Fenêtres météo, appâts, carnet' },
   { icon: MenuIcons.recolte, title: 'Récolte', subtitle: 'Nœuds éphémères, horaires' },
   { icon: MenuIcons.carte, title: 'Cartes', subtitle: 'Éthérites, PNJ, points d’intérêt' },
   { icon: MenuIcons.actions, title: 'Jobs', subtitle: 'Actions, traits, niveaux' },
@@ -29,6 +28,12 @@ export default function GuidesScreen() {
         title="Artisanat"
         subtitle="Recettes et sous-recettes, liste de courses, rentabilité au marché, guide de niveau des artisans."
         onPress={() => router.push('/crafting')}
+      />
+      <MenuEntry
+        icon={MenuIcons.peche}
+        title="Pêche"
+        subtitle="Fenêtres des poissons, appâts, météo d’Éorzéa, carnet de pêche et pêche en mer."
+        onPress={() => router.push('/fishing')}
       />
       <Section title="Bientôt">
         <MenuGrid>
