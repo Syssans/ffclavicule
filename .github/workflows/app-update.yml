@@ -1,7 +1,7 @@
 # Publie chaque modification de l'appli en mise à jour automatique (EAS Update, canal « production ») : l'appli
 # installée (.ipa) la télécharge toute seule. Seul le code JavaScript et les images changent ainsi ; une modification
 # native (nouveau module) demande un nouvel .ipa et une nouvelle « version » dans app.json.
-# Il faut le secret EXPO_TOKEN (jeton d'accès expo.dev) dans les réglages du dépôt.
+# Il faut le secret EXPO_TOKEN (jeton d'accès expo.dev) dans les réglages du dépôt (Settings → Secrets → Actions).
 name: Mise à jour de l'appli (EAS Update)
 
 on:
