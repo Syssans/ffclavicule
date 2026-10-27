@@ -13,6 +13,8 @@ import {
   instancesByType,
   mapData,
   mapImage,
+  regionZonePoints,
+  assembledZones,
   mapPoints,
   nearestPoint,
   officialPoints,
@@ -103,6 +105,18 @@ describe('points de la carte', () => {
     // Fichier livré avec l'appli (pas une adresse XIVAPI).
     expect(JSON.stringify(mapImage(noscea, getMap(noscea)!))).not.toContain('xivapi');
     expect(mapImage(16, getMap(16)!)).toEqual({ uri: 'https://v2.xivapi.com/api/asset/map/s1f2/00' });
+  });
+
+  it('assemble les régions avec les cartes de leurs zones, et y montre leurs éthérites', () => {
+    const noscea = breadcrumb(16)[1].id;
+    const zones = assembledZones(noscea);
+    const lower = zones.find((z) => z.zone === 16)!;
+    expect(lower).toBeDefined();
+    const aetheryte = regionZonePoints(noscea, ['aetherytes']).find((p) => p.label === 'Chantier naval de Moraby')!;
+    expect(aetheryte.source?.mapId).toBe(16);
+    // La zone est réduite de moitié et centrée sur son repère de la région.
+    expect(aetheryte.x).toBeCloseTo(lower.cx + (aetheryte.source!.x - 1024) / 2);
+    expect(aetheryte.y).toBeCloseTo(lower.cy + (aetheryte.source!.y - 1024) / 2);
   });
 
   it('nomme les éthérites et les range dans leur calque', () => {

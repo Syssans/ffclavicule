@@ -52,6 +52,8 @@ export interface MapData {
   territoryMap: Record<string, number>;
   names: Record<string, string>;
   markers: Record<string, RawMarker[]>;
+  /** Régions assemblées : [carte de la zone, x, y] (centre de la zone, réduite de moitié, sur la région). */
+  assembled: Record<string, [number, number, number][]>;
   /** [aléa, nom, niveau, x, y, icône]. */
   fates: Record<string, [number, string, number, number, number, number][]>;
   /** [coin de pêche, nom (PlaceName), niveau, x, y, rayon]. */
@@ -258,6 +260,8 @@ export interface MapPoint {
   /** Importance pour l'affichage des noms : 0 toujours, 1 zoom moyen, 2 zoom fort, 3 calques ajoutés (zoom fort). */
   rank: number;
   data: PointData;
+  /** Point d'une zone montré sur sa région assemblée : la zone et la position sur la carte de la zone. */
+  source?: { mapId: number; x: number; y: number };
 }
 
 /** Icônes de repère officiel qui comptent comme « lieux » (épingle de nom de lieu). */
@@ -364,9 +368,39 @@ export function treasurePoints(id: number): MapPoint[] {
 }
 
 /** Points des calques demandés (les quêtes, chargées à la demande, s'ajoutent à part). */
+/** Zones posées sur une carte de région assemblée, avec le centre de chacune sur la région. */
+export function assembledZones(id: number): { zone: number; cx: number; cy: number }[] {
+  return (mapData().assembled?.[String(id)] ?? []).map(([zone, cx, cy]) => ({ zone, cx, cy }));
+}
+
+/** Position d'un point d'une zone sur sa région assemblée (la zone y est réduite de moitié, centrée sur cx, cy). */
+export function zoneToRegion(cx: number, cy: number, x: number, y: number): [number, number] {
+  return [cx + (x - MAP_SIZE / 2) / 2, cy + (y - MAP_SIZE / 2) / 2];
+}
+
+/**
+ * Points des zones montrés sur leur région assemblée : les éthérites et les grands noms de lieux, qui apparaissent
+ * avec le zoom. Le reste (aléas, récolte…) se voit en ouvrant la zone.
+ */
+export function regionZonePoints(id: number, layers: readonly LayerKey[]): MapPoint[] {
+  const on = new Set(layers);
+  const out: MapPoint[] = [];
+  for (const { zone, cx, cy } of assembledZones(id)) {
+    for (const p of officialPoints(zone)) {
+      if (p.data.type !== 'marker' || !on.has(p.layer)) continue;
+      const aetheryte = p.data.kind === 3;
+      if (!aetheryte && p.data.kind !== 1) continue;
+      const [x, y] = zoneToRegion(cx, cy, p.x, p.y);
+      out.push({ ...p, id: `z${zone}-${p.id}`, x, y, rank: aetheryte ? 1 : 2, source: { mapId: zone, x: p.x, y: p.y } });
+    }
+  }
+  return out;
+}
+
 export function mapPoints(id: number, layers: readonly LayerKey[]): MapPoint[] {
   const on = new Set(layers);
   const out: MapPoint[] = officialPoints(id).filter((p) => on.has(p.layer));
+  out.push(...regionZonePoints(id, layers));
   if (on.has('fates')) out.push(...fatePoints(id));
   if (on.has('fishing')) out.push(...fishingPoints(id));
   if (on.has('gathering')) out.push(...gatheringPoints(id));
@@ -377,7 +411,7 @@ export function mapPoints(id: number, layers: readonly LayerKey[]): MapPoint[] {
 /** Nombre de points de chaque calque sur une carte (pour griser les calques vides). */
 export function layerCounts(id: number): Partial<Record<LayerKey, number>> {
   const counts: Partial<Record<LayerKey, number>> = {};
-  for (const p of officialPoints(id)) counts[p.layer] = (counts[p.layer] ?? 0) + 1;
+  for (const p of [...officialPoints(id), ...regionZonePoints(id, ['places', 'aetherytes'])]) counts[p.layer] = (counts[p.layer] ?? 0) + 1;
   counts.fates = fatePoints(id).length;
   counts.fishing = fishingPoints(id).length;
   counts.gathering = gatheringPoints(id).length;

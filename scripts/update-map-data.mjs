@@ -22,7 +22,7 @@ import sharp from 'sharp';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = join(ROOT, 'src', 'data', 'map.json');
-/** Cartes de région assemblées (parchemin + terres des zones), livrées avec l'appli. */
+/** Cartes de région assemblées (parchemin + cartes des zones), livrées avec l'appli. */
 const REGION_DIR = join(ROOT, 'assets', 'maps', 'regions');
 const REGION_INDEX = join(ROOT, 'src', 'data', 'region-images.ts');
 /** Les terres sont posées à 70 % d'opacité, comme le rendu du jeu. */
@@ -218,7 +218,7 @@ async function main() {
    * Lien : carte cible (passage) ou numéro d'éthérite.
    */
   const markers = {};
-  /** Terres des zones sur les cartes de région : [x, y, icône]. */
+  /** Terres des zones sur les cartes de région : [x, y, icône, carte de la zone]. */
   const overlays = {};
   const parents = {};
   const linkCount = (map) => (markerRows.get(map._range) ?? []).filter((f) => f.DataType === 1).length;
@@ -233,7 +233,8 @@ async function main() {
       // de carte, centrée sur le repère, posée sur le parchemin. On la garde à part, et le repère devient un nom
       // cliquable.
       if (icon >= 63200 && icon < 63500) {
-        (overlays[id] ??= []).push([f.X, f.Y, icon]);
+        const zone = f.DataType === 1 ? canonical(f['DataKey@as(raw)'] ?? 0) : undefined;
+        (overlays[id] ??= []).push([f.X, f.Y, icon, zone ? Number(zone) : 0]);
         icon = 0;
       }
       const dataType = f.DataType;
@@ -386,8 +387,22 @@ async function main() {
     treasureItems,
     questIcons,
   };
+  // Régions assemblées : la carte de chaque zone, réduite de moitié et centrée sur son repère, à la place de sa
+  // silhouette. Une seule zone par emplacement (Limsa Lominsa a trois cartes au même endroit).
+  data.assembled = {};
+  for (const [id, list] of Object.entries(overlays)) {
+    const seen = new Set();
+    data.assembled[id] = list
+      .filter(([x, y, , zone]) => {
+        const key = `${x},${y}`;
+        if (!zone || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map(([x, y, , zone]) => [zone, x, y]);
+  }
   writeFileSync(OUT, JSON.stringify(data));
-  await buildRegionImages(maps, overlays);
+  await buildRegionImages(maps, overlays, data.assembled);
   const count = (k) => Object.values(maps).filter((m) => m.k === k).length;
   console.log(
     `${Object.keys(maps).length} cartes (${count('world')} mondes, ${count('region')} régions, ${count('zone')} zones, ${count('city')} villes, ${count('housing')} quartiers, ${count('instance')} instances)`,
@@ -403,24 +418,46 @@ async function download(url) {
 }
 
 /**
- * Cartes de région « toutes faites » : le parchemin du jeu avec les terres de chaque zone déjà posées dessus
- * (icônes 63200 à 63499 : 1024 pixels de carte centrés sur le repère de la zone). Une seule image à afficher au lieu
- * d'une douzaine.
+ * Cartes de région assemblées : le parchemin du jeu avec, à la place de la silhouette de chaque zone (icônes 63200
+ * à 63499), la vraie carte de la zone. La silhouette est exactement la carte de la zone réduite de moitié (1024 pixels
+ * de carte centrés sur le repère) : elle sert de masque. Une seule image à afficher, livrée avec l'appli.
  */
-async function buildRegionImages(maps, overlays) {
+async function buildRegionImages(maps, overlays, assembled) {
   mkdirSync(REGION_DIR, { recursive: true });
   const entries = [];
   for (const [id, list] of Object.entries(overlays)) {
     const map = maps[id];
     const base = await download(`${XIVAPI}/asset/map/${map.i}`);
+    const zones = new Map((assembled[id] ?? []).map(([zone, x, y]) => [`${x},${y}`, zone]));
+    const done = new Set();
     const layers = [];
     for (const [x, y, icon] of list) {
+      const key = `${x},${y}`;
+      if (done.has(key)) continue;
+      done.add(key);
       const group = String(Math.floor(icon / 1000) * 1000).padStart(6, '0');
       const file = String(icon).padStart(6, '0');
       const png = await download(`${XIVAPI}/asset?${new URLSearchParams({ path: `ui/icon/${group}/${file}_hr1.tex`, format: 'png' })}`);
-      const { data, info } = await sharp(png).resize(OVERLAY_SIZE, OVERLAY_SIZE).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-      for (let i = 3; i < data.length; i += 4) data[i] = Math.round(data[i] * OVERLAY_OPACITY);
-      // Partie de l'image qui tombe sur la carte (une terre peut déborder du bord).
+      const mask = await sharp(png).resize(OVERLAY_SIZE, OVERLAY_SIZE).ensureAlpha().extractChannel(3).raw().toBuffer();
+      const zone = zones.get(key);
+      let data;
+      if (zone && maps[zone]) {
+        // La carte de la zone, découpée selon la silhouette.
+        const zoneImage = await download(`${XIVAPI}/asset/map/${maps[zone].i}`);
+        const rgb = await sharp(zoneImage).resize(OVERLAY_SIZE, OVERLAY_SIZE).removeAlpha().raw().toBuffer();
+        data = Buffer.alloc(OVERLAY_SIZE * OVERLAY_SIZE * 4);
+        for (let p = 0; p < OVERLAY_SIZE * OVERLAY_SIZE; p++) {
+          data[p * 4] = rgb[p * 3];
+          data[p * 4 + 1] = rgb[p * 3 + 1];
+          data[p * 4 + 2] = rgb[p * 3 + 2];
+          data[p * 4 + 3] = mask[p];
+        }
+      } else {
+        // Pas de carte de zone : la silhouette du jeu, comme en jeu.
+        data = await sharp(png).resize(OVERLAY_SIZE, OVERLAY_SIZE).ensureAlpha().raw().toBuffer();
+        for (let i = 3; i < data.length; i += 4) data[i] = Math.round(data[i] * OVERLAY_OPACITY);
+      }
+      // Partie de l'image qui tombe sur la carte (une zone peut déborder du bord).
       const left = Math.round(x - OVERLAY_SIZE / 2);
       const top = Math.round(y - OVERLAY_SIZE / 2);
       const cropLeft = Math.max(0, -left);
@@ -428,21 +465,21 @@ async function buildRegionImages(maps, overlays) {
       const width = Math.min(OVERLAY_SIZE - cropLeft, MAP_SIZE - Math.max(0, left));
       const height = Math.min(OVERLAY_SIZE - cropTop, MAP_SIZE - Math.max(0, top));
       if (width <= 0 || height <= 0) continue;
-      const input = await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+      const input = await sharp(data, { raw: { width: OVERLAY_SIZE, height: OVERLAY_SIZE, channels: 4 } })
         .extract({ left: cropLeft, top: cropTop, width, height })
         .png()
         .toBuffer();
       layers.push({ input, left: Math.max(0, left), top: Math.max(0, top) });
     }
     const name = map.i.replace('/', '-');
-    await sharp(base).resize(MAP_SIZE, MAP_SIZE).composite(layers).jpeg({ quality: 82, mozjpeg: true }).toFile(join(REGION_DIR, `${name}.jpg`));
+    await sharp(base).resize(MAP_SIZE, MAP_SIZE).composite(layers).webp({ quality: 80 }).toFile(join(REGION_DIR, `${name}.webp`));
     entries.push([Number(id), name]);
-    console.log(`Région ${map.n} : ${layers.length} terres posées`);
+    console.log(`Région ${map.n} : ${layers.length} zones posées`);
   }
-  const lines = entries.map(([id, name]) => `  ${id}: require('../../assets/maps/regions/${name}.jpg'),`);
+  const lines = entries.map(([id, name]) => `  ${id}: require('../../assets/maps/regions/${name}.webp'),`);
   writeFileSync(
     REGION_INDEX,
-    `/** Généré par scripts/update-map-data.mjs : cartes de région assemblées (parchemin + terres des zones). */\n` +
+    `/** Généré par scripts/update-map-data.mjs : cartes de région assemblées (parchemin + cartes des zones). */\n` +
       `export const REGION_IMAGES: Record<number, number> = {\n${lines.join('\n')}\n};\n`,
   );
 }
