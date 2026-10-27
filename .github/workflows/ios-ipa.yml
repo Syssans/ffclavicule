@@ -1,10 +1,12 @@
 # Compile l'appli iOS sur un Mac de GitHub et publie un .ipa NON signé en artefact, à installer avec Sideloadly
-# (qui le signe avec un identifiant Apple). Lancé par une étiquette « ipa-… » ou à la main.
+# (qui le signe avec un identifiant Apple).
+# Pour en fabriquer un nouveau : augmenter le numéro dans .github/ipa-version (les Mac de GitHub coûtent cher en
+# minutes, on ne recompile donc pas à chaque modification), ou le lancer à la main depuis l'onglet Actions.
 name: Appli iOS (ipa pour Sideloadly)
 
 on:
   push:
-    tags: ['ipa-*']
+    paths: ['.github/ipa-version', '.github/workflows/ios-ipa.yml']
   workflow_dispatch:
 
 concurrency:
