@@ -208,6 +208,8 @@ async function main() {
    * Lien : carte cible (passage) ou numéro d'éthérite.
    */
   const markers = {};
+  /** Terres des zones sur les cartes de région : [x, y, icône]. */
+  const overlays = {};
   const parents = {};
   const linkCount = (map) => (markerRows.get(map._range) ?? []).filter((f) => f.DataType === 1).length;
   // Les cartes du monde les plus complètes d'abord : c'est à elles que les régions se rattachent.
@@ -217,9 +219,13 @@ async function main() {
     for (const f of markerRows.get(map._range) ?? []) {
       if (!f.X && !f.Y) continue;
       let icon = f['Icon@as(raw)'] ?? 0;
-      // Les icônes 632xx sont les silhouettes des zones sur les cartes de région (2048 × 2048) : on les remplace par
-      // un nom cliquable.
-      if (icon >= 63200 && icon < 63300) icon = 0;
+      // Les icônes 63200 à 63499 sont les terres de chaque zone sur les cartes de région : une image de 1024 pixels
+      // de carte, centrée sur le repère, posée sur le parchemin. On la garde à part, et le repère devient un nom
+      // cliquable.
+      if (icon >= 63200 && icon < 63500) {
+        (overlays[id] ??= []).push([f.X, f.Y, icon]);
+        icon = 0;
+      }
       const dataType = f.DataType;
       const key = f['DataKey@as(raw)'] ?? 0;
       let kind = f.Type === 1 ? 1 : 0;
@@ -364,6 +370,7 @@ async function main() {
     territoryMap,
     names: placeNames,
     markers,
+    overlays,
     fates,
     fishing,
     treasures,

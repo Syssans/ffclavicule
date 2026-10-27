@@ -12,6 +12,7 @@ import {
   getMap,
   instancesByType,
   mapData,
+  mapOverlays,
   mapPoints,
   nearestPoint,
   officialPoints,
@@ -97,6 +98,14 @@ describe('hiérarchie des cartes', () => {
 });
 
 describe('points de la carte', () => {
+  it('pose les terres des zones sur les cartes de région', () => {
+    const noscea = breadcrumb(16)[1].id;
+    const overlays = mapOverlays(noscea);
+    expect(overlays.length).toBeGreaterThan(5);
+    for (const o of overlays) expect(o.icon).toBeGreaterThanOrEqual(63200);
+    expect(mapOverlays(16)).toEqual([]);
+  });
+
   it('nomme les éthérites et les range dans leur calque', () => {
     const aetherytes = officialPoints(CENTRAL_SHROUD).filter((p) => p.layer === 'aetherytes');
     expect(aetherytes.map((p) => p.label)).toContain('Ranch de Brancharquée');

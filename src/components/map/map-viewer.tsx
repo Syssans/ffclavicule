@@ -21,7 +21,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import { gameIconUrl } from '@/api/xivapi';
 import { DisplayFont } from '@/constants/theme';
-import { MAP_SIZE, nearestPoint, placeLabels, visibleRank, type MapPoint } from '@/utils/map';
+import { MAP_SIZE, nearestPoint, OVERLAY_SIZE, placeLabels, visibleRank, type MapPoint } from '@/utils/map';
 
 const ICON = 26;
 const LABEL_WIDTH = 170;
@@ -39,6 +39,8 @@ export interface MapViewerHandle {
 
 interface Props {
   imageUrl: string;
+  /** Images posées sur le fond (terres des zones sur une carte de région). */
+  overlays?: { x: number; y: number; icon: number }[];
   points: MapPoint[];
   selectedId?: string | null;
   /** Repère posé par l'utilisateur (appui long). */
@@ -59,7 +61,7 @@ function clampAxis(value: number, content: number, view: number): number {
 }
 
 export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
-  { imageUrl, points, selectedId, pin, onTap, onLongPress, initialFocus, initialCover = false },
+  { imageUrl, overlays = [], points, selectedId, pin, onTap, onLongPress, initialFocus, initialCover = false },
   ref,
 ) {
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -247,6 +249,17 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
                 onLoad={() => setLoaded(true)}
                 onError={() => setFailed(true)}
               />
+              {overlays.map((o, i) => (
+                <Image
+                  key={`${o.icon}-${i}`}
+                  // Version normale (1024 pixels) : la haute définition prendrait trop de mémoire pour une dizaine d'images.
+                  source={{ uri: gameIconUrl(o.icon, false) }}
+                  style={[styles.overlay, { left: o.x - OVERLAY_SIZE / 2, top: o.y - OVERLAY_SIZE / 2 }]}
+                  contentFit="fill"
+                  cachePolicy="disk"
+                  transition={250}
+                />
+              ))}
               {ordered.map((p) => (
                 <Marker key={p.id} point={p} selected={p.id === selectedId} showLabel={labels.has(p.id)} counterStyle={counterStyle} />
               ))}
@@ -363,6 +376,7 @@ const styles = StyleSheet.create({
     height: MAP_SIZE,
   },
   image: { width: MAP_SIZE, height: MAP_SIZE },
+  overlay: { position: 'absolute', width: OVERLAY_SIZE, height: OVERLAY_SIZE, opacity: 0.7 },
   anchor: { position: 'absolute', width: 0, height: 0, overflow: 'visible' },
   iconBox: {
     position: 'absolute',

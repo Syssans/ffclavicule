@@ -77,10 +77,11 @@ const ITEM_FIELDS = [
 ].join(',');
 
 /** Icône du jeu par son numéro (ex. 62119 -> ui/icon/062000/062119_hr1.tex). */
-export function gameIconUrl(id: number): string {
+/** Icône du jeu ; `highRes` (par défaut) : version haute définition, deux fois plus grande. */
+export function gameIconUrl(id: number, highRes = true): string {
   const group = String(Math.floor(id / 1000) * 1000).padStart(6, '0');
   const file = String(id).padStart(6, '0');
-  return `${BASE}/asset?${new URLSearchParams({ path: `ui/icon/${group}/${file}_hr1.tex`, format: 'png' })}`;
+  return `${BASE}/asset?${new URLSearchParams({ path: `ui/icon/${group}/${file}${highRes ? '_hr1' : ''}.tex`, format: 'png' })}`;
 }
 
 export function iconUrl(icon: IconValue | undefined): string | null {
