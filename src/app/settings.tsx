@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { UpdatesSection } from '@/components/app-updates';
 import { ThemedText } from '@/components/themed-text';
 import { Button, Card, ErrorBox, Loading, Screen, Section, Segmented } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
@@ -38,6 +39,10 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
+      <Section title="Version de l’appli">
+        <UpdatesSection />
+      </Section>
+
       <Section title="Notifications">
         <Button label="Alertes du marché et rappels du jeu" variant="secondary" onPress={() => router.push('/notifications')} />
       </Section>

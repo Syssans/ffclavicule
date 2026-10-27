@@ -7,6 +7,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Platform, StyleSheet, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { UpdateBanner } from '@/components/app-updates';
 import { NotificationsBridge } from '@/components/notifications-bridge';
 import { useAppStore } from '@/store/app-store';
 
@@ -78,6 +79,7 @@ export default function RootLayout() {
             <Stack.Screen name="model/[id]" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />
             <Stack.Screen name="collection/[characterId]/[key]" options={{ title: '' }} />
           </Stack>
+          <UpdateBanner />
         </ThemeProvider>
       </QueryClientProvider>
     </GestureHandlerRootView>

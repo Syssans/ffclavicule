@@ -1,0 +1,69 @@
+# Publie chaque modification de l'appli en mise à jour automatique (EAS Update, canal « production ») : l'appli
+# installée (.ipa) la télécharge toute seule. Seul le code JavaScript et les images changent ainsi ; une modification
+# native (nouveau module) demande un nouvel .ipa et une nouvelle « version » dans app.json.
+# Il faut le secret EXPO_TOKEN (jeton d'accès expo.dev) dans les réglages du dépôt.
+name: Mise à jour de l'appli (EAS Update)
+
+on:
+  push:
+    branches: ['claude/inspiring-clarke-gskpec']
+    paths: ['src/**', 'assets/**', 'app.json', 'package.json', 'package-lock.json', '.github/workflows/app-update.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: app-update
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Jeton Expo présent ?
+        id: token
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::warning::Secret EXPO_TOKEN absent : ajoute un jeton d'accès expo.dev dans Settings → Secrets and variables → Actions."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.ok == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.token.outputs.ok == 'true'
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Bibliothèques
+        if: steps.token.outputs.ok == 'true'
+        run: npm ci --no-audit --no-fund
+
+      - name: Projet expo.dev
+        id: project
+        if: steps.token.outputs.ok == 'true'
+        run: |
+          npx eas-cli@latest whoami
+          ID=$(node -e "console.log(require('./app.json').expo.extra?.eas?.projectId ?? '')")
+          if [ -z "$ID" ]; then
+            # Première fois : on relie l'appli à son projet expo.dev (créé au besoin) et on affiche son numéro,
+            # à enregistrer dans app.json.
+            npx eas-cli@latest init --non-interactive --force
+            ID=$(node -e "console.log(require('./app.json').expo.extra?.eas?.projectId ?? '')")
+            OWNER=$(npx eas-cli@latest whoami | head -1)
+            echo "::notice::NUMERO_DU_PROJET=$ID PROPRIETAIRE=$OWNER"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publication
+        if: steps.project.outputs.ready == 'true'
+        run: |
+          npx eas-cli@latest channel:create production --non-interactive || true
+          npx eas-cli@latest update --channel production --platform ios --non-interactive \
+            --message "$(git log -1 --pretty=%s)"
