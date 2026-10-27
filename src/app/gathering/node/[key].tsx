@@ -1,17 +1,18 @@
 /** Fiche d'un point de récolte : métier, niveau, zone et coordonnées, horaires et prochaines fenêtres, objets. */
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { localTime } from '@/components/fishing';
 import { coords, ItemRow, jobIcon, nodeStatusLabel, useGatheredItems, zoneName } from '@/components/gathering';
 import { GameWindow } from '@/components/game-ui';
 import { ThemedText } from '@/components/themed-text';
-import { Badge, Empty, Screen } from '@/components/ui';
+import { Badge, Button, Empty, Screen } from '@/components/ui';
 import { MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
 import { gatheringData, GATHERER_NAME, isTimed, jobOf, KIND_LABEL, kindOf, nodeItems, nodeKey, nodeStatus, nodeWindows, scheduleText } from '@/utils/gathering';
+import { findGatheringNode } from '@/utils/map';
 import { formatCountdown } from '@/utils/timers';
 
 export default function NodeScreen() {
@@ -32,6 +33,7 @@ export default function NodeScreen() {
   const label = nodeStatusLabel(nodeStatus(node, now), now);
   const windows = isTimed(node) ? nodeWindows(node, now, 5) : [];
   const zone = gatheringData().zones[String(node.z)];
+  const onMap = findGatheringNode(node);
 
   return (
     <Screen>
@@ -42,6 +44,13 @@ export default function NodeScreen() {
           <Badge label={KIND_LABEL[kind]} tone={kind === 'legendary' ? 'accent' : 'neutral'} />
           {isTimed(node) ? <Badge label={label.text} tone={label.tone} /> : null}
         </View>
+        {onMap ? (
+          <Button
+            label="Voir sur la carte"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/map', params: { map: String(onMap.mapId), x: String(Math.round(onMap.x)), y: String(Math.round(onMap.y)) } })}
+          />
+        ) : null}
         {node.fl ? (
           <ThemedText type="small" themeColor="textSecondary">
             Livre de légendes requis : {node.fl}

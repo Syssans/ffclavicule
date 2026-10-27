@@ -4,7 +4,8 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Platform, useColorScheme } from 'react-native';
+import { Platform, StyleSheet, useColorScheme } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { NotificationsBridge } from '@/components/notifications-bridge';
 import { useAppStore } from '@/store/app-store';
@@ -33,49 +34,53 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <NotificationsBridge />
-        <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="character/search" options={{ title: 'Ajouter un personnage', presentation: 'modal' }} />
-          <Stack.Screen name="character/[id]/index" options={{ title: '' }} />
-          <Stack.Screen name="character/[id]/[section]" options={{ title: '' }} />
-          <Stack.Screen name="settings" options={{ title: 'Réglages' }} />
-          <Stack.Screen name="notifications/index" options={{ title: 'Notifications' }} />
-          <Stack.Screen name="notifications/marche" options={{ title: 'Alertes du marché' }} />
-          <Stack.Screen name="notifications/jeu" options={{ title: 'Rappels du jeu' }} />
-          <Stack.Screen name="alert" options={{ title: 'Alerte de prix', presentation: 'modal' }} />
-          <Stack.Screen name="item/[id]" options={{ title: '' }} />
-          <Stack.Screen name="crafting/index" options={{ title: 'Artisanat' }} />
-          <Stack.Screen name="fishing/index" options={{ title: 'Pêche' }} />
-          <Stack.Screen name="gathering/index" options={{ title: 'Récolte' }} />
-          <Stack.Screen name="gathering/timed" options={{ title: 'Points à horaires' }} />
-          <Stack.Screen name="gathering/items" options={{ title: 'Où récolter' }} />
-          <Stack.Screen name="gathering/item/[id]" options={{ title: 'Objet' }} />
-          <Stack.Screen name="gathering/node/[key]" options={{ title: 'Point de récolte' }} />
-          <Stack.Screen name="gathering/log" options={{ title: 'Carnet de récolte' }} />
-          <Stack.Screen name="gathering/job/[job]" options={{ title: 'Récolteur' }} />
-          <Stack.Screen name="fishing/list" options={{ title: 'Poissons' }} />
-          <Stack.Screen name="fishing/fish/[id]" options={{ title: 'Poisson' }} />
-          <Stack.Screen name="fishing/weather" options={{ title: 'Météo d’Éorzéa' }} />
-          <Stack.Screen name="fishing/ocean" options={{ title: 'Pêche en mer' }} />
-          <Stack.Screen name="fishing/log" options={{ title: 'Carnet de pêche' }} />
-          <Stack.Screen name="crafting/recipe/[id]" options={{ title: 'Recette' }} />
-          <Stack.Screen name="crafting/list" options={{ title: 'Ma liste d’artisanat' }} />
-          <Stack.Screen name="crafting/profit" options={{ title: 'Rentabilité' }} />
-          <Stack.Screen name="crafting/job/[craftType]" options={{ title: 'Artisan' }} />
-          <Stack.Screen name="connect" options={{ title: 'Connecter mon personnage', presentation: 'modal' }} />
-          <Stack.Screen name="inventory/[id]" options={{ title: 'Inventaire' }} />
-          <Stack.Screen name="retainers/[id]" options={{ title: 'Servants' }} />
-          <Stack.Screen name="mail/[id]" options={{ title: 'Courrier' }} />
-          <Stack.Screen name="hud/[id]" options={{ title: 'ATH du jeu' }} />
-          <Stack.Screen name="hotbars/[id]" options={{ title: 'Barres d’actions' }} />
-          <Stack.Screen name="model/[id]" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />
-          <Stack.Screen name="collection/[characterId]/[key]" options={{ title: '' }} />
-        </Stack>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={StyleSheet.absoluteFill}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <NotificationsBridge />
+          <Stack screenOptions={{ headerBackButtonDisplayMode: 'minimal' }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="character/search" options={{ title: 'Ajouter un personnage', presentation: 'modal' }} />
+            <Stack.Screen name="character/[id]/index" options={{ title: '' }} />
+            <Stack.Screen name="character/[id]/[section]" options={{ title: '' }} />
+            <Stack.Screen name="settings" options={{ title: 'Réglages' }} />
+            <Stack.Screen name="notifications/index" options={{ title: 'Notifications' }} />
+            <Stack.Screen name="notifications/marche" options={{ title: 'Alertes du marché' }} />
+            <Stack.Screen name="notifications/jeu" options={{ title: 'Rappels du jeu' }} />
+            <Stack.Screen name="alert" options={{ title: 'Alerte de prix', presentation: 'modal' }} />
+            <Stack.Screen name="item/[id]" options={{ title: '' }} />
+            <Stack.Screen name="crafting/index" options={{ title: 'Artisanat' }} />
+            <Stack.Screen name="fishing/index" options={{ title: 'Pêche' }} />
+            <Stack.Screen name="gathering/index" options={{ title: 'Récolte' }} />
+            <Stack.Screen name="map/index" options={{ title: 'Carte' }} />
+            <Stack.Screen name="map/browse" options={{ title: 'Atlas' }} />
+            <Stack.Screen name="gathering/timed" options={{ title: 'Points à horaires' }} />
+            <Stack.Screen name="gathering/items" options={{ title: 'Où récolter' }} />
+            <Stack.Screen name="gathering/item/[id]" options={{ title: 'Objet' }} />
+            <Stack.Screen name="gathering/node/[key]" options={{ title: 'Point de récolte' }} />
+            <Stack.Screen name="gathering/log" options={{ title: 'Carnet de récolte' }} />
+            <Stack.Screen name="gathering/job/[job]" options={{ title: 'Récolteur' }} />
+            <Stack.Screen name="fishing/list" options={{ title: 'Poissons' }} />
+            <Stack.Screen name="fishing/fish/[id]" options={{ title: 'Poisson' }} />
+            <Stack.Screen name="fishing/weather" options={{ title: 'Météo d’Éorzéa' }} />
+            <Stack.Screen name="fishing/ocean" options={{ title: 'Pêche en mer' }} />
+            <Stack.Screen name="fishing/log" options={{ title: 'Carnet de pêche' }} />
+            <Stack.Screen name="crafting/recipe/[id]" options={{ title: 'Recette' }} />
+            <Stack.Screen name="crafting/list" options={{ title: 'Ma liste d’artisanat' }} />
+            <Stack.Screen name="crafting/profit" options={{ title: 'Rentabilité' }} />
+            <Stack.Screen name="crafting/job/[craftType]" options={{ title: 'Artisan' }} />
+            <Stack.Screen name="connect" options={{ title: 'Connecter mon personnage', presentation: 'modal' }} />
+            <Stack.Screen name="inventory/[id]" options={{ title: 'Inventaire' }} />
+            <Stack.Screen name="retainers/[id]" options={{ title: 'Servants' }} />
+            <Stack.Screen name="mail/[id]" options={{ title: 'Courrier' }} />
+            <Stack.Screen name="hud/[id]" options={{ title: 'ATH du jeu' }} />
+            <Stack.Screen name="hotbars/[id]" options={{ title: 'Barres d’actions' }} />
+            <Stack.Screen name="model/[id]" options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }} />
+            <Stack.Screen name="collection/[characterId]/[key]" options={{ title: '' }} />
+          </Stack>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
 

@@ -8,7 +8,6 @@ import { MenuIcons } from '@/constants/menu-icons';
 
 const MODULES = [
   { icon: MenuIcons.journal, title: 'Quêtes', subtitle: 'Scénario, quêtes de job, enchaînements' },
-  { icon: MenuIcons.carte, title: 'Cartes', subtitle: 'Éthérites, PNJ, points d’intérêt' },
   { icon: MenuIcons.actions, title: 'Jobs', subtitle: 'Actions, traits, niveaux' },
   { icon: MenuIcons.bestiaire, title: 'Combats', subtitle: 'Donjons, défis, raids, butins' },
   { icon: MenuIcons.alea, title: 'Chasse', subtitle: 'Rangs S et A, conditions d’apparition' },
@@ -22,6 +21,12 @@ export default function GuidesScreen() {
           L’encyclopédie de Clavicule arrive module par module, construite à partir des données du jeu et de ta progression lue par le plugin.
         </ThemedText>
       </Card>
+      <MenuEntry
+        icon={MenuIcons.carte}
+        title="Carte interactive"
+        subtitle="Le monde, les régions, les zones et les instances, avec éthérites, aléas, quêtes, récolte, pêche et trésors."
+        onPress={() => router.push('/map')}
+      />
       <MenuEntry
         icon={MenuIcons.artisanat}
         title="Artisanat"

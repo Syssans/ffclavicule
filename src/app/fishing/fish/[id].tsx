@@ -9,12 +9,13 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { FishingIcons, itemIcon, itemName, localTime, statusLabel, useCaughtFish, WeatherIcon, weatherName, zoneOf } from '@/components/fishing';
 import { GameWindow, MenuIcon } from '@/components/game-ui';
 import { ThemedText } from '@/components/themed-text';
-import { Badge, Empty, GameIcon, Screen } from '@/components/ui';
+import { Badge, Button, Empty, GameIcon, Screen } from '@/components/ui';
 import { MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
 import { fishingData, fishStatus, forecast, nextWindows } from '@/utils/fishing';
+import { findFishingSpot } from '@/utils/map';
 import { formatCountdown } from '@/utils/timers';
 
 const HOOKSETS: Record<string, string> = { Precision: 'Ferrage précis', Powerful: 'Ferrage puissant' };
@@ -43,6 +44,7 @@ export default function FishScreen() {
   const label = statusLabel(status, now);
   const allDay = fish.h[0] === 0 && fish.h[1] === 24;
   const data = fishingData();
+  const mapSpot = typeof fish.s === 'number' ? findFishingSpot(fish.s) : null;
 
   return (
     <Screen>
@@ -59,6 +61,13 @@ export default function FishScreen() {
           {fish.co ? <Badge label="Collectionnable" /> : null}
           {fish.pt ? <Badge label={`Patch ${fish.pt}`} /> : null}
         </View>
+        {mapSpot ? (
+          <Button
+            label="Voir sur la carte"
+            variant="secondary"
+            onPress={() => router.push({ pathname: '/map', params: { map: String(mapSpot.mapId), x: String(mapSpot.x), y: String(mapSpot.y) } })}
+          />
+        ) : null}
       </GameWindow>
 
       <GameWindow icon={MenuIcons.calendrier} title="Quand" subtitle={allDay && !fish.w?.length ? 'À toute heure, par tous les temps' : null}>
