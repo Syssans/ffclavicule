@@ -71,7 +71,7 @@ export function PrivateScreen({
   }
   const snapshot = data.data;
   return (
-    <Screen refreshControl={<RefreshControl refreshing={data.isRefetching} onRefresh={() => data.refetch()} />}>
+    <Screen refreshControl={<RefreshControl refreshing={data.isRefetching} onRefresh={() => void data.refetch()} />}>
       <Stack.Screen options={{ title }} />
       {data.isPending ? <Loading label="Lecture de tes données…" /> : null}
       {data.error ? <ErrorBox error={data.error} onRetry={() => data.refetch()} /> : null}

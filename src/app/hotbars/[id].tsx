@@ -94,7 +94,7 @@ export default function HotbarsScreen() {
   }
 
   return (
-    <Screen refreshControl={<RefreshControl refreshing={hud.isRefetching} onRefresh={() => (hud.refetch(), changes.refetch())} />}>
+    <Screen refreshControl={<RefreshControl refreshing={hud.isRefetching} onRefresh={() => void Promise.all([hud.refetch(), changes.refetch()])} />}>
       <Stack.Screen options={{ title: 'Barres d’actions' }} />
       {hud.isPending ? <Loading label="Lecture de tes barres…" /> : null}
       {hud.error ? <ErrorBox error={hud.error} onRetry={() => hud.refetch()} /> : null}

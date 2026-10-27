@@ -6,7 +6,16 @@
 import { Image } from 'expo-image';
 import { forwardRef, memo, useCallback, useImperativeHandle, useMemo, useState } from 'react';
 import { ActivityIndicator, type LayoutChangeEvent, Platform, StyleSheet, Text, View, type ViewStyle } from 'react-native';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import {
+  GestureDetector,
+  useCompetingGestures,
+  useExclusiveGestures,
+  useLongPressGesture,
+  usePanGesture,
+  usePinchGesture,
+  useSimultaneousGestures,
+  useTapGesture,
+} from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withDecay, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
@@ -119,72 +128,88 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
   );
   const handleLongPress = useCallback((x: number, y: number) => onLongPress?.(x, y), [onLongPress]);
 
-  const gesture = useMemo(() => {
-    const pinch = Gesture.Pinch()
-      .onStart((e) => {
-        startScale.set(scale.get());
-        startX.set(tx.get());
-        startY.set(ty.get());
-        focalX.set(e.focalX);
-        focalY.set(e.focalY);
-      })
-      .onUpdate((e) => {
-        const s = Math.min(maxScale.get(), Math.max(minScale.get(), startScale.get() * e.scale));
-        // Le point de la carte sous les doigts au début du geste reste sous les doigts.
-        const cx = (focalX.get() - startX.get()) / startScale.get();
-        const cy = (focalY.get() - startY.get()) / startScale.get();
-        scale.set(s);
-        tx.set(clampAxis(e.focalX - cx * s, MAP_SIZE * s, w.get()));
-        ty.set(clampAxis(e.focalY - cy * s, MAP_SIZE * s, h.get()));
-      })
-      .onEnd(() => {
-        scheduleOnRN(setZoom, scale.get());
-      });
+  // Gestes (Gesture Handler 3, sur le fil de l'interface) : pincer et glisser ensemble, toucher deux fois pour
+  // zoomer, toucher pour choisir un point, appui long pour poser un repère.
+  const pinch = usePinchGesture({
+    onActivate: (e) => {
+      'worklet';
+      startScale.set(scale.get());
+      startX.set(tx.get());
+      startY.set(ty.get());
+      focalX.set(e.focalX);
+      focalY.set(e.focalY);
+    },
+    onUpdate: (e) => {
+      'worklet';
+      const s = Math.min(maxScale.get(), Math.max(minScale.get(), startScale.get() * e.scale));
+      // Le point de la carte sous les doigts au début du geste reste sous les doigts.
+      const cx = (focalX.get() - startX.get()) / startScale.get();
+      const cy = (focalY.get() - startY.get()) / startScale.get();
+      scale.set(s);
+      tx.set(clampAxis(e.focalX - cx * s, MAP_SIZE * s, w.get()));
+      ty.set(clampAxis(e.focalY - cy * s, MAP_SIZE * s, h.get()));
+    },
+    onDeactivate: () => {
+      'worklet';
+      scheduleOnRN(setZoom, scale.get());
+    },
+  });
 
-    const pan = Gesture.Pan()
-      .maxPointers(1)
-      .onStart(() => {
-        startX.set(tx.get());
-        startY.set(ty.get());
-      })
-      .onUpdate((e) => {
-        tx.set(clampAxis(startX.get() + e.translationX, MAP_SIZE * scale.get(), w.get()));
-        ty.set(clampAxis(startY.get() + e.translationY, MAP_SIZE * scale.get(), h.get()));
-      })
-      .onEnd((e) => {
-        const content = MAP_SIZE * scale.get();
-        if (content > w.get()) tx.set(withDecay({ velocity: e.velocityX, clamp: [w.get() - content, 0] }));
-        if (content > h.get()) ty.set(withDecay({ velocity: e.velocityY, clamp: [h.get() - content, 0] }));
-      });
+  const pan = usePanGesture({
+    maxPointers: 1,
+    onActivate: () => {
+      'worklet';
+      startX.set(tx.get());
+      startY.set(ty.get());
+    },
+    onUpdate: (e) => {
+      'worklet';
+      tx.set(clampAxis(startX.get() + e.translationX, MAP_SIZE * scale.get(), w.get()));
+      ty.set(clampAxis(startY.get() + e.translationY, MAP_SIZE * scale.get(), h.get()));
+    },
+    onDeactivate: (e) => {
+      'worklet';
+      const content = MAP_SIZE * scale.get();
+      if (content > w.get()) tx.set(withDecay({ velocity: e.velocityX, clamp: [w.get() - content, 0] }));
+      if (content > h.get()) ty.set(withDecay({ velocity: e.velocityY, clamp: [h.get() - content, 0] }));
+    },
+  });
 
-    const doubleTap = Gesture.Tap()
-      .numberOfTaps(2)
-      .maxDistance(16)
-      .onEnd((e) => {
-        const s = Math.min(maxScale.get(), scale.get() * 2.2);
-        const cx = (e.x - tx.get()) / scale.get();
-        const cy = (e.y - ty.get()) / scale.get();
-        const timing = { duration: 280 };
-        scale.set(withTiming(s, timing));
-        tx.set(withTiming(clampAxis(w.get() / 2 - cx * s, MAP_SIZE * s, w.get()), timing));
-        ty.set(withTiming(clampAxis(h.get() / 2 - cy * s, MAP_SIZE * s, h.get()), timing));
-        scheduleOnRN(setZoom, s);
-      });
+  const doubleTap = useTapGesture({
+    numberOfTaps: 2,
+    maxDistance: 16,
+    onActivate: (e) => {
+      'worklet';
+      const s = Math.min(maxScale.get(), scale.get() * 2.2);
+      const cx = (e.x - tx.get()) / scale.get();
+      const cy = (e.y - ty.get()) / scale.get();
+      const timing = { duration: 280 };
+      scale.set(withTiming(s, timing));
+      tx.set(withTiming(clampAxis(w.get() / 2 - cx * s, MAP_SIZE * s, w.get()), timing));
+      ty.set(withTiming(clampAxis(h.get() / 2 - cy * s, MAP_SIZE * s, h.get()), timing));
+      scheduleOnRN(setZoom, s);
+    },
+  });
 
-    const tap = Gesture.Tap()
-      .maxDistance(10)
-      .onEnd((e) => {
-        scheduleOnRN(handleTap, (e.x - tx.get()) / scale.get(), (e.y - ty.get()) / scale.get(), TOUCH_RADIUS / scale.get());
-      });
+  const tap = useTapGesture({
+    maxDistance: 10,
+    onActivate: (e) => {
+      'worklet';
+      scheduleOnRN(handleTap, (e.x - tx.get()) / scale.get(), (e.y - ty.get()) / scale.get(), TOUCH_RADIUS / scale.get());
+    },
+  });
 
-    const longPress = Gesture.LongPress()
-      .minDuration(450)
-      .onStart((e) => {
-        scheduleOnRN(handleLongPress, (e.x - tx.get()) / scale.get(), (e.y - ty.get()) / scale.get());
-      });
+  const longPress = useLongPressGesture({
+    minDuration: 450,
+    onActivate: (e) => {
+      'worklet';
+      scheduleOnRN(handleLongPress, (e.x - tx.get()) / scale.get(), (e.y - ty.get()) / scale.get());
+    },
+  });
 
-    return Gesture.Race(Gesture.Simultaneous(pinch, pan), Gesture.Exclusive(doubleTap, tap), longPress);
-  }, [focalX, focalY, h, handleLongPress, handleTap, maxScale, minScale, scale, startScale, startX, startY, tx, ty, w]);
+  const moveGestures = useSimultaneousGestures(pinch, pan);
+  const tapGestures = useExclusiveGestures(doubleTap, tap);
+  const gesture = useCompetingGestures(moveGestures, tapGestures, longPress);
 
   // Les transformations s'appliquent autour du centre de la carte : on compense pour zoomer depuis le coin.
   const contentStyle = useAnimatedStyle(() => ({

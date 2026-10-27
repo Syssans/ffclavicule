@@ -126,7 +126,7 @@ export default function HudScreen() {
   }
 
   return (
-    <Screen refreshControl={<RefreshControl refreshing={hud.isRefetching} onRefresh={() => (hud.refetch(), changes.refetch())} />}>
+    <Screen refreshControl={<RefreshControl refreshing={hud.isRefetching} onRefresh={() => void Promise.all([hud.refetch(), changes.refetch()])} />}>
       <Stack.Screen options={{ title: 'ATH du jeu' }} />
       {hud.isPending ? <Loading label="Lecture de ton ATH…" /> : null}
       {hud.error ? <ErrorBox error={hud.error} onRetry={() => hud.refetch()} /> : null}

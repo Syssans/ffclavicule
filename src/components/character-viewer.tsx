@@ -3,7 +3,7 @@
  * Visionneuse 3D d'un personnage (.glb envoyé par le plugin Dalamud).
  * Un doigt : tourner (horizontal) et incliner (vertical). Deux doigts ou molette : zoomer. Double toucher : recentrer.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ComponentRef, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   PanResponder,
@@ -211,7 +211,7 @@ class GestureTracker {
   }
 
   /** Rapport d'écartement des deux doigts depuis le début du pincement. */
-  pinchScale(touches: { pageX: number; pageY: number }[]): number {
+  pinchScale(touches: readonly { pageX: number; pageY: number }[]): number {
     const [a, b] = touches;
     const distance = Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY);
     if (this.pinchStart === 0) this.pinchStart = distance;
@@ -280,7 +280,7 @@ export function CharacterViewer({
       onPanResponderTerminate: () => orbit.release(0),
     }),
   );
-  const surface = useRef<View>(null);
+  const surface = useRef<ComponentRef<typeof View>>(null);
 
   useEffect(() => {
     let alive = true;

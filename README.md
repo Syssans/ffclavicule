@@ -43,7 +43,7 @@ Scanne le QR code affiché avec l'appareil photo (iPhone) ou avec Expo Go (Andro
 
 Sur Mac, **double-clique sur `lancer-appli.command`** dans le Finder. Il récupère les dernières modifications (`git pull`, seulement ce qui a changé), met à jour les bibliothèques si besoin et lance le serveur. Le téléphone et l'ordinateur doivent être sur le même Wi-Fi ; sinon, lance `npx expo start --tunnel`.
 
-Le projet utilise **Expo SDK 57**. Expo Go ne lit qu'une seule version du SDK à la fois : si Expo Go affiche « Project is incompatible with this version of Expo Go », regarde quelle version il indique (« The installed version of Expo Go is for SDK … ») ; le projet doit être passé à cette version.
+Le projet utilise **Expo SDK 58**. Expo Go ne lit qu'une seule version du SDK à la fois : si Expo Go affiche « Project is incompatible with this version of Expo Go », regarde quelle version il indique (« The installed version of Expo Go is for SDK … ») ; le projet doit être passé à cette version.
 
 Pour installer l'appli sans Expo Go et la partager avec tes amis, il faudra la compiler avec [EAS Build](https://docs.expo.dev/build/introduction/).
 
