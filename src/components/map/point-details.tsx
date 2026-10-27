@@ -20,7 +20,8 @@ export function PointDetails({
   map: MapInfo;
   point: MapPoint;
   now: number;
-  onOpenMap: (id: number) => void;
+  /** Ouvre une carte, éventuellement centrée sur un point (pixels de cette carte). */
+  onOpenMap: (id: number, focus?: { x: number; y: number }) => void;
   onClose: () => void;
 }) {
   // Point d'une zone vu sur sa région : coordonnées de la zone, comme en jeu.
@@ -30,6 +31,12 @@ export function PointDetails({
       ? `${sourceMap.n} · ${formatCoords(toGameCoords(sourceMap, point.source.x, point.source.y))}`
       : formatCoords(toGameCoords(map, point.x, point.y));
   const data = point.data;
+  // Sur une région assemblée : ouvrir la zone, centrée sur ce point.
+  const source = point.source;
+  const zoneButton =
+    source && sourceMap ? (
+      <CardButton label={`Voir dans ${sourceMap.n}`} onPress={() => onOpenMap(source.mapId, { x: source.x, y: source.y })} />
+    ) : null;
 
   switch (data.type) {
     case 'marker': {
@@ -39,20 +46,23 @@ export function PointDetails({
         return (
           <PointCard icon={point.icon || 60441} title={point.label || name} subtitle={`Passage vers ${name} · ${where}`} onClose={onClose}>
             <CardButton label={`Ouvrir la carte : ${name}`} onPress={() => onOpenMap(data.link)} />
+            {zoneButton}
           </PointCard>
         );
       }
       const kind = data.kind === 3 ? 'Éthérite' : data.kind === 4 ? 'Éthernet (téléportation en ville)' : data.kind === 1 ? 'Zone' : 'Lieu';
       return (
         <PointCard icon={point.icon || undefined} title={point.label || kind} subtitle={`${kind} · ${where}`} onClose={onClose}>
-          {point.source && sourceMap ? (
-            <CardButton label={`Ouvrir la carte : ${sourceMap.n}`} onPress={() => onOpenMap(point.source!.mapId)} />
-          ) : null}
+          {zoneButton}
         </PointCard>
       );
     }
     case 'fate':
-      return <PointCard icon={point.icon} title={point.label} subtitle={`Aléa niveau ${data.level} · ${where}`} onClose={onClose} />;
+      return (
+        <PointCard icon={point.icon} title={point.label} subtitle={`Aléa niveau ${data.level} · ${where}`} onClose={onClose}>
+          {zoneButton}
+        </PointCard>
+      );
     case 'fishing': {
       const fish = fishingData().fish.filter((f) => f.s === data.spotId);
       return (
@@ -72,6 +82,7 @@ export function PointDetails({
             />
           ))}
           {fish.length > 5 ? <CardText muted>Et {fish.length - 5} autres poissons.</CardText> : null}
+          {zoneButton}
         </PointCard>
       );
     }
@@ -118,6 +129,7 @@ export function PointDetails({
               })
             }
           />
+          {zoneButton}
         </PointCard>
       );
     }
@@ -138,6 +150,7 @@ export function PointDetails({
               })
             }
           />
+          {zoneButton}
         </PointCard>
       );
     }
@@ -149,6 +162,7 @@ export function PointDetails({
           subtitle={[`Quête niv. ${data.level}`, data.genre, where].filter(Boolean).join(' · ')}
           onClose={onClose}>
           <CardText muted>Donneur de quête à cet endroit.</CardText>
+          {zoneButton}
         </PointCard>
       );
     default:

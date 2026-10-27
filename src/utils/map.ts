@@ -237,6 +237,8 @@ export const LAYERS: LayerInfo[] = [
   { key: 'treasures', label: 'Trésors', icon: 60570 },
 ];
 
+const ALL_LAYERS: LayerKey[] = LAYERS.map((l) => l.key);
+
 export const DEFAULT_LAYERS: LayerKey[] = ['places', 'aetherytes', 'landmarks', 'fates', 'gathering', 'fishing'];
 
 export type PointData =
@@ -262,6 +264,8 @@ export interface MapPoint {
   data: PointData;
   /** Point d'une zone montré sur sa région assemblée : la zone et la position sur la carte de la zone. */
   source?: { mapId: number; x: number; y: number };
+  /** Zoom (par rapport à la carte entière) à partir duquel le point est dessiné ; absent : toujours. */
+  minZoom?: number;
 }
 
 /** Icônes de repère officiel qui comptent comme « lieux » (épingle de nom de lieu). */
@@ -379,22 +383,77 @@ export function zoneToRegion(cx: number, cy: number, x: number, y: number): [num
 }
 
 /**
- * Points des zones montrés sur leur région assemblée : les éthérites et les grands noms de lieux, qui apparaissent
- * avec le zoom. Le reste (aléas, récolte…) se voit en ouvrant la zone.
+ * Points des zones montrés sur leur région assemblée, à leur place : les éthérites tout de suite, les grands noms de
+ * lieux puis les icônes des calques (aléas, récolte, pêche, trésors, repères) à mesure qu'on zoome. Leur fiche donne
+ * les coordonnées de la zone, comme en jeu.
  */
 export function regionZonePoints(id: number, layers: readonly LayerKey[]): MapPoint[] {
+  const zones = assembledZones(id);
+  if (!zones.length) return [];
   const on = new Set(layers);
   const out: MapPoint[] = [];
-  for (const { zone, cx, cy } of assembledZones(id)) {
-    for (const p of officialPoints(zone)) {
-      if (p.data.type !== 'marker' || !on.has(p.layer)) continue;
-      const aetheryte = p.data.kind === 3;
-      if (!aetheryte && p.data.kind !== 1) continue;
+  for (const { zone, cx, cy } of zones) {
+    const place = (p: MapPoint, rank: number, minZoom?: number) => {
       const [x, y] = zoneToRegion(cx, cy, p.x, p.y);
-      out.push({ ...p, id: `z${zone}-${p.id}`, x, y, rank: aetheryte ? 1 : 2, source: { mapId: zone, x: p.x, y: p.y } });
+      out.push({ ...p, id: `z${zone}-${p.id}`, x, y, rank, minZoom, source: { mapId: zone, x: p.x, y: p.y } });
+    };
+    for (const p of officialPoints(zone)) {
+      if (p.data.type !== 'marker' || !on.has(p.layer) || p.data.kind === 2) continue;
+      if (p.data.kind === 3) place(p, 1);
+      else if (p.data.kind === 1) place(p, 2, 1.6);
+      else place(p, 3, 5.5);
     }
+    const extra: MapPoint[] = [];
+    if (on.has('fates')) extra.push(...fatePoints(zone));
+    if (on.has('fishing')) extra.push(...fishingPoints(zone));
+    if (on.has('gathering')) extra.push(...gatheringPoints(zone));
+    if (on.has('treasures')) extra.push(...treasurePoints(zone));
+    for (const p of extra) place(p, 3, 4.5);
   }
   return out;
+}
+
+export interface MapFrame {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/**
+ * Partie utile d'une carte (là où sont ses repères), pour la cadrer à l'ouverture au lieu de montrer toute la texture,
+ * souvent vide sur les bords. Aucune pour les cartes du monde.
+ */
+export function contentFrame(id: number): MapFrame | null {
+  const map = getMap(id);
+  if (!map || map.k === 'world') return null;
+  const points = [...officialPoints(id), ...regionZonePoints(id, ['places', 'aetherytes'])];
+  if (points.length < 2) return null;
+  let x0 = Infinity;
+  let y0 = Infinity;
+  let x1 = -Infinity;
+  let y1 = -Infinity;
+  for (const p of points) {
+    x0 = Math.min(x0, p.x);
+    y0 = Math.min(y0, p.y);
+    x1 = Math.max(x1, p.x);
+    y1 = Math.max(y1, p.y);
+  }
+  // Une marge autour, et pas trop serré (une instance peut n'avoir que deux repères proches).
+  const MIN = 600;
+  const padX = Math.max(80, (x1 - x0) * 0.12);
+  const padY = Math.max(80, (y1 - y0) * 0.12);
+  const cx = (x0 + x1) / 2;
+  const cy = (y0 + y1) / 2;
+  const half = (a: number, b: number, pad: number) => Math.max(MIN / 2, (b - a) / 2 + pad);
+  const hx = half(x0, x1, padX);
+  const hy = half(y0, y1, padY);
+  return {
+    x0: Math.max(0, cx - hx),
+    y0: Math.max(0, cy - hy),
+    x1: Math.min(MAP_SIZE, cx + hx),
+    y1: Math.min(MAP_SIZE, cy + hy),
+  };
 }
 
 export function mapPoints(id: number, layers: readonly LayerKey[]): MapPoint[] {
@@ -411,11 +470,12 @@ export function mapPoints(id: number, layers: readonly LayerKey[]): MapPoint[] {
 /** Nombre de points de chaque calque sur une carte (pour griser les calques vides). */
 export function layerCounts(id: number): Partial<Record<LayerKey, number>> {
   const counts: Partial<Record<LayerKey, number>> = {};
-  for (const p of [...officialPoints(id), ...regionZonePoints(id, ['places', 'aetherytes'])]) counts[p.layer] = (counts[p.layer] ?? 0) + 1;
-  counts.fates = fatePoints(id).length;
-  counts.fishing = fishingPoints(id).length;
-  counts.gathering = gatheringPoints(id).length;
-  counts.treasures = treasurePoints(id).length;
+  const add = (layer: LayerKey, n = 1) => (counts[layer] = (counts[layer] ?? 0) + n);
+  for (const p of [...officialPoints(id), ...regionZonePoints(id, ALL_LAYERS)]) add(p.layer);
+  add('fates', fatePoints(id).length);
+  add('fishing', fishingPoints(id).length);
+  add('gathering', gatheringPoints(id).length);
+  add('treasures', treasurePoints(id).length);
   return counts;
 }
 

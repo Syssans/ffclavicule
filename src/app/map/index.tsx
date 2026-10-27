@@ -24,6 +24,7 @@ import { fishingData, forecast, periodStart } from '@/utils/fishing';
 import {
   breadcrumb,
   canonicalMap,
+  contentFrame,
   dutyName,
   floorsOf,
   formatCoords,
@@ -38,6 +39,9 @@ import {
   WORLD_MAP,
   type MapPoint,
 } from '@/utils/map';
+
+/** Hauteur de la barre des calques, en bas. */
+const BOTTOM_BAR = 56;
 
 type Params = { map?: string; x?: string; y?: string; t?: string };
 
@@ -96,6 +100,9 @@ export default function MapScreen() {
   const trail = useMemo(() => breadcrumb(mapId), [mapId]);
   const floors = useMemo(() => floorsOf(mapId), [mapId]);
   const counts = useMemo(() => layerCounts(mapId), [mapId]);
+  const frame = useMemo(() => contentFrame(mapId), [mapId]);
+  // Hauteur des puces du haut (fil d'Ariane, étages, météo), pour cadrer la carte sous elles.
+  const [topHeight, setTopHeight] = useState(0);
   const overworld = map.k === 'zone' || map.k === 'city' || map.k === 'housing';
 
   const quests = useQuery({
@@ -119,10 +126,10 @@ export default function MapScreen() {
   const shownSelected = selected ?? focusPoint;
 
   const openMap = useCallback(
-    (id: number) => {
+    (id: number, focus?: { x: number; y: number }) => {
       const target = canonicalMap(id);
       if (!getMap(target)) return;
-      setView({ mapId: target, focus: null, key: `${target}|${Date.now()}` });
+      setView({ mapId: target, focus: focus ?? null, key: `${target}|${Date.now()}` });
       setSelected(null);
       setPin(null);
       setLastMap(target);
@@ -179,11 +186,16 @@ export default function MapScreen() {
         onTap={onTap}
         onLongPress={onLongPress}
         initialFocus={view.focus ? { ...view.focus, zoom: 4 } : null}
+        frame={frame}
         initialCover={map.k === 'world'}
+        insets={{ top: underHeader + topHeight + Spacing.two, bottom: insets.bottom + BOTTOM_BAR }}
       />
 
       {/* Haut : fil d'Ariane, étages, météo. */}
-      <View style={[styles.top, { top: underHeader + Spacing.two }]} pointerEvents="box-none">
+      <View
+        style={[styles.top, { top: underHeader + Spacing.two }]}
+        pointerEvents="box-none"
+        onLayout={(e) => setTopHeight(Math.round(e.nativeEvent.layout.height))}>
         <ChipBar>
           {trail.map(({ id, map: m }, i) => (
             <MapChip
@@ -225,7 +237,7 @@ export default function MapScreen() {
       <View style={[styles.zoom, { top: underHeader + 150 }]} pointerEvents="box-none">
         <RoundButton label="+" accessibilityLabel="Zoomer" onPress={() => viewer.current?.zoomBy(1.8)} />
         <RoundButton label="−" accessibilityLabel="Dézoomer" onPress={() => viewer.current?.zoomBy(1 / 1.8)} />
-        <RoundButton label="⤢" accessibilityLabel="Carte entière" onPress={() => viewer.current?.reset()} />
+        <RoundButton label="⤢" accessibilityLabel="Recadrer la carte" onPress={() => viewer.current?.reset()} />
       </View>
 
       {/* Bas : fiche du point, calques. */}
