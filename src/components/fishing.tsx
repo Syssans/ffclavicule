@@ -92,7 +92,7 @@ export function FishRow({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${itemName(fish.id)}, ${zone?.n ?? ''}, ${label.text}`}
-      onPress={() => router.push({ pathname: '/fishing/fish/[id]', params: { id: String(fish.id) } })}
+      onPress={() => router.push({ pathname: '/item/[id]', params: { id: String(fish.id) } })}
       style={({ pressed }) => [styles.row, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }, pressed && { opacity: 0.7 }]}>
       <GameIcon uri={itemIcon(fish.id)} size={40} dimmed={caught === true} />
       <View style={styles.flex}>

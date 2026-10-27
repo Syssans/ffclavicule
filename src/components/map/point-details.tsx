@@ -75,7 +75,7 @@ export function PointDetails({
               title={itemName(f.id)}
               onPress={() =>
                 router.push({
-                  pathname: '/fishing/fish/[id]',
+                  pathname: '/item/[id]',
                   params: { id: String(f.id) },
                 })
               }
@@ -114,7 +114,7 @@ export function PointDetails({
               detail={`niv. ${it.level}`}
               onPress={() =>
                 router.push({
-                  pathname: '/gathering/item/[id]',
+                  pathname: '/item/[id]',
                   params: { id: String(it.itemId) },
                 })
               }

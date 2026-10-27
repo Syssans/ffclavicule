@@ -115,7 +115,7 @@ export function ItemRow({ item, gathered, first }: { item: GatherableItem; gathe
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => router.push({ pathname: '/gathering/item/[id]', params: { id: String(item.itemId) } })}
+      onPress={() => router.push({ pathname: '/item/[id]', params: { id: String(item.itemId) } })}
       style={({ pressed }) => [styles.row, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }, pressed && { opacity: 0.7 }]}>
       <GameIcon uri={gameIconUrl(item.icon)} size={36} dimmed={gathered === true} />
       <View style={styles.flex}>

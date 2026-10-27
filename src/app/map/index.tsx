@@ -8,7 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { type ComponentRef, useCallback, useMemo, useRef, useState } from 'react';
+import { type ComponentRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -37,8 +37,11 @@ import {
   nearestPoint,
   toGameCoords,
   WORLD_MAP,
+  type LayerKey,
   type MapPoint,
 } from '@/utils/map';
+
+const ALL_LAYER_KEYS = LAYERS.map((l) => l.key);
 
 /** Hauteur de la barre des calques, en bas. */
 const BOTTOM_BAR = 56;
@@ -118,12 +121,22 @@ export default function MapScreen() {
     return out;
   }, [layers, mapId, quests.data]);
 
-  // Point à montrer à l'ouverture : on le sélectionne s'il correspond à un point de la carte.
-  const focusPoint = useMemo(() => {
-    if (!view.focus) return null;
-    return nearestPoint(points, view.focus.x, view.focus.y, 6);
-  }, [points, view.focus]);
-  const shownSelected = selected ?? focusPoint;
+  // Point demandé à l'ouverture (poisson, point de récolte, recherche) : choisi une seule fois, pour qu'on puisse
+  // ensuite fermer sa fiche ; son calque est affiché s'il était masqué.
+  const [focusHandled, setFocusHandled] = useState<string | null>(null);
+  const [neededLayer, setNeededLayer] = useState<LayerKey | null>(null);
+  if (view.focus && focusHandled !== view.key) {
+    setFocusHandled(view.key);
+    const found = nearestPoint(mapPoints(mapId, ALL_LAYER_KEYS), view.focus.x, view.focus.y, 6);
+    if (found) {
+      setSelected(found);
+      setNeededLayer(found.layer);
+    }
+  }
+  useEffect(() => {
+    if (neededLayer && !useMapStore.getState().layers.includes(neededLayer)) toggleLayer(neededLayer);
+  }, [neededLayer, toggleLayer]);
+  const shownSelected = selected;
 
   const openMap = useCallback(
     (id: number, focus?: { x: number; y: number }) => {
@@ -255,9 +268,12 @@ export default function MapScreen() {
           </View>
         ) : null}
         <ChipBar>
-          {LAYERS.map((layer) => {
+          {LAYERS.filter((layer) =>
+            // Seuls les calques qui ont quelque chose sur cette carte (les quêtes : sur les zones et les villes,
+            // tant qu'on ne sait pas qu'il n'y en a aucune).
+            layer.key === 'quests' ? overworld && !(quests.data && quests.data.length === 0) : Boolean(counts[layer.key]),
+          ).map((layer) => {
             const on = layers.includes(layer.key);
-            const empty = layer.key === 'quests' ? !overworld : !counts[layer.key];
             const loading = layer.key === 'quests' && on && quests.isFetching;
             return (
               <MapChip
@@ -265,7 +281,8 @@ export default function MapScreen() {
                 icon={layer.icon}
                 label={loading ? `${layer.label}…` : layer.label}
                 selected={on}
-                dimmed={empty}
+                // Calque masqué : grisé.
+                dimmed={!on}
                 accessibilityLabel={`Calque ${layer.label}${on ? ', affiché' : ', masqué'}`}
                 onPress={() => toggleLayer(layer.key)}
               />

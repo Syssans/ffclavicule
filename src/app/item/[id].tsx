@@ -6,9 +6,14 @@ import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { getDataCenters, getHistory, getMarket, regionLabel, type Listing, type Sale } from '@/api/universalis';
 import { recipesForItems } from '@/api/crafting';
 import { getItem } from '@/api/xivapi';
+import { MenuIcon } from '@/components/game-ui';
+import { CraftSection } from '@/components/item/craft-section';
+import { FishSection } from '@/components/item/fish-section';
+import { GatheringSection } from '@/components/item/gathering-section';
 import { PriceChart } from '@/components/price-chart';
 import { ThemedText } from '@/components/themed-text';
 import { Badge, Button, Card, Empty, ErrorBox, GameIcon, Loading, Screen, Segmented, StatTile } from '@/components/ui';
+import { GameIcons } from '@/constants/game-icons';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/store/app-store';
@@ -68,7 +73,7 @@ export default function ItemScreen() {
       }>
       <Stack.Screen
         options={{
-          title: '',
+          title: item.data?.name ?? '',
           headerRight: item.data
             ? () => (
                 <Pressable
@@ -104,12 +109,18 @@ export default function ItemScreen() {
             </ThemedText>
           ) : null}
 
-          {recipes.data && recipes.data.length > 0 ? (
-            <Button
-              label={recipes.data.length > 1 ? `Fabriquer (${recipes.data.length} artisans)` : 'Fabriquer : voir la recette'}
-              variant="secondary"
-              onPress={() => router.push({ pathname: '/crafting/recipe/[id]', params: { id: String(recipes.data[0].id) } })}
-            />
+          {/* Comment l'obtenir : la même fiche, qu'on arrive du marché, de la pêche, de la récolte ou de l'artisanat. */}
+          {recipes.data ? <CraftSection recipes={recipes.data} /> : null}
+          <GatheringSection id={id} />
+          <FishSection id={id} />
+
+          {marketable ? (
+            <View style={styles.marketTitle}>
+              <MenuIcon id={GameIcons.marketBoard} size={28} />
+              <ThemedText type="display" style={{ color: theme.ornament }}>
+                Marché
+              </ThemedText>
+            </View>
           ) : null}
           {!marketable ? (
             <Empty>Cet objet ne se vend pas au marché.</Empty>
@@ -266,6 +277,7 @@ function SaleRow({ sale, first }: { sale: Sale; first: boolean }) {
 }
 
 const styles = StyleSheet.create({
+  marketTitle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.two },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   badges: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.one },
   tiles: { flexDirection: 'row', gap: Spacing.two },

@@ -115,32 +115,37 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
     return clampAxis(value, MAP_SIZE * s, padTop.get(), h.get() - padBottom.get());
   };
 
+  // Dimensions côté React. Sur iPhone, une valeur partagée écrite depuis React n'est relue à jour qu'après son passage
+  // sur le fil de l'interface : les calculs de cadrage lisent donc ces copies, jamais les valeurs partagées tout juste
+  // écrites.
+  const dims = useRef({ w: 0, h: 0, min: 1, max: MAX_ZOOM });
+
   /** Centre la partie visible de l'écran sur (x, y) au zoom demandé. */
-  const moveTo = useCallback(
-    (x: number, y: number, target: number, animate = true) => {
-      const s = Math.min(maxScale.get(), Math.max(minScale.get(), target));
-      const centerY = padTop.get() + (h.get() - padTop.get() - padBottom.get()) / 2;
-      const nx = clampX(w.get() / 2 - x * s, s);
-      const ny = clampY(centerY - y * s, s);
-      const timing = { duration: 320 };
-      scale.set(animate ? withTiming(s, timing) : s);
-      tx.set(animate ? withTiming(nx, timing) : nx);
-      ty.set(animate ? withTiming(ny, timing) : ny);
-      setCamera({ s, x: nx, y: ny });
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [h, maxScale, minScale, padBottom, padTop, scale, tx, ty, w],
-  );
+  const moveTo = (x: number, y: number, target: number, animate = true) => {
+    const { w: width, h: height, min, max } = dims.current;
+    const top = insets.top;
+    const bottom = height - insets.bottom;
+    const s = Math.min(max, Math.max(min, target));
+    const centerY = top + (bottom - top) / 2;
+    const nx = clampAxis(width / 2 - x * s, MAP_SIZE * s, 0, width);
+    const ny = clampAxis(centerY - y * s, MAP_SIZE * s, top, bottom);
+    const timing = { duration: 320 };
+    scale.set(animate ? withTiming(s, timing) : s);
+    tx.set(animate ? withTiming(nx, timing) : nx);
+    ty.set(animate ? withTiming(ny, timing) : ny);
+    setCamera({ s, x: nx, y: ny });
+  };
 
   /** Point de la carte au centre de la partie visible. */
   const viewCenter = () => {
-    const centerY = padTop.get() + (h.get() - padTop.get() - padBottom.get()) / 2;
-    return [(w.get() / 2 - tx.get()) / scale.get(), (centerY - ty.get()) / scale.get()] as const;
+    const { w: width, h: height } = dims.current;
+    const centerY = insets.top + (height - insets.top - insets.bottom) / 2;
+    return [(width / 2 - tx.get()) / scale.get(), (centerY - ty.get()) / scale.get()] as const;
   };
 
   /** Cadrage de départ : le point demandé, sinon la partie utile de la carte, sinon la carte entière. */
   const placeInitial = (width: number, height: number, withFocus: boolean, animate: boolean) => {
-    const visibleHeight = Math.max(1, height - padTop.get() - padBottom.get());
+    const visibleHeight = Math.max(1, height - insets.top - insets.bottom);
     const fitScale = Math.min(width, visibleHeight) / MAP_SIZE;
     if (withFocus && initialFocus) {
       moveTo(initialFocus.x, initialFocus.y, fitScale * (initialFocus.zoom ?? 4), animate);
@@ -160,11 +165,15 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
   }, []);
 
   const setLimits = (width: number, height: number) => {
-    const fitScale = Math.min(width, Math.max(1, height - padTop.get() - padBottom.get())) / MAP_SIZE;
+    const fitScale = Math.min(width, Math.max(1, height - insets.top - insets.bottom)) / MAP_SIZE;
+    const max = Math.max(fitScale * MAX_ZOOM, 1.5);
+    dims.current = { w: width, h: height, min: fitScale, max };
     w.set(width);
     h.set(height);
     minScale.set(fitScale);
-    maxScale.set(Math.max(fitScale * MAX_ZOOM, 1.5));
+    maxScale.set(max);
+    padTop.set(insets.top);
+    padBottom.set(insets.bottom);
   };
 
   const onLayout = (e: LayoutChangeEvent) => {
@@ -192,15 +201,15 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
   useImperativeHandle(
     ref,
     () => ({
-      focus: (x, y, factor = 4) => moveTo(x, y, Math.max(scale.get(), minScale.get() * factor)),
+      focus: (x, y, factor = 4) => moveTo(x, y, Math.max(scale.get(), dims.current.min * factor)),
       zoomBy: (factor) => {
         const [cx, cy] = viewCenter();
         moveTo(cx, cy, scale.get() * factor);
       },
-      reset: () => placeInitial(w.get(), h.get(), false, true),
+      reset: () => placeInitial(dims.current.w, dims.current.h, false, true),
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [minScale, moveTo, scale],
+    [insets.top, insets.bottom, frame, initialFocus],
   );
 
   const tappableRef = useRef<MapPoint[]>(points);
