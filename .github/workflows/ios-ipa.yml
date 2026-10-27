@@ -1,0 +1,84 @@
+# Compile l'appli iOS sur un Mac de GitHub et publie un .ipa NON signé en artefact, à installer avec Sideloadly
+# (qui le signe avec un identifiant Apple). Lancé par une étiquette « ipa-… » ou à la main.
+name: Appli iOS (ipa pour Sideloadly)
+
+on:
+  push:
+    tags: ['ipa-*']
+  workflow_dispatch:
+
+concurrency:
+  group: ios-ipa
+  cancel-in-progress: true
+
+jobs:
+  ipa:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode le plus récent
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -1)
+          echo "Xcode choisi : $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Bibliothèques
+        run: npm ci --no-audit --no-fund
+
+      - name: Projet iOS (Expo prebuild)
+        env:
+          CI: '1'
+        run: npx expo prebuild --platform ios --clean --no-install
+
+      - name: Sans notifications push (non signables avec un compte Apple gratuit)
+        run: |
+          for f in ios/*/*.entitlements; do
+            /usr/libexec/PlistBuddy -c "Delete :aps-environment" "$f" 2>/dev/null && echo "aps-environment retiré de $f" || true
+          done
+
+      - name: CocoaPods
+        run: cd ios && pod install
+
+      - name: Compilation (Release, sans signature)
+        run: |
+          WORKSPACE=$(ls -d ios/*.xcworkspace | head -1)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          echo "Espace de travail : $WORKSPACE, schéma : $SCHEME"
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build > xcodebuild.log 2>&1 || { grep -E "error:|Error:" xcodebuild.log | head -60; tail -40 xcodebuild.log; exit 1; }
+          grep -E "\*\* BUILD" xcodebuild.log
+          test -d build/Build/Products/Release-iphoneos
+
+      - name: Paquet .ipa
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          test -n "$APP"
+          mkdir -p dist/Payload
+          cp -R "$APP" dist/Payload/
+          cd dist && zip -qry Clavicule.ipa Payload && ls -lh Clavicule.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clavicule-ipa
+          path: dist/Clavicule.ipa
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: journal-xcodebuild
+          path: xcodebuild.log

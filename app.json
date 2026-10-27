@@ -8,7 +8,9 @@
     "scheme": "ffclavicule",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.syssans.clavicule",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
