@@ -55,7 +55,14 @@
         "expo-channel-name": "production"
       },
       "checkAutomatically": "ON_LOAD",
-      "fallbackToCacheTimeout": 0
+      "fallbackToCacheTimeout": 0,
+      "url": "https://u.expo.dev/b6e1cee2-c5ee-4c48-b82b-1ef5bb0c2475"
+    },
+    "owner": "syssans",
+    "extra": {
+      "eas": {
+        "projectId": "b6e1cee2-c5ee-4c48-b82b-1ef5bb0c2475"
+      }
     }
   }
 }

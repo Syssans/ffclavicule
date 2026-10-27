@@ -47,7 +47,7 @@ jobs:
         id: project
         if: steps.token.outputs.ok == 'true'
         run: |
-          npx eas-cli@latest whoami
+          npx eas-cli@latest whoami | head -1
           ID=$(node -e "console.log(require('./app.json').expo.extra?.eas?.projectId ?? '')")
           if [ -z "$ID" ]; then
             # Première fois : on relie l'appli à son projet expo.dev (créé au besoin) et on affiche son numéro,
