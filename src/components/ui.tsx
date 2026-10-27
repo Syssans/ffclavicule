@@ -40,6 +40,9 @@ export function Screen({
         tab && Platform.OS === 'web' && { paddingTop: 72 },
       ]}
       keyboardShouldPersistTaps="handled"
+      // iOS 26 : la barre de titre est en verre et le contenu passe dessous ; iOS décale alors le début de la page
+      // sous la barre (sans effet quand la barre est opaque).
+      contentInsetAdjustmentBehavior={tab ? undefined : 'automatic'}
       {...scrollProps}>
       {title ? (
         <View style={styles.titleRow}>

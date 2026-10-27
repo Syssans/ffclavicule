@@ -7,7 +7,8 @@
  */
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useHeaderHeight } from 'expo-router/react-navigation';
+import { type ComponentRef, useCallback, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -69,6 +70,13 @@ export default function MapScreen() {
   const lastMap = useMapStore((s) => s.lastMap);
   const setLastMap = useMapStore((s) => s.setLastMap);
   const viewer = useRef<MapViewerHandle>(null);
+  // Sous iOS 26, la barre de titre est en verre et la carte passe dessous : on décale ce qui est posé en haut.
+  const headerHeight = useHeaderHeight();
+  const root = useRef<ComponentRef<typeof View>>(null);
+  const [underHeader, setUnderHeader] = useState(0);
+  const measureHeader = useCallback(() => {
+    root.current?.measureInWindow((_x, y) => setUnderHeader(Math.max(0, Math.round(headerHeight - y))));
+  }, [headerHeight]);
 
   // La carte affichée suit les paramètres (ouverture depuis l'atlas, une fiche de poisson…) puis la navigation.
   const paramKey = `${params.map ?? ''}|${params.x ?? ''}|${params.y ?? ''}|${params.t ?? ''}`;
@@ -150,7 +158,7 @@ export default function MapScreen() {
     map.k === 'instance' ? [contentName(map.c), map.l ? `niv. ${map.l}` : null, map.il ? `iNiv. ${map.il}` : null].filter(Boolean).join(' · ') : null;
 
   return (
-    <View style={styles.screen}>
+    <View ref={root} style={styles.screen} onLayout={measureHeader}>
       <Stack.Screen
         options={{
           title,
@@ -175,7 +183,7 @@ export default function MapScreen() {
       />
 
       {/* Haut : fil d'Ariane, étages, météo. */}
-      <View style={styles.top} pointerEvents="box-none">
+      <View style={[styles.top, { top: underHeader + Spacing.two }]} pointerEvents="box-none">
         <ChipBar>
           {trail.map(({ id, map: m }, i) => (
             <MapChip
@@ -214,7 +222,7 @@ export default function MapScreen() {
       </View>
 
       {/* Zoom. */}
-      <View style={styles.zoom} pointerEvents="box-none">
+      <View style={[styles.zoom, { top: underHeader + 150 }]} pointerEvents="box-none">
         <RoundButton label="+" accessibilityLabel="Zoomer" onPress={() => viewer.current?.zoomBy(1.8)} />
         <RoundButton label="−" accessibilityLabel="Dézoomer" onPress={() => viewer.current?.zoomBy(1 / 1.8)} />
         <RoundButton label="⤢" accessibilityLabel="Carte entière" onPress={() => viewer.current?.reset()} />
