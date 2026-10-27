@@ -12,7 +12,7 @@ import {
   getMap,
   instancesByType,
   mapData,
-  mapOverlays,
+  mapImage,
   mapPoints,
   nearestPoint,
   officialPoints,
@@ -98,12 +98,11 @@ describe('hiérarchie des cartes', () => {
 });
 
 describe('points de la carte', () => {
-  it('pose les terres des zones sur les cartes de région', () => {
+  it('livre les cartes de région déjà assemblées avec l’appli', () => {
     const noscea = breadcrumb(16)[1].id;
-    const overlays = mapOverlays(noscea);
-    expect(overlays.length).toBeGreaterThan(5);
-    for (const o of overlays) expect(o.icon).toBeGreaterThanOrEqual(63200);
-    expect(mapOverlays(16)).toEqual([]);
+    // Fichier livré avec l'appli (pas une adresse XIVAPI).
+    expect(JSON.stringify(mapImage(noscea, getMap(noscea)!))).not.toContain('xivapi');
+    expect(mapImage(16, getMap(16)!)).toEqual({ uri: 'https://v2.xivapi.com/api/asset/map/s1f2/00' });
   });
 
   it('nomme les éthérites et les range dans leur calque', () => {

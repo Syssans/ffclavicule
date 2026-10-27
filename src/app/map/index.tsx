@@ -31,8 +31,7 @@ import {
   LAYERS,
   layerCounts,
   mapData,
-  mapImageUrl,
-  mapOverlays,
+  mapImage,
   mapPoints,
   nearestPoint,
   toGameCoords,
@@ -97,7 +96,6 @@ export default function MapScreen() {
   const trail = useMemo(() => breadcrumb(mapId), [mapId]);
   const floors = useMemo(() => floorsOf(mapId), [mapId]);
   const counts = useMemo(() => layerCounts(mapId), [mapId]);
-  const overlays = useMemo(() => mapOverlays(mapId), [mapId]);
   const overworld = map.k === 'zone' || map.k === 'city' || map.k === 'housing';
 
   const quests = useQuery({
@@ -174,8 +172,7 @@ export default function MapScreen() {
       <MapViewer
         key={view.key}
         ref={viewer}
-        imageUrl={mapImageUrl(map)}
-        overlays={overlays}
+        image={mapImage(mapId, map)}
         points={points}
         selectedId={shownSelected?.id ?? null}
         pin={pin}

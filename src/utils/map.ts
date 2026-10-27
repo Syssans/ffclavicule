@@ -6,6 +6,7 @@
  * Données : src/data/map.json (voir scripts/update-map-data.mjs).
  */
 import { gatherableItems, gatheringData, isTimed, kindOf, KIND_LABEL, nodeKey, type GatheringNode } from '@/utils/gathering';
+import { REGION_IMAGES } from '@/data/region-images';
 import { fold } from '@/utils/inventory';
 
 export const MAP_SIZE = 2048;
@@ -51,8 +52,6 @@ export interface MapData {
   territoryMap: Record<string, number>;
   names: Record<string, string>;
   markers: Record<string, RawMarker[]>;
-  /** Terres des zones sur les cartes de région : [x, y, icône] (image de 1024 pixels de carte centrée sur x, y). */
-  overlays: Record<string, [number, number, number][]>;
   /** [aléa, nom, niveau, x, y, icône]. */
   fates: Record<string, [number, string, number, number, number, number][]>;
   /** [coin de pêche, nom (PlaceName), niveau, x, y, rayon]. */
@@ -98,17 +97,12 @@ export function mapForTerritory(territory: number): number | undefined {
   return mapData().territoryMap[String(territory)];
 }
 
-/** Terres des zones posées sur une carte de région, comme en jeu. */
-export function mapOverlays(id: number): { x: number; y: number; icon: number }[] {
-  return (mapData().overlays[String(id)] ?? []).map(([x, y, icon]) => ({ x, y, icon }));
-}
-
-/** Taille d'une image de terres sur la carte (pixels de la texture 2048). */
-export const OVERLAY_SIZE = 1024;
-
-/** Image de la carte, assemblée comme en jeu (fond et calque) par XIVAPI. */
-export function mapImageUrl(map: MapInfo): string {
-  return `https://v2.xivapi.com/api/asset/map/${map.i}`;
+/**
+ * Image de la carte : les cartes de région sont livrées avec l'appli, déjà assemblées (parchemin + terres des zones,
+ * voir scripts/update-map-data.mjs) ; les autres sont assemblées comme en jeu (fond et calque) par XIVAPI.
+ */
+export function mapImage(id: number, map: MapInfo): number | { uri: string } {
+  return REGION_IMAGES[id] ?? { uri: `https://v2.xivapi.com/api/asset/map/${map.i}` };
 }
 
 export function mapTitle(map: MapInfo): string {

@@ -16,12 +16,12 @@ import {
   useSimultaneousGestures,
   useTapGesture,
 } from 'react-native-gesture-handler';
-import Animated, { useAnimatedStyle, useSharedValue, withDecay, withTiming } from 'react-native-reanimated';
+import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withDecay, withTiming } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
 import { gameIconUrl } from '@/api/xivapi';
 import { DisplayFont } from '@/constants/theme';
-import { MAP_SIZE, nearestPoint, OVERLAY_SIZE, placeLabels, visibleRank, type MapPoint } from '@/utils/map';
+import { MAP_SIZE, nearestPoint, placeLabels, visibleRank, type MapPoint } from '@/utils/map';
 
 const ICON = 26;
 const LABEL_WIDTH = 170;
@@ -38,9 +38,8 @@ export interface MapViewerHandle {
 }
 
 interface Props {
-  imageUrl: string;
-  /** Images posées sur le fond (terres des zones sur une carte de région). */
-  overlays?: { x: number; y: number; icon: number }[];
+  /** Image de la carte : fichier livré avec l'appli ou adresse. */
+  image: number | { uri: string };
   points: MapPoint[];
   selectedId?: string | null;
   /** Repère posé par l'utilisateur (appui long). */
@@ -61,7 +60,7 @@ function clampAxis(value: number, content: number, view: number): number {
 }
 
 export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
-  { imageUrl, overlays = [], points, selectedId, pin, onTap, onLongPress, initialFocus, initialCover = false },
+  { image, points, selectedId, pin, onTap, onLongPress, initialFocus, initialCover = false },
   ref,
 ) {
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -77,11 +76,6 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
   const h = useSharedValue(0);
   const minScale = useSharedValue(1);
   const maxScale = useSharedValue(MAX_ZOOM);
-  const startScale = useSharedValue(1);
-  const startX = useSharedValue(0);
-  const startY = useSharedValue(0);
-  const focalX = useSharedValue(0);
-  const focalY = useSharedValue(0);
 
   const moveTo = useCallback(
     (x: number, y: number, target: number, animate = true) => {
@@ -132,42 +126,46 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
 
   // Gestes (Gesture Handler 3, sur le fil de l'interface) : pincer et glisser ensemble, toucher deux fois pour
   // zoomer, toucher pour choisir un point, appui long pour poser un repère.
+  // Pincer et glisser agissent ensemble, chacun par petits pas depuis l'événement précédent : le pincement zoome
+  // autour du point entre les doigts, le glissement (un ou deux doigts) déplace. Ainsi ils s'additionnent au lieu de
+  // se disputer la position de la carte. Un nouveau geste arrête l'élan du précédent.
+  const stopMotion = () => {
+    'worklet';
+    cancelAnimation(scale);
+    cancelAnimation(tx);
+    cancelAnimation(ty);
+  };
+
   const pinch = usePinchGesture({
-    onActivate: (e) => {
+    onBegin: () => {
       'worklet';
-      startScale.set(scale.get());
-      startX.set(tx.get());
-      startY.set(ty.get());
-      focalX.set(e.focalX);
-      focalY.set(e.focalY);
+      stopMotion();
     },
     onUpdate: (e) => {
       'worklet';
-      const s = Math.min(maxScale.get(), Math.max(minScale.get(), startScale.get() * e.scale));
-      // Le point de la carte sous les doigts au début du geste reste sous les doigts.
-      const cx = (focalX.get() - startX.get()) / startScale.get();
-      const cy = (focalY.get() - startY.get()) / startScale.get();
-      scale.set(s);
-      tx.set(clampAxis(e.focalX - cx * s, MAP_SIZE * s, w.get()));
-      ty.set(clampAxis(e.focalY - cy * s, MAP_SIZE * s, h.get()));
+      const before = scale.get();
+      const after = Math.min(maxScale.get(), Math.max(minScale.get(), before * e.scaleChange));
+      const factor = after / before;
+      scale.set(after);
+      // Le point de la carte sous les doigts reste sous les doigts.
+      tx.set(clampAxis(e.focalX - (e.focalX - tx.get()) * factor, MAP_SIZE * after, w.get()));
+      ty.set(clampAxis(e.focalY - (e.focalY - ty.get()) * factor, MAP_SIZE * after, h.get()));
     },
-    onDeactivate: () => {
+    onFinalize: () => {
       'worklet';
       scheduleOnRN(setZoom, scale.get());
     },
   });
 
   const pan = usePanGesture({
-    maxPointers: 1,
-    onActivate: () => {
+    onBegin: () => {
       'worklet';
-      startX.set(tx.get());
-      startY.set(ty.get());
+      stopMotion();
     },
     onUpdate: (e) => {
       'worklet';
-      tx.set(clampAxis(startX.get() + e.translationX, MAP_SIZE * scale.get(), w.get()));
-      ty.set(clampAxis(startY.get() + e.translationY, MAP_SIZE * scale.get(), h.get()));
+      tx.set(clampAxis(tx.get() + e.changeX, MAP_SIZE * scale.get(), w.get()));
+      ty.set(clampAxis(ty.get() + e.changeY, MAP_SIZE * scale.get(), h.get()));
     },
     onDeactivate: (e) => {
       'worklet';
@@ -241,7 +239,7 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
           {size.w > 0 ? (
             <Animated.View style={[styles.content, contentStyle]}>
               <Image
-                source={{ uri: imageUrl }}
+                source={image}
                 style={styles.image}
                 contentFit="cover"
                 cachePolicy="disk"
@@ -249,17 +247,6 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
                 onLoad={() => setLoaded(true)}
                 onError={() => setFailed(true)}
               />
-              {overlays.map((o, i) => (
-                <Image
-                  key={`${o.icon}-${i}`}
-                  // Version normale (1024 pixels) : la haute définition prendrait trop de mémoire pour une dizaine d'images.
-                  source={{ uri: gameIconUrl(o.icon, false) }}
-                  style={[styles.overlay, { left: o.x - OVERLAY_SIZE / 2, top: o.y - OVERLAY_SIZE / 2 }]}
-                  contentFit="fill"
-                  cachePolicy="disk"
-                  transition={250}
-                />
-              ))}
               {ordered.map((p) => (
                 <Marker key={p.id} point={p} selected={p.id === selectedId} showLabel={labels.has(p.id)} counterStyle={counterStyle} />
               ))}
@@ -376,7 +363,6 @@ const styles = StyleSheet.create({
     height: MAP_SIZE,
   },
   image: { width: MAP_SIZE, height: MAP_SIZE },
-  overlay: { position: 'absolute', width: OVERLAY_SIZE, height: OVERLAY_SIZE, opacity: 0.7 },
   anchor: { position: 'absolute', width: 0, height: 0, overflow: 'visible' },
   iconBox: {
     position: 'absolute',

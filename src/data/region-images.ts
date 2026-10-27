@@ -1,0 +1,21 @@
+/** Généré par scripts/update-map-data.mjs : cartes de région assemblées (parchemin + terres des zones). */
+export const REGION_IMAGES: Record<number, number> = {
+  87: require('../../assets/maps/regions/region-00.jpg'),
+  88: require('../../assets/maps/regions/region-02.jpg'),
+  89: require('../../assets/maps/regions/region-01.jpg'),
+  90: require('../../assets/maps/regions/region-03.jpg'),
+  91: require('../../assets/maps/regions/region-04.jpg'),
+  258: require('../../assets/maps/regions/region-05.jpg'),
+  259: require('../../assets/maps/regions/region-06.jpg'),
+  385: require('../../assets/maps/regions/region-07.jpg'),
+  386: require('../../assets/maps/regions/region-08.jpg'),
+  387: require('../../assets/maps/regions/region-09.jpg'),
+  543: require('../../assets/maps/regions/region-10.jpg'),
+  732: require('../../assets/maps/regions/region-11.jpg'),
+  733: require('../../assets/maps/regions/region-12.jpg'),
+  734: require('../../assets/maps/regions/region-13.jpg'),
+  735: require('../../assets/maps/regions/region-14.jpg'),
+  920: require('../../assets/maps/regions/region-15.jpg'),
+  921: require('../../assets/maps/regions/region-16.jpg'),
+  922: require('../../assets/maps/regions/region-17.jpg'),
+};

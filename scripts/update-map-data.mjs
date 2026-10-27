@@ -14,11 +14,21 @@
  *
  * Résultat : src/data/map.json
  */
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'data', 'map.json');
+import sharp from 'sharp';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const OUT = join(ROOT, 'src', 'data', 'map.json');
+/** Cartes de région assemblées (parchemin + terres des zones), livrées avec l'appli. */
+const REGION_DIR = join(ROOT, 'assets', 'maps', 'regions');
+const REGION_INDEX = join(ROOT, 'src', 'data', 'region-images.ts');
+/** Les terres sont posées à 70 % d'opacité, comme le rendu du jeu. */
+const OVERLAY_OPACITY = 0.7;
+const OVERLAY_SIZE = 1024;
+const MAP_SIZE = 2048;
 const XIVAPI = 'https://v2.xivapi.com/api';
 const UA = { 'User-Agent': 'Clavicule (companion FFXIV)' };
 const PAGE = 500;
@@ -370,7 +380,6 @@ async function main() {
     territoryMap,
     names: placeNames,
     markers,
-    overlays,
     fates,
     fishing,
     treasures,
@@ -378,12 +387,64 @@ async function main() {
     questIcons,
   };
   writeFileSync(OUT, JSON.stringify(data));
+  await buildRegionImages(maps, overlays);
   const count = (k) => Object.values(maps).filter((m) => m.k === k).length;
   console.log(
     `${Object.keys(maps).length} cartes (${count('world')} mondes, ${count('region')} régions, ${count('zone')} zones, ${count('city')} villes, ${count('housing')} quartiers, ${count('instance')} instances)`,
   );
   console.log(`${Object.values(markers).flat().length} marqueurs, ${fateCount} aléas, ${spotCount} coins de pêche, ${treasureCount} trésors`);
   console.log(`Écrit : ${OUT}`);
+}
+
+async function download(url) {
+  const res = await fetch(url, { headers: UA });
+  if (!res.ok) throw new Error(`${url} : HTTP ${res.status}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/**
+ * Cartes de région « toutes faites » : le parchemin du jeu avec les terres de chaque zone déjà posées dessus
+ * (icônes 63200 à 63499 : 1024 pixels de carte centrés sur le repère de la zone). Une seule image à afficher au lieu
+ * d'une douzaine.
+ */
+async function buildRegionImages(maps, overlays) {
+  mkdirSync(REGION_DIR, { recursive: true });
+  const entries = [];
+  for (const [id, list] of Object.entries(overlays)) {
+    const map = maps[id];
+    const base = await download(`${XIVAPI}/asset/map/${map.i}`);
+    const layers = [];
+    for (const [x, y, icon] of list) {
+      const group = String(Math.floor(icon / 1000) * 1000).padStart(6, '0');
+      const file = String(icon).padStart(6, '0');
+      const png = await download(`${XIVAPI}/asset?${new URLSearchParams({ path: `ui/icon/${group}/${file}_hr1.tex`, format: 'png' })}`);
+      const { data, info } = await sharp(png).resize(OVERLAY_SIZE, OVERLAY_SIZE).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      for (let i = 3; i < data.length; i += 4) data[i] = Math.round(data[i] * OVERLAY_OPACITY);
+      // Partie de l'image qui tombe sur la carte (une terre peut déborder du bord).
+      const left = Math.round(x - OVERLAY_SIZE / 2);
+      const top = Math.round(y - OVERLAY_SIZE / 2);
+      const cropLeft = Math.max(0, -left);
+      const cropTop = Math.max(0, -top);
+      const width = Math.min(OVERLAY_SIZE - cropLeft, MAP_SIZE - Math.max(0, left));
+      const height = Math.min(OVERLAY_SIZE - cropTop, MAP_SIZE - Math.max(0, top));
+      if (width <= 0 || height <= 0) continue;
+      const input = await sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+        .extract({ left: cropLeft, top: cropTop, width, height })
+        .png()
+        .toBuffer();
+      layers.push({ input, left: Math.max(0, left), top: Math.max(0, top) });
+    }
+    const name = map.i.replace('/', '-');
+    await sharp(base).resize(MAP_SIZE, MAP_SIZE).composite(layers).jpeg({ quality: 82, mozjpeg: true }).toFile(join(REGION_DIR, `${name}.jpg`));
+    entries.push([Number(id), name]);
+    console.log(`Région ${map.n} : ${layers.length} terres posées`);
+  }
+  const lines = entries.map(([id, name]) => `  ${id}: require('../../assets/maps/regions/${name}.jpg'),`);
+  writeFileSync(
+    REGION_INDEX,
+    `/** Généré par scripts/update-map-data.mjs : cartes de région assemblées (parchemin + terres des zones). */\n` +
+      `export const REGION_IMAGES: Record<number, number> = {\n${lines.join('\n')}\n};\n`,
+  );
 }
 
 main().catch((error) => {
