@@ -41,11 +41,13 @@ npx expo start
 
 Scanne le QR code affiché avec l'appareil photo (iPhone) ou avec Expo Go (Android).
 
+Sur Windows, **double-clique sur `lancer-appli.bat`** dans l'Explorateur (il faut [Git](https://git-scm.com/download/win) et [Node.js](https://nodejs.org) ; la première fois, autorise Node.js dans la fenêtre du pare-feu, sur les réseaux privés).
+
 Sur Mac, **double-clique sur `lancer-appli.command`** dans le Finder. Il récupère les dernières modifications (`git pull`, seulement ce qui a changé), met à jour les bibliothèques si besoin et lance le serveur. Le téléphone et l'ordinateur doivent être sur le même Wi-Fi ; sinon, lance `npx expo start --tunnel`.
 
 Le projet utilise **Expo SDK 58**. Expo Go ne lit qu'une seule version du SDK à la fois : si Expo Go affiche « Project is incompatible with this version of Expo Go », regarde quelle version il indique (« The installed version of Expo Go is for SDK … ») ; le projet doit être passé à cette version.
 
-Pour installer l'appli sans Expo Go et la partager avec tes amis, il faudra la compiler avec [EAS Build](https://docs.expo.dev/build/introduction/).
+Pour installer la vraie appli sans Expo Go (et sans Mac) : le workflow GitHub « Appli iOS (ipa pour Sideloadly) » compile un `.ipa` non signé sur un Mac de GitHub (on le relance en augmentant le numéro de `.github/ipa-version`) ; [Sideloadly](https://sideloadly.io) le signe avec un identifiant Apple et l'installe depuis Windows ou Mac. Avec un compte Apple gratuit, l'appli doit être réinstallée tous les 7 jours et ne reçoit pas les notifications push.
 
 ## Limites connues
 
