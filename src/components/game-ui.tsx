@@ -234,6 +234,12 @@ export function MenuEntry({
 }
 
 const styles = StyleSheet.create({
+  tileRow: { flexDirection: 'row', gap: Spacing.two },
+  moduleTile: { flex: 1, alignItems: 'center', gap: Spacing.one, paddingVertical: Spacing.three, paddingHorizontal: Spacing.one, borderRadius: 14, borderWidth: 1 },
+  moduleTitle: { textAlign: 'center' },
+  moduleDetail: { fontSize: 12, lineHeight: 16, textAlign: 'center', marginTop: -2 },
+  moduleBadge: { position: 'absolute', top: 6, right: 6, minWidth: 20, height: 20, borderRadius: 10, paddingHorizontal: 5, alignItems: 'center', justifyContent: 'center' },
+  moduleBadgeText: { fontSize: 12, lineHeight: 16 },
   window: { borderRadius: 14, borderWidth: 1, overflow: 'hidden' },
   windowHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingHorizontal: Spacing.three, paddingVertical: Spacing.two },
   windowRule: { height: 1 },
@@ -288,4 +294,62 @@ export function FavoriteStar({ size = 40, filled = true }: { size?: number; fill
       </Svg>
     </View>
   );
+}
+
+/**
+ * Tuile carrée d'un module : grande icône du jeu, titre, et au besoin une info courte dessous (« Départ dans 1 h »).
+ * Trois par ligne dans un TileRow.
+ */
+export function ModuleTile({
+  icon,
+  title,
+  detail,
+  badge,
+  disabled = false,
+  onPress,
+}: {
+  icon: number;
+  title: string;
+  detail?: string | null;
+  badge?: string | null;
+  disabled?: boolean;
+  onPress?: () => void;
+}) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={[title, detail, badge].filter(Boolean).join(', ')}
+      accessibilityState={{ disabled }}
+      disabled={disabled || !onPress}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.moduleTile,
+        { borderColor: theme.frame, backgroundColor: theme.backgroundElement },
+        disabled && { opacity: 0.5 },
+        pressed && { opacity: 0.7 },
+      ]}>
+      <MenuIcon id={icon} size={48} dimmed={disabled} />
+      <ThemedText type="smallBold" numberOfLines={1} style={styles.moduleTitle}>
+        {title}
+      </ThemedText>
+      {detail ? (
+        <ThemedText type="small" numberOfLines={1} style={[styles.moduleDetail, { color: theme.ornament }]}>
+          {detail}
+        </ThemedText>
+      ) : null}
+      {badge ? (
+        <View style={[styles.moduleBadge, { backgroundColor: theme.accent }]}>
+          <ThemedText type="smallBold" style={[styles.moduleBadgeText, { color: theme.accentText }]}>
+            {badge}
+          </ThemedText>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+/** Rangée de tuiles carrées, de largeur égale. */
+export function TileRow({ children }: { children: ReactNode }) {
+  return <View style={styles.tileRow}>{children}</View>;
 }

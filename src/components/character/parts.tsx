@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { type ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -19,7 +18,7 @@ import { jobIconId, ROLE_LABELS, ROLE_ORDER } from '@/data/jobs';
 import { LODESTONE_COLLECTIONS, useLodestoneCollection } from '@/hooks/use-lodestone-collection';
 import { useCatalog } from '@/hooks/use-private';
 import { useTheme } from '@/hooks/use-theme';
-import { lodestoneProfileUrl, type CharacterProfile, type GearPiece, type JobLevel, type LodestoneCollectionKind } from '@/lodestone/client';
+import { type CharacterProfile, type GearPiece, type JobLevel, type LodestoneCollectionKind } from '@/lodestone/client';
 import { useAppStore } from '@/store/app-store';
 import { formatRarity } from '@/utils/collect-reference';
 import { sourceLabel, usableItems } from '@/utils/collections';
@@ -79,7 +78,7 @@ export function Hero({ profile, height, badge }: { profile: CharacterProfile; he
           onPress={() => router.push({ pathname: '/model/[id]', params: { id: String(profile.id), name: profile.name } })}
           style={({ pressed }) => [styles.hero3dToggle, pressed && { opacity: 0.8 }]}>
           <ThemedText type="smallBold" style={styles.hero3dToggleText}>
-            Voir en 3D
+            3D
           </ThemedText>
         </Pressable>
       ) : null}
@@ -435,7 +434,6 @@ export function CollectionsOverview({ id, data }: { id: number; data: PrivateSna
 }
 
 export function FollowActions({ profile }: { profile: CharacterProfile }) {
-  const region = useAppStore((s) => s.region);
   const saved = useAppStore((s) => s.characters.some((c) => c.id === profile.id));
   const isMain = useAppStore((s) => s.mainCharacterId === profile.id);
   const saveCharacter = useAppStore((s) => s.saveCharacter);
@@ -470,31 +468,28 @@ export function FollowActions({ profile }: { profile: CharacterProfile }) {
           }
         />
       )}
-      <Button
-        label="Voir sur le Lodestone"
-        variant="secondary"
-        onPress={() => WebBrowser.openBrowserAsync(lodestoneProfileUrl(region, profile.id))}
-      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   // Fond sombre fixe : le texte est blanc sur le portrait, quel que soit le thème.
-  hero: { height: 380, borderRadius: 20, overflow: 'hidden', justifyContent: 'flex-end', backgroundColor: '#151B2B' },
+  hero: { height: 440, borderRadius: 20, overflow: 'hidden', justifyContent: 'flex-end', backgroundColor: '#151B2B' },
   hero3dToggle: {
     position: 'absolute',
     top: Spacing.two,
     right: Spacing.two,
-    minHeight: 36,
-    minWidth: 52,
+    minHeight: 32,
+    minWidth: 48,
     paddingHorizontal: Spacing.three,
-    borderRadius: 18,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E8C987',
+    backgroundColor: 'rgba(5,8,15,0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,201,135,0.6)',
   },
-  hero3dToggleText: { color: '#151B2B' },
+  hero3dToggleText: { color: '#E8C987', letterSpacing: 1 },
   privateEntry: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, padding: Spacing.three, borderRadius: 16 },
   heroText: { padding: Spacing.three, gap: Spacing.half },
   heroTitle: { color: '#E8C987' },

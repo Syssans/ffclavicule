@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { FishingIcons, FishRow, itemName, statusRank, useCaughtFish, useFishStatuses, zoneOf } from '@/components/fishing';
-import { GameWindow, MenuEntry, MenuIcon } from '@/components/game-ui';
+import { GameWindow, ModuleTile, TileRow } from '@/components/game-ui';
 import { ThemedText } from '@/components/themed-text';
 import { Chip, Empty, Input, Screen } from '@/components/ui';
 import { MenuIcons } from '@/constants/menu-icons';
@@ -34,6 +34,18 @@ export default function FishingScreen() {
 
   return (
     <Screen keyboardDismissMode="on-drag">
+      {/* L'heure, posée sans cadre : une information, pas un bouton. */}
+      <View style={styles.clock} accessible accessibilityLabel={`Heure d’Éorzéa ${formatEorzeaTime(now)}`}>
+        <ThemedText type="small" style={[styles.eyebrow, { color: theme.ornament }]}>
+          ÉORZÉA
+        </ThemedText>
+        <ThemedText type="display" style={[styles.time, { color: theme.ornament }]}>
+          {formatEorzeaTime(now)}
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary">
+          Météo suivante dans {formatCountdown(periodStart(now) + WEATHER_PERIOD - now)}
+        </ThemedText>
+      </View>
       <Input
         value={text}
         onChangeText={setText}
@@ -47,35 +59,21 @@ export default function FishingScreen() {
         <FishSearch query={query} now={now} statuses={statuses} caught={caught} />
       ) : (
         <>
-          <MenuEntry
-            icon={MenuIcons.peche}
-            title="Carnet de pêche"
-            status={caught ? `${caught.ids.size} / ${caught.total}` : null}
-            onPress={() => router.push('/fishing/log')}
-          />
-          <MenuEntry
-            icon={FishingIcons.ocean}
-            title="Pêche en mer"
-            status={voyage.boarding ? 'Embarquement en cours' : `Départ dans ${formatCountdown(voyage.departure - now)}`}
-            onPress={() => router.push('/fishing/ocean')}
-          />
-          <View style={[styles.clock, { borderColor: theme.frame, backgroundColor: theme.backgroundElement }]}>
-            <MenuIcon id={MenuIcons.calendrier} size={40} />
-            <View style={styles.flex}>
-              <ThemedText type="small" themeColor="textSecondary">
-                Heure d’Éorzéa
-              </ThemedText>
-              <ThemedText type="display" style={[styles.time, { color: theme.ornament }]}>
-                {formatEorzeaTime(now)}
-              </ThemedText>
-            </View>
-            <View style={styles.side}>
-              <ThemedText type="small" themeColor="textSecondary">
-                Météo suivante
-              </ThemedText>
-              <ThemedText type="smallBold">{formatCountdown(periodStart(now) + WEATHER_PERIOD - now)}</ThemedText>
-            </View>
-          </View>
+          <TileRow>
+            <ModuleTile
+              icon={FishingIcons.ocean}
+              title="Pêche en mer"
+              detail={voyage.boarding ? 'Embarquement' : `Dans ${formatCountdown(voyage.departure - now)}`}
+              onPress={() => router.push('/fishing/ocean')}
+            />
+            <ModuleTile
+              icon={MenuIcons.peche}
+              title="Carnet"
+              detail={caught ? `${caught.ids.size} / ${caught.total}` : null}
+              onPress={() => router.push('/fishing/log')}
+            />
+            <ModuleTile icon={FishingIcons.weather} title="Météo" onPress={() => router.push('/fishing/weather')} />
+          </TileRow>
 
           <GameWindow
             icon={FishingIcons.fisher}
@@ -95,7 +93,6 @@ export default function FishingScreen() {
             </GameWindow>
           ) : null}
 
-          <MenuEntry icon={FishingIcons.weather} title="Météo d’Éorzéa" onPress={() => router.push('/fishing/weather')} />
           <ThemedText type="small" themeColor="textSecondary">
             Fenêtres et appâts : FF14 Fish Tracker et Teamcraft (licence MIT). Météo et pêche en mer : données du jeu. Mis à jour le{' '}
             {new Date(data.updatedAt).toLocaleDateString('fr-FR')}.
@@ -166,8 +163,8 @@ function FishSearch({
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
-  clock: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, padding: Spacing.three, borderRadius: 14, borderWidth: 1 },
-  time: { fontSize: 28, lineHeight: 34 },
-  side: { alignItems: 'flex-end' },
+  clock: { alignItems: 'center', paddingVertical: Spacing.one },
+  eyebrow: { fontSize: 11, lineHeight: 14, letterSpacing: 3 },
+  time: { fontSize: 44, lineHeight: 52, fontVariant: ['tabular-nums'] },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
 });
