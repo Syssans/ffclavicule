@@ -11,6 +11,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Badge, Button, Card, Chip, Empty, ErrorBox, Loading, Screen, Section, Segmented } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { landscapeOptions } from '@/hooks/use-landscape';
 import { useAppStore } from '@/store/app-store';
 import { formatAgo } from '@/utils/format';
 import {
@@ -126,8 +127,9 @@ export default function HudScreen() {
   }
 
   return (
+    <View style={styles.page}>
     <Screen refreshControl={<RefreshControl refreshing={hud.isRefetching} onRefresh={() => void Promise.all([hud.refetch(), changes.refetch()])} />}>
-      <Stack.Screen options={{ title: 'ATH du jeu' }} />
+      <Stack.Screen options={{ title: 'ATH du jeu', ...landscapeOptions(fullscreen) }} />
       {hud.isPending ? <Loading label="Lecture de ton ATH…" /> : null}
       {hud.error ? <ErrorBox error={hud.error} onRetry={() => hud.refetch()} /> : null}
       {snapshot === null ? (
@@ -186,43 +188,6 @@ export default function HudScreen() {
             le régler.
           </ThemedText>
 
-          <HudFullscreen
-            visible={fullscreen}
-            onClose={() => setFullscreen(false)}
-            title={`Disposition ${layout + 1}${pendingChanges.length ? ` · ${pendingChanges.length} modif.` : ''}`}
-            elements={shown}
-            screen={snapshot.screen}
-            selected={selected}
-            modified={modified}
-            onSelect={setSelected}
-            onMove={(hash, position) => edit(hash, position)}
-            toolbar={
-              <View style={styles.chips}>
-                <Chip label="Masqués" selected={showHidden} onPress={() => setShowHidden((v) => !v)} />
-                {pendingChanges.length > 0 ? (
-                  <Chip label="Tout annuler" onPress={() => setEdits((all) => ({ ...all, [layout]: {} }))} />
-                ) : null}
-              </View>
-            }
-            panel={
-              element ? (
-                <ElementPanel
-                  element={element}
-                  modified={modified.has(element.hash) || layoutEdits[element.hash] !== undefined}
-                  step={step}
-                  onStep={setStep}
-                  onEdit={(change) => edit(element.hash, change)}
-                  onNudge={nudge}
-                  onReset={() => reset(element.hash)}
-                  screenSize={snapshot.screen}
-                />
-              ) : (
-                <ThemedText type="small" themeColor="textSecondary">
-                  Touche un élément pour le régler, ou fais-le glisser pour le déplacer. « Terminé » pour revenir, puis « Envoyer au jeu ».
-                </ThemedText>
-              )
-            }
-          />
 
           {element && !fullscreen ? (
             <ElementPanel
@@ -277,6 +242,46 @@ export default function HudScreen() {
         </>
       ) : null}
     </Screen>
+    {snapshot ? (
+          <HudFullscreen
+            visible={fullscreen}
+            onClose={() => setFullscreen(false)}
+            title={`Disposition ${layout + 1}${pendingChanges.length ? ` · ${pendingChanges.length} modif.` : ''}`}
+            elements={shown}
+            screen={snapshot.screen}
+            selected={selected}
+            modified={modified}
+            onSelect={setSelected}
+            onMove={(hash, position) => edit(hash, position)}
+            toolbar={
+              <View style={styles.chips}>
+                <Chip label="Masqués" selected={showHidden} onPress={() => setShowHidden((v) => !v)} />
+                {pendingChanges.length > 0 ? (
+                  <Chip label="Tout annuler" onPress={() => setEdits((all) => ({ ...all, [layout]: {} }))} />
+                ) : null}
+              </View>
+            }
+            panel={
+              element ? (
+                <ElementPanel
+                  element={element}
+                  modified={modified.has(element.hash) || layoutEdits[element.hash] !== undefined}
+                  step={step}
+                  onStep={setStep}
+                  onEdit={(change) => edit(element.hash, change)}
+                  onNudge={nudge}
+                  onReset={() => reset(element.hash)}
+                  screenSize={snapshot.screen}
+                />
+              ) : (
+                <ThemedText type="small" themeColor="textSecondary">
+                  Touche un élément pour le régler, ou fais-le glisser pour le déplacer. « Terminé » pour revenir, puis « Envoyer au jeu ».
+                </ThemedText>
+              )
+            }
+          />
+    ) : null}
+    </View>
   );
 }
 
@@ -371,6 +376,7 @@ function ElementPanel({
 }
 
 const styles = StyleSheet.create({
+  page: { flex: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
   nudge: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one, alignItems: 'center' },
   spacer: { flex: 1 },

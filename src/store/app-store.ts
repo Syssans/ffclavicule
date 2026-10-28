@@ -20,6 +20,8 @@ export interface WatchedItem {
   icon: string | null;
 }
 
+export type ThemeChoice = 'system' | 'light' | 'dark';
+
 interface AppState {
   region: LodestoneRegion;
   /** Monde ou centre de données utilisé pour les prix (ex. "Chaos", "Omega"). */
@@ -29,6 +31,8 @@ interface AppState {
   watchlist: WatchedItem[];
   /** Fond choisi dans la visionneuse 3D. */
   viewerBackground: string;
+  /** Thème de l'appli : celui du téléphone, clair ou sombre. */
+  theme: ThemeChoice;
   /** Téléphone connecté aux données privées d'un personnage (par identifiant Lodestone). */
   privateLinks: Record<number, PrivateLink>;
 
@@ -39,6 +43,7 @@ interface AppState {
   setMainCharacter: (id: number) => void;
   toggleWatch: (item: WatchedItem) => void;
   setViewerBackground: (key: string) => void;
+  setTheme: (theme: ThemeChoice) => void;
   setPrivateLink: (characterId: number, link: PrivateLink | null) => void;
 }
 
@@ -51,9 +56,11 @@ export const useAppStore = create<AppState>()(
       mainCharacterId: null,
       watchlist: [],
       viewerBackground: 'nuit',
+      theme: 'system',
       privateLinks: {},
 
       setRegion: (region) => set({ region }),
+      setTheme: (theme) => set({ theme }),
       setMarketScope: (marketScope) => set({ marketScope }),
       saveCharacter: (character) =>
         set((state) => {

@@ -24,6 +24,8 @@ const SOURCES = [
 export default function SettingsScreen() {
   const region = useAppStore((s) => s.region);
   const setRegion = useAppStore((s) => s.setRegion);
+  const theme = useAppStore((s) => s.theme);
+  const setTheme = useAppStore((s) => s.setTheme);
   const scope = useAppStore((s) => s.marketScope);
   const setScope = useAppStore((s) => s.setMarketScope);
 
@@ -41,6 +43,18 @@ export default function SettingsScreen() {
     <Screen>
       <Section title="Version de l’appli">
         <UpdatesSection />
+      </Section>
+
+      <Section title="Thème">
+        <Segmented
+          options={[
+            { value: 'system', label: 'Téléphone' },
+            { value: 'light', label: 'Clair' },
+            { value: 'dark', label: 'Sombre' },
+          ]}
+          value={theme}
+          onChange={setTheme}
+        />
       </Section>
 
       <Section title="Notifications">

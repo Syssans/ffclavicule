@@ -2,14 +2,14 @@
  * Éditeur d'ATH en plein écran : le téléphone passe en paysage pour que l'écran du jeu en miniature soit
  * le plus grand possible et les cadres plus faciles à attraper. Retour en portrait à la fermeture.
  */
-import * as ScreenOrientation from 'expo-screen-orientation';
-import { useEffect, type ReactNode } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import type { ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import type { HudElement } from '@/api/hud';
 import { HudCanvas } from '@/components/hud-canvas';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useLandscape } from '@/hooks/use-landscape';
 import { useTheme } from '@/hooks/use-theme';
 import type { HudScreen } from '@/utils/hud';
 
@@ -48,13 +48,7 @@ export function HudFullscreen({
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
 
-  useEffect(() => {
-    if (!visible || Platform.OS === 'web') return;
-    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => undefined);
-    return () => {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => undefined);
-    };
-  }, [visible]);
+  useLandscape(visible);
 
   // L'écran du jeu prend toute la place que laisse le panneau, sans être déformé.
   const side = landscape ? NOTCH_MARGIN : Spacing.three;
@@ -63,13 +57,9 @@ export function HudFullscreen({
   const aspect = screen.width / screen.height;
   const canvasWidth = Math.max(120, Math.min(availableWidth, availableHeight * aspect));
 
+  if (!visible) return null;
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}
-      onRequestClose={onClose}
-      statusBarTranslucent>
+    <View style={styles.overlay}>
       <View
         style={[
           styles.root,
@@ -100,11 +90,12 @@ export function HudFullscreen({
           </ScrollView>
         </View>
       </View>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 },
   root: { flex: 1, paddingVertical: Spacing.three, gap: Spacing.three },
   canvasArea: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   panel: { gap: Spacing.two },

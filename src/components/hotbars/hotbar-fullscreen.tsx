@@ -2,14 +2,13 @@
  * Barres d'actions en plein écran : le téléphone passe en paysage et les barres s'affichent à leur place dans
  * l'ATH, aussi grandes que possible, avec le glisser-déposer. Retour en portrait à la fermeture.
  */
-import * as ScreenOrientation from 'expo-screen-orientation';
-import { useEffect, type ReactNode } from 'react';
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import type { ReactNode } from 'react';
+import { Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { HotbarBoard, SLOT_COLORS, type BoardBar } from '@/components/hotbars/hotbar-board';
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
+import { useLandscape } from '@/hooks/use-landscape';
 import { useTheme } from '@/hooks/use-theme';
 import type { HudScreen, SlotRef } from '@/utils/hud';
 
@@ -45,27 +44,16 @@ export function HotbarFullscreen({
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
 
-  useEffect(() => {
-    if (!visible || Platform.OS === 'web') return;
-    ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE).catch(() => undefined);
-    return () => {
-      ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => undefined);
-    };
-  }, [visible]);
+  useLandscape(visible);
 
   const side = landscape ? NOTCH_MARGIN : Spacing.three;
   const boardWidth = landscape ? width - PANEL_WIDTH - side * 2 - Spacing.three : width - side * 2;
   const boardHeight = landscape ? height - Spacing.three * 2 : height * 0.5;
+  if (!visible) return null;
 
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}
-      onRequestClose={onClose}
-      statusBarTranslucent>
-      {/* Les gestes d'une fenêtre modale ont besoin de leur propre racine. */}
-      <GestureHandlerRootView style={[styles.root, { flexDirection: landscape ? 'row' : 'column', paddingHorizontal: side }]}>
+    <View style={styles.overlay}>
+      <View style={[styles.root, { flexDirection: landscape ? 'row' : 'column', paddingHorizontal: side }]}>
         <View style={styles.boardArea}>
           <View style={[styles.screen, { width: boardWidth }]}>
             <HotbarBoard
@@ -95,12 +83,13 @@ export function HotbarFullscreen({
           </View>
           {panel}
         </ScrollView>
-      </GestureHandlerRootView>
-    </Modal>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 },
   root: { flex: 1, backgroundColor: '#05070C', gap: Spacing.three, paddingVertical: Spacing.three },
   boardArea: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   screen: { backgroundColor: SLOT_COLORS.panel, borderRadius: 14, padding: Spacing.three },

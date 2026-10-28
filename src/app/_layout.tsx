@@ -4,7 +4,7 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Platform, StyleSheet, useColorScheme } from 'react-native';
+import { Appearance, Platform, StyleSheet, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { UpdateBanner } from '@/components/app-updates';
@@ -24,6 +24,11 @@ export default function RootLayout() {
       }),
   );
   const hydrated = useStoreHydrated();
+  // Thème choisi dans les réglages : il s'impose à toute l'appli (barres natives comprises), ou suit le téléphone.
+  const themeChoice = useAppStore((s) => s.theme);
+  useEffect(() => {
+    Appearance.setColorScheme(themeChoice === 'system' ? 'unspecified' : themeChoice);
+  }, [themeChoice]);
   // Police des titres ; en cas d'échec de chargement, l'appli démarre avec la police du système.
   const [fontsLoaded, fontError] = useFonts({ Cinzel_600SemiBold, Cinzel_700Bold });
   const ready = hydrated && (fontsLoaded || fontError !== null);

@@ -14,6 +14,7 @@ import { HotbarFullscreen } from '@/components/hotbars/hotbar-fullscreen';
 import { ThemedText } from '@/components/themed-text';
 import { Button, Card, Chip, Empty, ErrorBox, GameIcon, Loading, Screen } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
+import { landscapeOptions } from '@/hooks/use-landscape';
 import { useAppStore } from '@/store/app-store';
 import { formatAgo } from '@/utils/format';
 import {
@@ -159,100 +160,102 @@ export default function HotbarsScreen() {
   ) : null;
 
   return (
-    <Screen
-      scrollEnabled={!dragging}
-      refreshControl={<RefreshControl refreshing={hud.isRefetching} onRefresh={() => void Promise.all([hud.refetch(), changes.refetch()])} />}>
-      <Stack.Screen options={{ title: 'Barres d’actions' }} />
-      {hud.isPending ? <Loading label="Lecture de tes barres…" /> : null}
-      {hud.error ? <ErrorBox error={hud.error} onRetry={() => hud.refetch()} /> : null}
-      {hud.data === null || (hud.data && !set) ? (
-        <Card>
-          <ThemedText>Le plugin n’a pas encore envoyé tes barres d’actions.</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            Mets à jour le plugin, puis vérifie dans /clavicule que « Modifier l’ATH et les barres d’actions depuis l’appli » est coché.
-          </ThemedText>
-        </Card>
-      ) : null}
-      {set && job ? (
-        <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.jobs}>
-            {jobs.map((j) => (
-              <Chip
-                key={j.job}
-                label={`${j.abbr}${j.job === set.currentJob ? ' ●' : ''}`}
-                selected={j.job === job.job}
-                onPress={() => {
-                  setJobId(j.job);
-                  setPicked(null);
-                }}
-              />
-            ))}
-          </ScrollView>
-          <View style={styles.jobHead}>
-            <ThemedText type="subtitle" style={styles.jobName}>
-              {job.name}
-            </ThemedText>
+    <View style={styles.page}>
+      <Screen
+        scrollEnabled={!dragging}
+        refreshControl={<RefreshControl refreshing={hud.isRefetching} onRefresh={() => void Promise.all([hud.refetch(), changes.refetch()])} />}>
+        <Stack.Screen options={{ title: 'Barres d’actions', ...landscapeOptions(full) }} />
+        {hud.isPending ? <Loading label="Lecture de tes barres…" /> : null}
+        {hud.error ? <ErrorBox error={hud.error} onRetry={() => hud.refetch()} /> : null}
+        {hud.data === null || (hud.data && !set) ? (
+          <Card>
+            <ThemedText>Le plugin n’a pas encore envoyé tes barres d’actions.</ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Relevé {formatAgo(Date.parse(hud.data!.updatedAt))}
+              Mets à jour le plugin, puis vérifie dans /clavicule que « Modifier l’ATH et les barres d’actions depuis l’appli » est coché.
             </ThemedText>
-          </View>
+          </Card>
+        ) : null}
+        {set && job ? (
+          <>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.jobs}>
+              {jobs.map((j) => (
+                <Chip
+                  key={j.job}
+                  label={`${j.abbr}${j.job === set.currentJob ? ' ●' : ''}`}
+                  selected={j.job === job.job}
+                  onPress={() => {
+                    setJobId(j.job);
+                    setPicked(null);
+                  }}
+                />
+              ))}
+            </ScrollView>
+            <View style={styles.jobHead}>
+              <ThemedText type="subtitle" style={styles.jobName}>
+                {job.name}
+              </ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                Relevé {formatAgo(Date.parse(hud.data!.updatedAt))}
+              </ThemedText>
+            </View>
 
-          {screenBars.length > 0 && hud.data ? (
-            // Aperçu : les barres à leur place à l'écran ; un toucher l'ouvre en grand.
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Agrandir les barres comme en jeu"
-              onPress={() => setFull(true)}
-              style={({ pressed }) => [styles.preview, pressed && { opacity: 0.85 }]}>
-              <HotbarBoard bars={screenBars} mode="screen" screen={hud.data.screen} maxHeight={220} picked={picked} isChanged={isChanged} interactive={false} />
-              <View style={styles.expand}>
-                <ThemedText type="smallBold" style={styles.expandText}>
-                  ⤢ Agrandir
-                </ThemedText>
-              </View>
-            </Pressable>
-          ) : null}
+            {screenBars.length > 0 && hud.data ? (
+              // Aperçu : les barres à leur place à l'écran ; un toucher l'ouvre en grand.
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Agrandir les barres comme en jeu"
+                onPress={() => setFull(true)}
+                style={({ pressed }) => [styles.preview, pressed && { opacity: 0.85 }]}>
+                <HotbarBoard
+                  bars={screenBars}
+                  mode="screen"
+                  screen={hud.data.screen}
+                  maxHeight={220}
+                  picked={picked}
+                  isChanged={isChanged}
+                  interactive={false}
+                />
+                <View style={styles.expand}>
+                  <ThemedText type="smallBold" style={styles.expandText}>
+                    ⤢ Agrandir
+                  </ThemedText>
+                </View>
+              </Pressable>
+            ) : null}
 
-          <Card style={styles.sticky}>{panel}</Card>
+            <Card style={styles.sticky}>{panel}</Card>
 
-          <View style={styles.board}>
-            <HotbarBoard
-              bars={listBars}
-              mode="list"
-              picked={picked}
-              isChanged={isChanged}
-              onTap={tap}
-              onDrop={drop}
-              onDragChange={setDragging}
-            />
-          </View>
-          <ThemedText type="small" themeColor="textSecondary">
-            Appui long sur une action pour la glisser, ou touche deux cases pour les échanger.
-          </ThemedText>
-          <Chip label={showEmpty ? 'Cacher les barres vides' : 'Montrer les barres vides'} onPress={() => setShowEmpty((v) => !v)} />
-          <ChangeList changes={changes.data} kinds={['hotbars']} onCancel={(cid) => cancel.mutate(cid)} />
-
-          {hud.data ? (
-            <HotbarFullscreen
-              visible={full}
-              onClose={() => setFull(false)}
-              title={job.name}
-              bars={screenBars}
-              screen={hud.data.screen}
-              picked={picked}
-              isChanged={isChanged}
-              onTap={tap}
-              onDrop={drop}
-              panel={panel}
-            />
-          ) : null}
-        </>
+            <View style={styles.board}>
+              <HotbarBoard bars={listBars} mode="list" picked={picked} isChanged={isChanged} onTap={tap} onDrop={drop} onDragChange={setDragging} />
+            </View>
+            <ThemedText type="small" themeColor="textSecondary">
+              Appui long sur une action pour la glisser, ou touche deux cases pour les échanger.
+            </ThemedText>
+            <Chip label={showEmpty ? 'Cacher les barres vides' : 'Montrer les barres vides'} onPress={() => setShowEmpty((v) => !v)} />
+            <ChangeList changes={changes.data} kinds={['hotbars']} onCancel={(cid) => cancel.mutate(cid)} />
+          </>
+        ) : null}
+      </Screen>
+      {hud.data && job ? (
+        <HotbarFullscreen
+          visible={full}
+          onClose={() => setFull(false)}
+          title={job.name}
+          bars={screenBars}
+          screen={hud.data.screen}
+          picked={picked}
+          isChanged={isChanged}
+          onTap={tap}
+          onDrop={drop}
+          panel={panel}
+        />
       ) : null}
-    </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  page: { flex: 1 },
   jobs: { gap: Spacing.one, paddingVertical: Spacing.one },
   jobHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: Spacing.two },
   jobName: { textTransform: 'capitalize' },
