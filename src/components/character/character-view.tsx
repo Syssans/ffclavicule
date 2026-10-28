@@ -6,6 +6,7 @@ import { View } from 'react-native';
 
 import { FollowActions, Hero } from '@/components/character/parts';
 import { MenuGrid, MenuTile } from '@/components/game-ui';
+import { ConnectedPill } from '@/components/home';
 import { ThemedText } from '@/components/themed-text';
 import { Button, Card, ErrorBox, Loading, Section } from '@/components/ui';
 import { MenuIcons } from '@/constants/menu-icons';
@@ -63,7 +64,7 @@ export function CharacterView({ id }: { id: number }) {
 
   return (
     <>
-      <Hero profile={p} />
+      <Hero profile={p} badge={<ConnectedPill characterId={id} />} />
 
       <Section title="Personnage">
         <MenuGrid>

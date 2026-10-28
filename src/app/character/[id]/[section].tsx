@@ -5,6 +5,7 @@ import { RefreshControl } from 'react-native';
 
 import type { CharacterSection } from '@/components/character/character-view';
 import { CollectionsOverview, CollectionsUnlinked, GearSection, JobsSection, ProfileSection } from '@/components/character/parts';
+import { CharacterTag } from '@/components/home';
 import { ErrorBox, Loading, Screen } from '@/components/ui';
 import { useLodestoneCollection } from '@/hooks/use-lodestone-collection';
 import { usePrivate } from '@/hooks/use-private';
@@ -23,6 +24,7 @@ export default function CharacterSectionScreen() {
   const id = Number(params.id);
   const section = params.section;
   const region = useAppStore((s) => s.region);
+  const saved = useAppStore((s) => s.characters.find((c) => c.id === id));
 
   const profile = useQuery({
     queryKey: ['lodestone', 'character', region, id],
@@ -70,6 +72,7 @@ export default function CharacterSectionScreen() {
           <GearSection gear={gear.data ?? []} />
         )
       ) : null}
+      {section === 'collections' && saved ? <CharacterTag character={saved} /> : null}
       {section === 'collections' ? (
         !link ? (
           <CollectionsUnlinked id={id} name={profile.data?.name ?? ''} />

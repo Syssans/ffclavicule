@@ -1,13 +1,14 @@
 /** Créer ou modifier une alerte de prix : objet, serveur, seuil, qualité. */
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { getDataCenters, getPriceSummaries, getWorlds, regionLabel } from '@/api/universalis';
-import { searchItems } from '@/api/xivapi';
+import { searchItemIndex } from '@/utils/items-index';
+import { searchKey } from '@/utils/search';
 import { ThemedText } from '@/components/themed-text';
-import { Button, Card, Chip, Empty, ErrorBox, GameIcon, Input, Loading, Screen, Section, Segmented } from '@/components/ui';
+import { Button, Card, Chip, Empty, GameIcon, Input, Screen, Section, Segmented } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTheme } from '@/hooks/use-theme';
@@ -42,21 +43,17 @@ export default function AlertScreen() {
 function ItemPicker({ onPick }: { onPick: (item: ChosenItem) => void }) {
   const theme = useTheme();
   const [text, setText] = useState('');
-  const query = useDebounced(text.trim(), 400);
-  const results = useQuery({
-    queryKey: ['xivapi', 'search', query],
-    queryFn: () => searchItems(query, { marketableOnly: true }),
-    enabled: query.length >= 2,
-  });
+  const query = useDebounced(text, 150);
+  // Index des objets intégré à l'appli : ni majuscules ni accents ne comptent.
+  const results = useMemo(() => searchItemIndex(query, { marketableOnly: true, limit: 40 }).items, [query]);
+  const searching = searchKey(query).length >= 2;
   return (
     <>
-      <Input value={text} onChangeText={setText} placeholder="Objet à surveiller" autoFocus accessibilityLabel="Chercher un objet" />
-      {results.isFetching ? <Loading /> : null}
-      {results.error ? <ErrorBox error={results.error} /> : null}
-      {results.data?.length === 0 ? <Empty>Aucun objet vendable ne correspond.</Empty> : null}
-      {results.data?.length ? (
+      <Input value={text} onChangeText={setText} placeholder="Objet à surveiller" autoFocus autoCapitalize="none" accessibilityLabel="Chercher un objet" />
+      {searching && results.length === 0 ? <Empty>Aucun objet vendable ne correspond.</Empty> : null}
+      {results.length ? (
         <Card style={styles.list}>
-          {results.data.map((it, i) => (
+          {results.map((it, i) => (
             <Pressable
               key={it.id}
               accessibilityRole="button"
@@ -120,7 +117,7 @@ function AlertForm({ item, existing, onChangeItem }: { item: ChosenItem; existin
       createdAt: existing?.createdAt ?? new Date().toISOString(),
     });
     // Première alerte : il reste à activer les notifications.
-    if (!secret) router.replace('/notifications/marche');
+    if (!secret) router.replace({ pathname: '/notifications', params: { tab: 'marche' } });
     else router.back();
   };
 

@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgGradient, Path, Stop } from 'react-native-svg';
 
 import { gameIconUrl } from '@/api/xivapi';
 import { ThemedText } from '@/components/themed-text';
@@ -136,15 +136,17 @@ export function MenuRow({ icon, title, subtitle, right, onPress }: { icon: numbe
 export function GameWindow({
   icon,
   image,
+  glyph,
   title,
   subtitle,
   right,
   children,
   style,
 }: {
-  /** Icône du jeu par son numéro, ou `image` : adresse d'une icône (objet…). */
+  /** Icône du jeu par son numéro, ou `image` : adresse d'une icône (objet…), ou `glyph` : un dessin. */
   icon?: number;
   image?: string | null;
+  glyph?: ReactNode;
   title: string;
   subtitle?: string | null;
   right?: ReactNode;
@@ -159,7 +161,9 @@ export function GameWindow({
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.windowHead}>
-        {image ? (
+        {glyph ? (
+          glyph
+        ) : image ? (
           <Image source={image} style={{ width: 40, height: 40, borderRadius: 6 }} contentFit="contain" />
         ) : icon !== undefined ? (
           <MenuIcon id={icon} size={40} />
@@ -261,3 +265,27 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two, paddingHorizontal: Spacing.one, borderRadius: 10 },
   rowText: { flex: 1, minWidth: 0 },
 });
+
+/** Étoile dorée des favoris, au gabarit des icônes du jeu. */
+export function FavoriteStar({ size = 40, filled = true }: { size?: number; filled?: boolean }) {
+  const theme = useTheme();
+  return (
+    <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+      <Svg width={size} height={size} viewBox="0 0 40 40">
+      <Defs>
+        <SvgGradient id="favorite-star" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#F3DC9A" />
+          <Stop offset="1" stopColor={theme.ornament} />
+        </SvgGradient>
+      </Defs>
+      <Path
+        d="M20 3.5l4.9 10.6 11.6 1.3-8.6 7.9 2.4 11.4L20 28.9l-10.3 5.8 2.4-11.4-8.6-7.9 11.6-1.3z"
+        fill={filled ? 'url(#favorite-star)' : 'none'}
+        stroke={theme.ornament}
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+      </Svg>
+    </View>
+  );
+}

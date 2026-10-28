@@ -44,7 +44,7 @@ export default function SettingsScreen() {
       </Section>
 
       <Section title="Notifications">
-        <Button label="Alertes du marché et rappels du jeu" variant="secondary" onPress={() => router.push('/notifications')} />
+        <Button label="Centre de notifications" variant="secondary" onPress={() => router.push('/notifications')} />
       </Section>
 
       <Section title="Lodestone">

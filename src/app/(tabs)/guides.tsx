@@ -1,10 +1,12 @@
-/** Onglet Guides : l'encyclopédie du jeu, construite module par module. */
+/** Onglet Guides : l'heure d'Éorzéa, puis l'encyclopédie du jeu, construite module par module. */
 import { router } from 'expo-router';
 
 import { MenuEntry, MenuGrid, MenuTile } from '@/components/game-ui';
-import { ThemedText } from '@/components/themed-text';
-import { Card, Screen, Section } from '@/components/ui';
+import { Clocks, ResetBoard } from '@/components/clocks';
+import { SettingsButton } from '@/components/home';
+import { Screen, Section } from '@/components/ui';
 import { MenuIcons } from '@/constants/menu-icons';
+import { useNow } from '@/hooks/use-now';
 
 const MODULES = [
   { icon: MenuIcons.journal, title: 'Quêtes', subtitle: 'Scénario, quêtes de job, enchaînements' },
@@ -14,19 +16,10 @@ const MODULES = [
 ];
 
 export default function GuidesScreen() {
+  const now = useNow(1000);
   return (
-    <Screen title="Guides" tab>
-      <Card>
-        <ThemedText type="small" themeColor="textSecondary">
-          L’encyclopédie de Clavicule arrive module par module, construite à partir des données du jeu et de ta progression lue par le plugin.
-        </ThemedText>
-      </Card>
-      <MenuEntry
-        icon={MenuIcons.carte}
-        title="Carte interactive"
-        subtitle="Le monde, les régions, les zones et les instances, avec éthérites, aléas, quêtes, récolte, pêche et trésors."
-        onPress={() => router.push('/map')}
-      />
+    <Screen title="Guides" tab right={<SettingsButton />}>
+      <Clocks now={now} />
       <MenuEntry
         icon={MenuIcons.artisanat}
         title="Artisanat"
@@ -45,6 +38,7 @@ export default function GuidesScreen() {
         subtitle="Points légendaires, immaculés et éphémères, où récolter chaque objet, carnet et guide de niveau."
         onPress={() => router.push('/gathering')}
       />
+      <ResetBoard now={now} />
       <Section title="Bientôt">
         <MenuGrid>
           {MODULES.map((m) => (

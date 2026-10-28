@@ -31,7 +31,7 @@ import { scheduleOnRN } from 'react-native-worklets';
 
 import { gameIconUrl } from '@/api/xivapi';
 import { DisplayFont } from '@/constants/theme';
-import { MAP_SIZE, nearestPoint, placeLabels, visibleRank, type MapFrame, type MapPoint } from '@/utils/map';
+import { labelAt, MAP_SIZE, nearestPoint, placeLabels, visibleRank, type MapFrame, type MapPoint } from '@/utils/map';
 
 const ICON = 26;
 const LABEL_WIDTH = 170;
@@ -213,9 +213,13 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
   );
 
   const tappableRef = useRef<MapPoint[]>(points);
+  // Noms affichés à l'écran : on peut les toucher eux aussi, pas seulement leur icône.
+  const labelsRef = useRef<{ points: readonly MapPoint[]; shown: ReadonlySet<string>; scale: number }>({ points: [], shown: new Set(), scale: 1 });
   const handleTap = useCallback(
     (x: number, y: number, radius: number) => {
-      onTap(nearestPoint(tappableRef.current, x, y, radius), x, y);
+      const near = nearestPoint(tappableRef.current, x, y, radius);
+      const { points: drawnPoints, shown, scale: s } = labelsRef.current;
+      onTap(near ?? labelAt(drawnPoints, shown, x, y, s, ICON, LABEL_WIDTH), x, y);
     },
     [onTap],
   );
@@ -355,6 +359,9 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
   useEffect(() => {
     tappableRef.current = tappable;
   }, [tappable]);
+  useEffect(() => {
+    labelsRef.current = { points: drawn, shown: labels, scale: camera.s };
+  }, [drawn, labels, camera.s]);
 
   return (
     <View style={styles.viewport} onLayout={onLayout}>

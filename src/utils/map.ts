@@ -8,6 +8,7 @@
 import { gatherableItems, gatheringData, isTimed, kindOf, KIND_LABEL, nodeKey, type GatheringNode } from '@/utils/gathering';
 import { REGION_IMAGES } from '@/data/region-images';
 import { fold } from '@/utils/inventory';
+import { parseQuery, rankMatches } from '@/utils/search';
 
 export const MAP_SIZE = 2048;
 
@@ -556,10 +557,40 @@ export function placeLabels(
   return shown;
 }
 
+/**
+ * Nom affiché sous un toucher : sur le monde et les régions, les noms sont des liens, et l'icône seule est trop
+ * petite pour être visée. `x` et `y` en pixels de la carte ; `pad` agrandit un peu chaque nom (pixels d'écran).
+ */
+export function labelAt(
+  points: readonly MapPoint[],
+  shown: ReadonlySet<string>,
+  x: number,
+  y: number,
+  scale: number,
+  iconSize: number,
+  maxWidth: number,
+  pad = 8,
+): MapPoint | null {
+  const sx = x * scale;
+  const sy = y * scale;
+  let best: MapPoint | null = null;
+  for (const p of points) {
+    if (!shown.has(p.id)) continue;
+    const box = labelBox(p, scale, p.icon === 0 && p.rank === 0, iconSize, maxWidth);
+    if (sx >= box[0] - pad && sx <= box[2] + pad && sy >= box[1] - pad && sy <= box[3] + pad) {
+      // Deux noms proches : le plus important l'emporte.
+      if (!best || p.rank < best.rank) best = p;
+    }
+  }
+  return best;
+}
+
 // ——— Recherche ———
 
 export interface SearchResult {
   key: string;
+  /** Carte (monde, région, zone, ville), instance (donjon, défi, raid…), lieu-dit, aléa ou coin de pêche. */
+  kind: 'map' | 'instance' | 'place' | 'fate' | 'fishing';
   mapId: number;
   title: string;
   subtitle: string;
@@ -593,6 +624,7 @@ function buildSearchIndex(): { text: string; result: SearchResult }[] {
       text: fold(`${map.n} ${map.d ?? ''} ${map.r}`),
       result: {
         key: `map${id}`,
+        kind: map.k === 'instance' ? 'instance' : 'map',
         mapId: id,
         title: map.k === 'instance' && map.d ? capitalize(map.d) : map.n,
         subtitle: [type, map.l ? `niv. ${map.l}` : null, map.k !== 'region' && map.k !== 'world' ? map.r : null].filter(Boolean).join(' · '),
@@ -611,6 +643,7 @@ function buildSearchIndex(): { text: string; result: SearchResult }[] {
         text: fold(p.label),
         result: {
           key: `m${id}-${p.id}`,
+          kind: 'place',
           mapId: id,
           title: p.label,
           subtitle: `${p.layer === 'aetherytes' ? 'Éthérite · ' : ''}${map.n} · ${formatCoords(toGameCoords(map, p.x, p.y))}`,
@@ -625,6 +658,7 @@ function buildSearchIndex(): { text: string; result: SearchResult }[] {
         text: fold(p.label),
         result: {
           key: `f${id}-${p.id}`,
+          kind: 'fate',
           mapId: id,
           title: p.label,
           subtitle: `Aléa niv. ${p.data.type === 'fate' ? p.data.level : ''} · ${map.n}`,
@@ -639,6 +673,7 @@ function buildSearchIndex(): { text: string; result: SearchResult }[] {
         text: fold(p.label),
         result: {
           key: `p${id}-${p.id}`,
+          kind: 'fishing',
           mapId: id,
           title: p.label,
           subtitle: `Coin de pêche · ${map.n}`,
@@ -656,16 +691,12 @@ function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+/** Lieux, cartes, instances, aléas et coins de pêche dont le nom contient tous les mots cherchés, les plus proches d'abord. */
 export function searchMap(query: string, limit = 60): SearchResult[] {
-  const words = fold(query.trim()).split(/\s+/).filter(Boolean);
-  if (!words.length) return [];
+  const parsed = parseQuery(query);
+  if (!parsed.words.length) return [];
   searchIndex ??= buildSearchIndex();
-  const out: SearchResult[] = [];
-  for (const entry of searchIndex) {
-    if (words.every((w) => entry.text.includes(w))) out.push(entry.result);
-    if (out.length >= limit) break;
-  }
-  return out;
+  return rankMatches(searchIndex, (entry) => entry.text, parsed, limit).map((entry) => entry.result);
 }
 
 /** Nom d'une instance, avec majuscule (le jeu écrit « le Val d'Aurum »). */

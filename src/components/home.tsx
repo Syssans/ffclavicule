@@ -120,6 +120,8 @@ export function PhoneBadge() {
 export function CharacterTag({ character }: { character: SavedCharacter }) {
   const theme = useTheme();
   const linked = useAppStore((s) => Boolean(s.privateLinks[character.id]));
+  const main = useMainCharacter()?.id === character.id;
+  const status = linked ? 'Personnage connecté à ce téléphone' : main ? 'Personnage principal' : [character.world, character.dataCenter].filter(Boolean).join(' · ');
   return (
     <View style={styles.tag} accessible accessibilityLabel={`${character.name}${linked ? ', téléphone connecté' : ''}`}>
       <View>
@@ -137,7 +139,7 @@ export function CharacterTag({ character }: { character: SavedCharacter }) {
           {character.name}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-          {linked ? 'Personnage connecté à ce téléphone' : 'Personnage principal (plugin non connecté)'}
+          {status}
         </ThemedText>
       </View>
     </View>
@@ -147,6 +149,8 @@ export function CharacterTag({ character }: { character: SavedCharacter }) {
 /** Mention discrète posée sur le portrait : personnage connecté (téléphone) ou simplement principal. */
 export function ConnectedPill({ characterId }: { characterId: number }) {
   const linked = useAppStore((s) => Boolean(s.privateLinks[characterId]));
+  const main = useMainCharacter()?.id === characterId;
+  if (!linked && !main) return null;
   return (
     <View style={styles.pill}>
       {linked ? <PhoneIcon size={13} color="#E8C987" screen="rgba(5,8,15,0.9)" /> : null}

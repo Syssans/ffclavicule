@@ -1,15 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { getHistories, getPriceSummaries } from '@/api/universalis';
-import { searchItems } from '@/api/xivapi';
-import { GameWindow, MenuEntry } from '@/components/game-ui';
+import { searchItemIndex } from '@/utils/items-index';
+import { searchKey } from '@/utils/search';
+import { FavoriteStar, GameWindow, MenuEntry } from '@/components/game-ui';
 import { SettingsButton } from '@/components/home';
 import { Sparkline } from '@/components/price-chart';
 import { ThemedText } from '@/components/themed-text';
-import { Badge, Chip, Empty, ErrorBox, GameIcon, Input, Loading, Screen } from '@/components/ui';
+import { Badge, Chip, Empty, ErrorBox, GameIcon, Input, Screen } from '@/components/ui';
 import { GameIcons } from '@/constants/game-icons';
 import { MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
@@ -28,8 +29,8 @@ function openItem(id: number) {
 
 export default function MarketScreen() {
   const [text, setText] = useState('');
-  const query = useDebounced(text.trim(), 400);
-  const searching = query.length >= 2;
+  const query = useDebounced(text, 150);
+  const searching = searchKey(query).length >= 2;
 
   return (
     <Screen title="Marché" tab right={<SettingsButton />}>
@@ -39,6 +40,7 @@ export default function MarketScreen() {
         placeholder="Rechercher un objet vendable"
         returnKeyType="search"
         clearButtonMode="while-editing"
+        autoCapitalize="none"
         accessibilityLabel="Rechercher un objet"
       />
       {searching ? (
@@ -62,24 +64,23 @@ function AlertsLink() {
       title="Alertes de prix"
       subtitle="Être prévenu quand un objet passe sous un prix"
       status={alerts.length ? `${active} active${active > 1 ? 's' : ''}` : null}
-      onPress={() => router.push('/notifications/marche')}
+      onPress={() => router.push({ pathname: '/notifications', params: { tab: 'marche' } })}
     />
   );
 }
 
 function SearchResults({ query }: { query: string }) {
   const theme = useTheme();
-  const results = useQuery({
-    queryKey: ['xivapi', 'search', query],
-    queryFn: () => searchItems(query, { marketableOnly: true }),
-  });
-  if (results.isPending) return <Loading />;
-  if (results.error) return <ErrorBox error={results.error} onRetry={() => results.refetch()} />;
-  if (results.data.length === 0) return <Empty>Aucun objet vendable ne correspond.</Empty>;
-  const plural = results.data.length > 1 ? 's' : '';
+  // Index des objets intégré à l'appli : instantané, et ni majuscules ni accents ne comptent.
+  const { items, total } = useMemo(() => searchItemIndex(query, { marketableOnly: true, limit: 40 }), [query]);
+  if (total === 0) return <Empty>Aucun objet vendable ne correspond.</Empty>;
+  const plural = total > 1 ? 's' : '';
   return (
-    <GameWindow icon={MenuIcons.objets} title="Résultats" subtitle={`${results.data.length} objet${plural} vendable${plural}`}>
-      {results.data.map((item, i) => (
+    <GameWindow
+      icon={MenuIcons.objets}
+      title="Résultats"
+      subtitle={total > items.length ? `${items.length} premiers sur ${total} objets vendables` : `${total} objet${plural} vendable${plural}`}>
+      {items.map((item, i) => (
         <Pressable
           key={item.id}
           accessibilityRole="button"
@@ -118,7 +119,7 @@ function Watchlist() {
 
   if (watchlist.length === 0) {
     return (
-      <GameWindow icon={GameIcons.gil} title="Favoris" subtitle="Aucun favori pour l’instant">
+      <GameWindow glyph={<FavoriteStar />} title="Favoris" subtitle="Aucun favori pour l’instant">
         <ThemedText type="small" themeColor="textSecondary">
           Cherche un objet, ouvre sa fiche et touche l’étoile : son prix et sa tendance apparaîtront ici.
         </ThemedText>
@@ -130,7 +131,7 @@ function Watchlist() {
   const refreshing = prices.isRefetching || histories.isRefetching;
   return (
     <GameWindow
-      icon={GameIcons.gil}
+      glyph={<FavoriteStar />}
       title="Favoris"
       subtitle={`${scope} · prix le plus bas et tendance sur ${TREND_DAYS} jours`}
       right={

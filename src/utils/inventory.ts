@@ -1,5 +1,6 @@
 /** Outils pour afficher les données privées : identifiants d'objets, recherche dans tous les rangements. */
 import type { ItemStack, PrivateSnapshot } from '@/api/private';
+import { searchKey } from '@/utils/search';
 
 /** Tous les objets mentionnés (pour charger leurs noms et icônes en une fois). */
 export function allItemIds(snapshot: PrivateSnapshot): number[] {
@@ -20,9 +21,9 @@ export interface FoundItem extends ItemStack {
   place: string;
 }
 
-/** Retire les accents et la casse, pour chercher « epee » et trouver « Épée ». */
+/** Retire les accents, la casse et la ponctuation, pour chercher « epee » et trouver « Épée ». */
 export function fold(text: string): string {
-  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  return searchKey(text);
 }
 
 /** Objets dont le nom contient tous les mots cherchés, dans l'inventaire, les sacoches et chez les servants. */

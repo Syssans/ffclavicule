@@ -2,8 +2,10 @@
  * Artisanat, d'après les données du jeu (XIVAPI v2) : recettes et sous-recettes, provenance des matières
  * (récolte, pêche, marchands) et mandats d'artisan. Les requêtes regroupent plusieurs objets à la fois.
  */
+import { searchItemIndex } from '@/utils/items-index';
+
 import { getJson } from './http';
-import { iconUrl, searchItems } from './xivapi';
+import { iconUrl } from './xivapi';
 
 const BASE = 'https://v2.xivapi.com/api';
 const SOURCE = 'XIVAPI';
@@ -155,9 +157,9 @@ export async function recipesForItems(itemIds: number[]): Promise<Recipe[]> {
   return toRecipes(await searchByIds<RecipeFields>('Recipe', 'ItemResult', itemIds, RECIPE_FIELDS));
 }
 
-/** Recettes dont le résultat contient tous les mots cherchés. */
+/** Recettes dont le résultat contient tous les mots cherchés (sans tenir compte des majuscules ni des accents). */
 export async function searchRecipes(text: string): Promise<Recipe[]> {
-  const items = await searchItems(text, { limit: 100 });
+  const { items } = searchItemIndex(text, { limit: 100 });
   if (items.length === 0) return [];
   const recipes = await recipesForItems(items.map((i) => i.id));
   return recipes.sort((a, b) => a.level - b.level || a.stars - b.stars || a.name.localeCompare(b.name, 'fr'));

@@ -46,8 +46,6 @@ export default function RootLayout() {
             <Stack.Screen name="character/[id]/[section]" options={{ title: '' }} />
             <Stack.Screen name="settings" options={{ title: 'Réglages' }} />
             <Stack.Screen name="notifications/index" options={{ title: 'Notifications' }} />
-            <Stack.Screen name="notifications/marche" options={{ title: 'Alertes du marché' }} />
-            <Stack.Screen name="notifications/jeu" options={{ title: 'Rappels du jeu' }} />
             <Stack.Screen name="alert" options={{ title: 'Alerte de prix', presentation: 'modal' }} />
             <Stack.Screen name="item/[id]" options={{ title: '' }} />
             <Stack.Screen name="crafting/index" options={{ title: 'Artisanat' }} />

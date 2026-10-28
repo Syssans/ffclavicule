@@ -4,9 +4,9 @@ import { useTheme } from '@/hooks/use-theme';
 
 /** Icônes du menu principal du jeu (silhouettes), teintées par la barre d'onglets. */
 const ICONS = {
-  accueil: require('../../../assets/images/tabs/accueil.png'),
   personnage: require('../../../assets/images/tabs/personnage.png'),
-  collections: require('../../../assets/images/tabs/collections.png'),
+  carte: require('../../../assets/images/tabs/carte.png'),
+  recherche: require('../../../assets/images/tabs/recherche.png'),
   guides: require('../../../assets/images/tabs/guides.png'),
   marche: require('../../../assets/images/tabs/marche.png'),
 };
@@ -20,16 +20,16 @@ export default function TabsLayout() {
       iconColor={{ default: theme.textSecondary, selected: theme.accent }}
       labelStyle={{ default: { color: theme.textSecondary }, selected: { color: theme.accent } }}>
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Accueil</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon src={ICONS.accueil} renderingMode="template" />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="personnage">
         <NativeTabs.Trigger.Label>Personnages</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon src={ICONS.personnage} renderingMode="template" />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="collections">
-        <NativeTabs.Trigger.Label>Collections</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon src={ICONS.collections} renderingMode="template" />
+      <NativeTabs.Trigger name="carte">
+        <NativeTabs.Trigger.Label>Carte</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon src={ICONS.carte} renderingMode="template" />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="recherche">
+        <NativeTabs.Trigger.Label>Recherche</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon src={ICONS.recherche} renderingMode="template" />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="guides">
         <NativeTabs.Trigger.Label>Guides</NativeTabs.Trigger.Label>

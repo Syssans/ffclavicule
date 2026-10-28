@@ -18,6 +18,7 @@ import {
   mapPoints,
   nearestPoint,
   officialPoints,
+  labelAt,
   placeLabels,
   searchMap,
   toGameCoords,
@@ -179,6 +180,25 @@ describe('points de la carte', () => {
     expect(placeLabels(points, 1, 2, 'b', 26, 170).has('b')).toBe(true);
     // Trop dézoomé : seuls les noms toujours visibles.
     expect([...placeLabels(points, 1, 0, null, 26, 170)]).toEqual(['c']);
+  });
+
+  it('attrape un nom affiché quand on le touche, loin de son icône', () => {
+    const zone: MapPoint = {
+      id: 'z',
+      x: 500,
+      y: 500,
+      layer: 'places',
+      icon: 60442,
+      label: 'Forêt centrale',
+      orientation: 2,
+      rank: 0,
+      data: { type: 'marker', kind: 2, link: 4 },
+    };
+    // Le nom est à droite de l'icône (orientation 2) : on touche son milieu, à 2× de zoom.
+    expect(labelAt([zone], new Set(['z']), 500 + 30, 500, 2, 26, 170)?.id).toBe('z');
+    // Nom masqué, ou toucher ailleurs : rien.
+    expect(labelAt([zone], new Set(), 530, 500, 2, 26, 170)).toBeNull();
+    expect(labelAt([zone], new Set(['z']), 500, 560, 2, 26, 170)).toBeNull();
   });
 
   it('trouve les lieux, les donjons et les aléas', () => {
