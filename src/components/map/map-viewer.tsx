@@ -214,7 +214,7 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
 
   const tappableRef = useRef<MapPoint[]>(points);
   // Noms affichés à l'écran : on peut les toucher eux aussi, pas seulement leur icône.
-  const labelsRef = useRef<{ points: readonly MapPoint[]; shown: ReadonlySet<string>; scale: number }>({ points: [], shown: new Set(), scale: 1 });
+  const labelsRef = useRef<{ points: readonly MapPoint[]; shown: ReadonlyMap<string, number>; scale: number }>({ points: [], shown: new Map(), scale: 1 });
   const handleTap = useCallback(
     (x: number, y: number, radius: number) => {
       const near = nearestPoint(tappableRef.current, x, y, radius);
@@ -383,7 +383,7 @@ export const MapViewer = forwardRef<MapViewerHandle, Props>(function MapViewer(
           {size.w > 0 ? (
             <View pointerEvents="none" style={StyleSheet.absoluteFill}>
               {ordered.map((p) => (
-                <Marker key={p.id} point={p} selected={p.id === selectedId} showLabel={labels.has(p.id)} scale={scale} tx={tx} ty={ty} />
+                <Marker key={p.id} point={p} selected={p.id === selectedId} showLabel={labels.has(p.id)} labelShift={labels.get(p.id) ?? 0} scale={scale} tx={tx} ty={ty} />
               ))}
               {pin ? <Pin x={pin.x} y={pin.y} scale={scale} tx={tx} ty={ty} /> : null}
             </View>
@@ -421,11 +421,14 @@ const Marker = memo(function Marker({
   point,
   selected,
   showLabel,
+  labelShift,
   ...follow
 }: {
   point: MapPoint;
   selected: boolean;
   showLabel: boolean;
+  /** Décalage vertical du nom, pour ne pas chevaucher un voisin. */
+  labelShift: number;
 } & Follow) {
   const style = useFollow(point.x, point.y, follow);
   const big = point.icon === 0 && point.rank === 0;
@@ -443,7 +446,7 @@ const Marker = memo(function Marker({
       {label ? (
         // Le texte vit dans une boîte de largeur fixe : sur le web, un texte limité en lignes ne dépasse pas son parent
         // (ici un point de taille nulle).
-        <View style={[styles.labelBox, labelPosition(textOnly ? 0 : point.orientation, big)]}>
+        <View style={[styles.labelBox, labelPosition(textOnly ? 0 : point.orientation, big), labelShift ? { transform: [{ translateY: labelShift }] } : null]}>
           <Text
             numberOfLines={2}
             style={[

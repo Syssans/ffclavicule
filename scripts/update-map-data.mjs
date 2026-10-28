@@ -429,18 +429,20 @@ async function buildRegionImages(maps, overlays, assembled) {
   for (const [id, list] of Object.entries(overlays)) {
     const map = maps[id];
     const base = await download(`${XIVAPI}/asset/map/${map.i}`);
-    const zones = new Map((assembled[id] ?? []).map(([zone, x, y]) => [`${x},${y}`, zone]));
+    const zones = new Set((assembled[id] ?? []).map(([zone, x, y]) => `${zone},${x},${y}`));
     const done = new Set();
     const layers = [];
-    for (const [x, y, icon] of list) {
-      const key = `${x},${y}`;
-      if (done.has(key)) continue;
-      done.add(key);
+    for (const [x, y, icon, own] of list) {
+      // Une même position peut porter plusieurs silhouettes (Vieille et Nouvelle Gridania, les ponts de Limsa
+      // Lominsa) : chacune est posée.
+      if (done.has(`${x},${y},${icon}`)) continue;
+      done.add(`${x},${y},${icon}`);
       const group = String(Math.floor(icon / 1000) * 1000).padStart(6, '0');
       const file = String(icon).padStart(6, '0');
       const png = await download(`${XIVAPI}/asset?${new URLSearchParams({ path: `ui/icon/${group}/${file}_hr1.tex`, format: 'png' })}`);
       const mask = await sharp(png).resize(OVERLAY_SIZE, OVERLAY_SIZE).ensureAlpha().extractChannel(3).raw().toBuffer();
-      const zone = zones.get(key);
+      // Carte de zone à poser ici (pas pour les cités et quartiers, qui gardent leur silhouette).
+      const zone = zones.has(`${own},${x},${y}`) ? own : undefined;
       let data;
       if (zone && maps[zone]) {
         // La carte de la zone, découpée selon la silhouette.

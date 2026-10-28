@@ -59,7 +59,6 @@ export default function RootLayout() {
             <Stack.Screen name="gathering/node/[key]" options={{ title: 'Point de récolte' }} />
             <Stack.Screen name="gathering/log" options={{ title: 'Carnet de récolte' }} />
             <Stack.Screen name="gathering/job/[job]" options={{ title: 'Récolteur' }} />
-            <Stack.Screen name="fishing/list" options={{ title: 'Poissons' }} />
             <Stack.Screen name="fishing/fish/[id]" options={{ title: 'Poisson' }} />
             <Stack.Screen name="fishing/weather" options={{ title: 'Météo d’Éorzéa' }} />
             <Stack.Screen name="fishing/ocean" options={{ title: 'Pêche en mer' }} />

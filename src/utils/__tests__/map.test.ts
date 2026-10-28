@@ -177,10 +177,10 @@ describe('points de la carte', () => {
       data: { type: 'marker', kind: 0, link: 0 },
     });
     const points = [point('a', 100, 2), point('b', 101, 2), point('c', 102, 0), point('d', 900, 2)];
-    expect([...placeLabels(points, 1, 2, null, 26, 170)].sort()).toEqual(['c', 'd']);
+    expect([...placeLabels(points, 1, 2, null, 26, 170).keys()].sort()).toEqual(['c', 'd']);
     expect(placeLabels(points, 1, 2, 'b', 26, 170).has('b')).toBe(true);
     // Trop dézoomé : seuls les noms toujours visibles.
-    expect([...placeLabels(points, 1, 0, null, 26, 170)]).toEqual(['c']);
+    expect([...placeLabels(points, 1, 0, null, 26, 170).keys()]).toEqual(['c']);
   });
 
   it('montre une cité par son blason, une seule fois, sur sa région', () => {
@@ -189,6 +189,25 @@ describe('points de la carte', () => {
     expect(limsa).toHaveLength(1);
     expect(limsa[0].icon).toBe(60881);
     expect(cityCrest(limsa[0].data.type === 'marker' ? limsa[0].data.link : 0)).toBe(60881);
+  });
+
+  it('décale un grand nom qui en chevauche un autre au lieu de les superposer', () => {
+    const zone = (id: string, y: number): MapPoint => ({
+      id,
+      x: 500,
+      y,
+      layer: 'places',
+      icon: 0,
+      label: 'Noscea extérieure',
+      orientation: 0,
+      rank: 0,
+      data: { type: 'marker', kind: 2, link: 1 },
+    });
+    const placed = placeLabels([zone('a', 500), zone('b', 505)], 1, 0, null, 26, 170);
+    expect(placed.get('a')).toBe(0);
+    expect(Math.abs(placed.get('b')!)).toBeGreaterThanOrEqual(20);
+    // Le nom décalé se touche à sa nouvelle place.
+    expect(labelAt([zone('b', 505)], placed, 500, 505 + placed.get('b')!, 1, 26, 170)?.id).toBe('b');
   });
 
   it('attrape un nom affiché quand on le touche, loin de son icône', () => {
@@ -204,10 +223,10 @@ describe('points de la carte', () => {
       data: { type: 'marker', kind: 2, link: 4 },
     };
     // Le nom est à droite de l'icône (orientation 2) : on touche son milieu, à 2× de zoom.
-    expect(labelAt([zone], new Set(['z']), 500 + 30, 500, 2, 26, 170)?.id).toBe('z');
+    expect(labelAt([zone], new Map([['z', 0]]), 500 + 30, 500, 2, 26, 170)?.id).toBe('z');
     // Nom masqué, ou toucher ailleurs : rien.
-    expect(labelAt([zone], new Set(), 530, 500, 2, 26, 170)).toBeNull();
-    expect(labelAt([zone], new Set(['z']), 500, 560, 2, 26, 170)).toBeNull();
+    expect(labelAt([zone], new Map(), 530, 500, 2, 26, 170)).toBeNull();
+    expect(labelAt([zone], new Map([['z', 0]]), 500, 560, 2, 26, 170)).toBeNull();
   });
 
   it('trouve les lieux, les donjons et les aléas', () => {

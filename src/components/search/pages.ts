@@ -31,7 +31,6 @@ export const APP_PAGES: AppPage[] = [
     'cartes donjons defis raids',
   ),
   page('peche', 'Pêche', 'Poissons, fenêtres, appâts', MenuIcons.peche, '/fishing', 'pecheur poisson'),
-  page('poissons', 'Poissons', 'Tous les poissons et leurs conditions', MenuIcons.peche, '/fishing/list', 'peche'),
   page('ocean', 'Pêche en mer', 'Départs, itinéraires et poissons du bateau', FishingIcons.ocean, '/fishing/ocean', 'bateau ocean'),
   page('meteo', 'Météo d’Éorzéa', 'Prévisions de chaque zone', FishingIcons.weather, '/fishing/weather', 'temps meteo'),
   page('carnet-peche', 'Carnet de pêche', 'Poissons attrapés et manquants', FishingIcons.log, '/fishing/log', 'journal'),

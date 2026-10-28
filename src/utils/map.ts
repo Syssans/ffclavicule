@@ -545,8 +545,10 @@ export function labelBox(point: MapPoint, scale: number, big: boolean, iconSize:
   const charWidth = big ? 10 : 6.6;
   const lineHeight = big ? 20 : 16;
   const raw = point.label.length * charWidth + 4;
-  const width = Math.min(raw, maxWidth);
-  const height = raw > maxWidth ? lineHeight * 2 : lineHeight;
+  // Les grands noms ont une boîte plus large (voir la visionneuse).
+  const limit = big ? maxWidth + 60 : maxWidth;
+  const width = Math.min(raw, limit);
+  const height = raw > limit ? lineHeight * 2 : lineHeight;
   const x = point.x * scale;
   const y = point.y * scale;
   const half = point.icon ? iconSize / 2 + 2 : 0;
@@ -566,7 +568,11 @@ export function labelBox(point: MapPoint, scale: number, big: boolean, iconSize:
 
 /**
  * Noms affichés : les plus importants d'abord, et un nom n'apparaît que s'il ne chevauche pas un nom déjà placé
- * (comme le jeu, qui cache les noms qui se marchent dessus). Le point choisi garde toujours son nom.
+ * (comme le jeu, qui cache les noms qui se marchent dessus). Les grands noms (zones, régions, cités) sont aussi des
+ * liens : plutôt que de les cacher, on les décale un peu vers le haut ou le bas jusqu'à trouver de la place. Le point
+ * choisi garde toujours son nom.
+ *
+ * Renvoie, pour chaque nom affiché, son décalage vertical en pixels d'écran (0 le plus souvent).
  */
 export function placeLabels(
   points: readonly MapPoint[],
@@ -575,19 +581,31 @@ export function placeLabels(
   selectedId: string | null | undefined,
   iconSize: number,
   maxWidth: number,
-): Set<string> {
-  const shown = new Set<string>();
+): Map<string, number> {
+  const shown = new Map<string, number>();
   const boxes: Box[] = [];
+  const overlaps = (box: Box) => boxes.some((o) => box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1]);
   const candidates = points
     .filter((p) => p.label && (p.rank <= rank || p.id === selectedId))
     .sort((a, b) => Number(b.id === selectedId) - Number(a.id === selectedId) || a.rank - b.rank);
   for (const p of candidates) {
     const box = labelBox(p, scale, p.icon === 0 && p.rank === 0, iconSize, maxWidth);
-    const overlaps = boxes.some((o) => box[0] < o[2] && box[2] > o[0] && box[1] < o[3] && box[3] > o[1]);
-    // Les grands noms (zones, régions) restent toujours visibles : ce sont aussi des liens.
-    if (overlaps && p.id !== selectedId && p.rank > 0) continue;
-    boxes.push(box);
-    shown.add(p.id);
+    if (p.id === selectedId || !overlaps(box)) {
+      boxes.push(box);
+      shown.set(p.id, 0);
+      continue;
+    }
+    if (p.rank > 0) continue;
+    // Grand nom gêné : un cran au-dessus ou en dessous, puis deux.
+    const step = box[3] - box[1] + 2;
+    for (const dy of [-step, step, -2 * step, 2 * step]) {
+      const moved: Box = [box[0], box[1] + dy, box[2], box[3] + dy];
+      if (!overlaps(moved)) {
+        boxes.push(moved);
+        shown.set(p.id, dy);
+        break;
+      }
+    }
   }
   return shown;
 }
@@ -598,7 +616,7 @@ export function placeLabels(
  */
 export function labelAt(
   points: readonly MapPoint[],
-  shown: ReadonlySet<string>,
+  shown: ReadonlyMap<string, number>,
   x: number,
   y: number,
   scale: number,
@@ -610,9 +628,10 @@ export function labelAt(
   const sy = y * scale;
   let best: MapPoint | null = null;
   for (const p of points) {
-    if (!shown.has(p.id)) continue;
+    const dy = shown.get(p.id);
+    if (dy === undefined) continue;
     const box = labelBox(p, scale, p.icon === 0 && p.rank === 0, iconSize, maxWidth);
-    if (sx >= box[0] - pad && sx <= box[2] + pad && sy >= box[1] - pad && sy <= box[3] + pad) {
+    if (sx >= box[0] - pad && sx <= box[2] + pad && sy >= box[1] + dy - pad && sy <= box[3] + dy + pad) {
       // Deux noms proches : le plus important l'emporte.
       if (!best || p.rank < best.rank) best = p;
     }

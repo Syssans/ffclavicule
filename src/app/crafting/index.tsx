@@ -76,11 +76,6 @@ function Home() {
         status={list.length ? `${list.length} recette${list.length > 1 ? 's' : ''}` : 'Vide'}
         onPress={() => router.push('/crafting/list')}
       />
-      <MenuEntry
-        icon={GameIcons.marketBoard}
-        title="Rentabilité"
-        onPress={() => router.push('/crafting/profit')}
-      />
       <GameWindow
         icon={22}
         title="Mes artisans"
@@ -110,6 +105,11 @@ function Home() {
           })}
         </View>
       </GameWindow>
+      <MenuEntry
+        icon={GameIcons.marketBoard}
+        title="Rentabilité"
+        onPress={() => router.push('/crafting/profit')}
+      />
     </>
   );
 }

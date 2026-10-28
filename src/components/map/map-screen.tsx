@@ -6,6 +6,7 @@
  * Paramètres : map (numéro de carte), x et y (point à montrer, en pixels de la carte), t (pour recentrer).
  */
 import { useQuery } from '@tanstack/react-query';
+import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { type ComponentRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -17,8 +18,6 @@ import { WeatherIcon, weatherName } from '@/components/fishing';
 import { ChipBar, MapChip, MapColors, PointCard, CardButton, CardText, RoundButton } from '@/components/map/map-overlays';
 import { MapViewer, type MapViewerHandle } from '@/components/map/map-viewer';
 import { PointDetails } from '@/components/map/point-details';
-import { MenuIcon } from '@/components/game-ui';
-import { MenuIcons } from '@/constants/menu-icons';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import { useMapStore } from '@/store/map-store';
@@ -44,6 +43,9 @@ import {
 } from '@/utils/map';
 
 const ALL_LAYER_KEYS = LAYERS.map((l) => l.key);
+
+/** Globe doré de l'atlas (icône du jeu, sans son fond). */
+const ATLAS_ICON = require('../../../assets/images/atlas.png');
 
 /** Hauteur de la barre des calques, en bas. */
 const BOTTOM_BAR = 56;
@@ -204,7 +206,7 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
           title,
           headerRight: () => (
             <Pressable accessibilityRole="button" accessibilityLabel="Atlas et recherche" hitSlop={10} onPress={() => router.push(atlas)}>
-              <MenuIcon id={MenuIcons.guides} size={30} />
+              <Image source={ATLAS_ICON} style={styles.atlas} contentFit="contain" />
             </Pressable>
           ),
         }}
@@ -320,6 +322,7 @@ function contentName(type: number | undefined): string | null {
 }
 
 const styles = StyleSheet.create({
+  atlas: { width: 30, height: 30 },
   screen: { flex: 1, backgroundColor: '#1A1712' },
   top: {
     position: 'absolute',
