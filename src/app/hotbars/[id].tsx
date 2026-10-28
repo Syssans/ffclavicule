@@ -1,16 +1,19 @@
-/** Barres d'actions de chaque job : voir leur contenu et le réorganiser (échanger, déplacer, vider des cases). */
+/**
+ * Barres d'actions de chaque job, reconstruites comme en jeu : un aperçu à leur place dans l'ATH (en grand d'un
+ * toucher), puis chaque barre dans sa forme. Glisser-déposer ou deux touchers pour échanger, déplacer, vider.
+ */
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 
 import type { HotbarJob, HotbarSlotChange } from '@/api/hud';
 import { gameIconUrl } from '@/api/xivapi';
 import { ChangeList, useHud } from '@/components/hud-changes';
-import { HudMiniature } from '@/components/hud-miniature';
+import { HotbarBoard, SLOT_COLORS, type BoardBar } from '@/components/hotbars/hotbar-board';
+import { HotbarFullscreen } from '@/components/hotbars/hotbar-fullscreen';
 import { ThemedText } from '@/components/themed-text';
-import { Badge, Button, Card, Chip, Empty, ErrorBox, GameIcon, Loading, Screen } from '@/components/ui';
+import { Button, Card, Chip, Empty, ErrorBox, GameIcon, Loading, Screen } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/store/app-store';
 import { formatAgo } from '@/utils/format';
 import {
@@ -24,19 +27,18 @@ import {
   type SlotRef,
 } from '@/utils/hud';
 
-const COLUMNS = 6;
-
 export default function HotbarsScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = Number(rawId);
   const link = useAppStore((s) => s.privateLinks[id]);
   const { hud, changes, send, cancel } = useHud(id, link?.token);
-  const theme = useTheme();
 
   const [jobId, setJobId] = useState<number | null>(null);
   const [edits, setEdits] = useState<HotbarEdits>({});
   const [picked, setPicked] = useState<SlotRef | null>(null);
   const [showEmpty, setShowEmpty] = useState(false);
+  const [full, setFull] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   const set = hud.data?.hotbars;
   const jobs = useMemo(() => set?.jobs ?? [], [set]);
@@ -56,15 +58,36 @@ export default function HotbarsScreen() {
 
   const merged = useMemo(() => ({ ...base, ...edits }), [base, edits]);
   const count = countHotbarChanges(jobs, merged, base);
-  const bars = job ? effectiveBars(job, merged) : [];
-  // Disposition d'ATH affichée en jeu : où sont les barres, et lesquelles sont masquées.
-  const layoutElements = hud.data?.layouts.find((l) => l.index === hud.data?.currentLayout)?.elements ?? [];
-  const hiddenBars = new Set(layoutElements.filter((e) => e.hotbar !== undefined && !e.visible).map((e) => e.hotbar!));
-  const before = job ? effectiveBars(job, base) : [];
+  const bars = useMemo(() => (job ? effectiveBars(job, merged) : []), [job, merged]);
+  const before = useMemo(() => (job ? effectiveBars(job, base) : []), [job, base]);
+  // Disposition d'ATH affichée en jeu : forme et place de chaque barre, et lesquelles sont masquées.
+  const layoutElements = useMemo(() => hud.data?.layouts.find((l) => l.index === hud.data?.currentLayout)?.elements ?? [], [hud.data]);
+  const boardBars: BoardBar[] = useMemo(() => {
+    const elements = new Map(layoutElements.filter((e) => e.hotbar !== undefined).map((e) => [e.hotbar!, e]));
+    return bars.map((b) => {
+      const element = elements.get(b.id);
+      return { ...b, shape: element?.shape ?? 1, hidden: element ? !element.visible : false, element: element?.visible ? element : undefined };
+    });
+  }, [bars, layoutElements]);
+  const listBars = boardBars.filter((b) => showEmpty || b.slots.some(Boolean));
+  const screenBars = boardBars.filter((b) => b.element);
   const pickedSlot = picked ? bars[picked.bar]?.slots[picked.slot] : null;
 
-  const tap = (at: SlotRef) => {
+  const isChanged = useCallback(
+    (at: SlotRef) => {
+      const now = bars[at.bar]?.slots[at.slot];
+      const was = before[at.bar]?.slots[at.slot];
+      return (was?.type ?? 0) !== (now?.type ?? 0) || (was?.id ?? 0) !== (now?.id ?? 0);
+    },
+    [bars, before],
+  );
+
+  const tap = (at: SlotRef | null) => {
     if (!job) return;
+    if (!at) {
+      setPicked(null);
+      return;
+    }
     if (!picked) {
       // On ne prend pas une case vide.
       if (bars[at.bar].slots[at.slot]) setPicked(at);
@@ -75,6 +98,11 @@ export default function HotbarsScreen() {
       return;
     }
     setEdits(swapSlots(job, merged, picked, at));
+    setPicked(null);
+  };
+  const drop = (from: SlotRef, to: SlotRef) => {
+    if (!job) return;
+    setEdits(swapSlots(job, merged, from, to));
     setPicked(null);
   };
 
@@ -93,8 +121,47 @@ export default function HotbarsScreen() {
     );
   }
 
+  // Ce qui est en cours : la case choisie, les modifications, l'envoi. Même panneau en plein écran.
+  const panel = job ? (
+    <>
+      {pickedSlot ? (
+        <View style={styles.pickedRow}>
+          <GameIcon uri={pickedSlot.icon ? gameIconUrl(pickedSlot.icon) : null} size={36} />
+          <ThemedText type="smallBold" numberOfLines={2} style={styles.flex}>
+            {pickedSlot.name}
+          </ThemedText>
+          <Chip
+            label="Vider"
+            onPress={() => {
+              setEdits(clearSlot(job, merged, picked!));
+              setPicked(null);
+            }}
+          />
+        </View>
+      ) : (
+        <ThemedText type="small" themeColor="textSecondary">
+          {count === 0 ? 'Aucune modification.' : `${count} case${count > 1 ? 's' : ''} modifiée${count > 1 ? 's' : ''}.`}
+        </ThemedText>
+      )}
+      <Button label={send.isPending ? 'Envoi…' : 'Envoyer au jeu'} disabled={count === 0 || send.isPending} onPress={submit} />
+      {count > 0 ? (
+        <Button
+          label="Tout annuler"
+          variant="secondary"
+          onPress={() => {
+            setEdits({});
+            setPicked(null);
+          }}
+        />
+      ) : null}
+      {send.error ? <ErrorBox error={send.error} /> : null}
+    </>
+  ) : null;
+
   return (
-    <Screen refreshControl={<RefreshControl refreshing={hud.isRefetching} onRefresh={() => void Promise.all([hud.refetch(), changes.refetch()])} />}>
+    <Screen
+      scrollEnabled={!dragging}
+      refreshControl={<RefreshControl refreshing={hud.isRefetching} onRefresh={() => void Promise.all([hud.refetch(), changes.refetch()])} />}>
       <Stack.Screen options={{ title: 'Barres d’actions' }} />
       {hud.isPending ? <Loading label="Lecture de tes barres…" /> : null}
       {hud.error ? <ErrorBox error={hud.error} onRetry={() => hud.refetch()} /> : null}
@@ -108,9 +175,6 @@ export default function HotbarsScreen() {
       ) : null}
       {set && job ? (
         <>
-          <ThemedText type="small" themeColor="textSecondary">
-            Relevé {formatAgo(Date.parse(hud.data!.updatedAt))}. Touche une case, puis une autre pour les échanger (ou la déplacer vers une case vide).
-          </ThemedText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.jobs}>
             {jobs.map((j) => (
               <Chip
@@ -124,121 +188,64 @@ export default function HotbarsScreen() {
               />
             ))}
           </ScrollView>
-          <ThemedText type="subtitle" style={styles.jobName}>
-            {job.name}
-          </ThemedText>
+          <View style={styles.jobHead}>
+            <ThemedText type="subtitle" style={styles.jobName}>
+              {job.name}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              Relevé {formatAgo(Date.parse(hud.data!.updatedAt))}
+            </ThemedText>
+          </View>
 
-          {layoutElements.length > 0 ? (
-            <View style={styles.miniature}>
-              <HudMiniature elements={layoutElements} screen={hud.data!.screen} highlight={picked?.bar ?? null} />
-              <ThemedText type="small" themeColor="textSecondary">
-                Emplacement des barres dans ta disposition d’ATH actuelle{picked ? ` : barre ${picked.bar + 1} en doré` : ''}.
-              </ThemedText>
-            </View>
+          {screenBars.length > 0 && hud.data ? (
+            // Aperçu : les barres à leur place à l'écran ; un toucher l'ouvre en grand.
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Agrandir les barres comme en jeu"
+              onPress={() => setFull(true)}
+              style={({ pressed }) => [styles.preview, pressed && { opacity: 0.85 }]}>
+              <HotbarBoard bars={screenBars} mode="screen" screen={hud.data.screen} maxHeight={220} picked={picked} isChanged={isChanged} interactive={false} />
+              <View style={styles.expand}>
+                <ThemedText type="smallBold" style={styles.expandText}>
+                  ⤢ Agrandir
+                </ThemedText>
+              </View>
+            </Pressable>
           ) : null}
 
-          <Card style={styles.sticky}>
-            {pickedSlot ? (
-              <View style={styles.pickedRow}>
-                <GameIcon uri={pickedSlot.icon ? gameIconUrl(pickedSlot.icon) : null} size={36} />
-                <View style={styles.flex}>
-                  <ThemedText type="smallBold" numberOfLines={1}>
-                    {pickedSlot.name}
-                  </ThemedText>
-                  <ThemedText type="small" themeColor="textSecondary">
-                    Touche la case de destination.
-                  </ThemedText>
-                </View>
-                <Chip
-                  label="Vider"
-                  onPress={() => {
-                    setEdits(clearSlot(job, merged, picked!));
-                    setPicked(null);
-                  }}
-                />
-              </View>
-            ) : (
-              <ThemedText type="small" themeColor="textSecondary">
-                {count === 0 ? 'Aucune modification en cours.' : `${count} case(s) modifiée(s).`}
-              </ThemedText>
-            )}
-            <View style={styles.actions}>
-              <View style={styles.flex}>
-                <Button label={send.isPending ? 'Envoi…' : 'Envoyer au jeu'} disabled={count === 0 || send.isPending} onPress={submit} />
-              </View>
-              {count > 0 ? (
-                <View style={styles.flex}>
-                  <Button
-                    label="Tout annuler"
-                    variant="secondary"
-                    onPress={() => {
-                      setEdits({});
-                      setPicked(null);
-                    }}
-                  />
-                </View>
-              ) : null}
-            </View>
-            {send.error ? <ErrorBox error={send.error} /> : null}
-          </Card>
+          <Card style={styles.sticky}>{panel}</Card>
+
+          <View style={styles.board}>
+            <HotbarBoard
+              bars={listBars}
+              mode="list"
+              picked={picked}
+              isChanged={isChanged}
+              onTap={tap}
+              onDrop={drop}
+              onDragChange={setDragging}
+            />
+          </View>
+          <ThemedText type="small" themeColor="textSecondary">
+            Appui long sur une action pour la glisser, ou touche deux cases pour les échanger.
+          </ThemedText>
+          <Chip label={showEmpty ? 'Cacher les barres vides' : 'Montrer les barres vides'} onPress={() => setShowEmpty((v) => !v)} />
           <ChangeList changes={changes.data} kinds={['hotbars']} onCancel={(cid) => cancel.mutate(cid)} />
 
-          {bars
-            .filter((bar) => showEmpty || bar.slots.some(Boolean) || (picked !== null && picked.bar !== bar.id))
-            .map((bar) => (
-              <View key={bar.id} style={styles.bar}>
-                <View style={styles.barHead}>
-                  <ThemedText type="smallBold">Barre {bar.id + 1}</ThemedText>
-                  {bar.shared ? <Badge label="Commune à tous les jobs" /> : null}
-                  {hiddenBars.has(bar.id) ? <Badge label="Masquée en jeu" tone="down" /> : null}
-                  {layoutElements.length > 0 && !hiddenBars.has(bar.id) ? (
-                    <View style={styles.barMap}>
-                      <HudMiniature elements={layoutElements} screen={hud.data!.screen} highlight={bar.id} compact />
-                    </View>
-                  ) : null}
-                </View>
-                <View style={styles.grid}>
-                  {bar.slots.map((slot, index) => {
-                    const isPicked = picked?.bar === bar.id && picked.slot === index;
-                    const was = before[bar.id]?.slots[index];
-                    const changed = (was?.type ?? 0) !== (slot?.type ?? 0) || (was?.id ?? 0) !== (slot?.id ?? 0);
-                    return (
-                      <Pressable
-                        key={index}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Barre ${bar.id + 1}, case ${index + 1} : ${slot?.name ?? 'vide'}`}
-                        onPress={() => tap({ bar: bar.id, slot: index })}
-                        style={[
-                          styles.cell,
-                          {
-                            backgroundColor: theme.backgroundElement,
-                            borderColor: isPicked ? theme.accent : changed ? theme.textSecondary : 'transparent',
-                            borderStyle: changed && !isPicked ? 'dashed' : 'solid',
-                          },
-                        ]}>
-                        {slot ? (
-                          slot.icon ? (
-                            <GameIcon uri={gameIconUrl(slot.icon)} size={40} dimmed={picked !== null && !isPicked} />
-                          ) : (
-                            <ThemedText type="small" numberOfLines={2} style={styles.cellText}>
-                              {slot.name}
-                            </ThemedText>
-                          )
-                        ) : (
-                          <ThemedText type="small" themeColor="textSecondary">
-                            {index + 1}
-                          </ThemedText>
-                        )}
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-            ))}
-          <Chip label={showEmpty ? 'Cacher les barres vides' : 'Montrer les barres vides'} onPress={() => setShowEmpty((v) => !v)} />
-          <ThemedText type="small" themeColor="textSecondary">
-            Pour ta sécurité, l’appli ne peut que réorganiser ce qui est déjà dans tes barres : pour ajouter une action, fais-le en jeu.
-          </ThemedText>
+          {hud.data ? (
+            <HotbarFullscreen
+              visible={full}
+              onClose={() => setFull(false)}
+              title={job.name}
+              bars={screenBars}
+              screen={hud.data.screen}
+              picked={picked}
+              isChanged={isChanged}
+              onTap={tap}
+              onDrop={drop}
+              panel={panel}
+            />
+          ) : null}
         </>
       ) : null}
     </Screen>
@@ -247,24 +254,23 @@ export default function HotbarsScreen() {
 
 const styles = StyleSheet.create({
   jobs: { gap: Spacing.one, paddingVertical: Spacing.one },
+  jobHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: Spacing.two },
   jobName: { textTransform: 'capitalize' },
-  miniature: { gap: Spacing.one },
-  barMap: { marginLeft: 'auto' },
+  preview: { backgroundColor: SLOT_COLORS.panel, borderRadius: 14, padding: Spacing.three },
+  expand: {
+    position: 'absolute',
+    top: Spacing.two,
+    right: Spacing.two,
+    paddingHorizontal: Spacing.two,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(232,201,135,0.6)',
+    backgroundColor: 'rgba(5,8,15,0.7)',
+  },
+  expandText: { color: SLOT_COLORS.gold, fontSize: 12, lineHeight: 16 },
+  board: { backgroundColor: SLOT_COLORS.panel, borderRadius: 14, padding: Spacing.three },
   sticky: { gap: Spacing.two },
   pickedRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  actions: { flexDirection: 'row', gap: Spacing.two },
   flex: { flex: 1, minWidth: 0 },
-  bar: { gap: Spacing.one },
-  barHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  cell: {
-    width: `${100 / COLUMNS - 1.6}%`,
-    aspectRatio: 1,
-    borderRadius: 10,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  cellText: { fontSize: 9, lineHeight: 11, textAlign: 'center', paddingHorizontal: 2 },
 });
