@@ -71,7 +71,8 @@
     "donnees:peche": "node scripts/update-fishing-data.mjs",
     "donnees:recolte": "node scripts/update-gathering-data.mjs",
     "donnees:carte": "node scripts/update-map-data.mjs",
-    "donnees:objets": "node scripts/update-items-index.mjs"
+    "donnees:objets": "node scripts/update-items-index.mjs",
+    "donnees:legende": "node scripts/update-lore-data.mjs"
   },
   "private": true,
   "jest": {

@@ -4,10 +4,11 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { Appearance, Platform, StyleSheet, useColorScheme } from 'react-native';
+import { Appearance, Platform, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { UpdateBanner } from '@/components/app-updates';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { NotificationsBridge } from '@/components/notifications-bridge';
 import { useAppStore } from '@/store/app-store';
 
@@ -27,7 +28,11 @@ export default function RootLayout() {
   // Thème choisi dans les réglages : il s'impose à toute l'appli (barres natives comprises), ou suit le téléphone.
   const themeChoice = useAppStore((s) => s.theme);
   useEffect(() => {
-    Appearance.setColorScheme(themeChoice === 'system' ? 'unspecified' : themeChoice);
+    // Sur le téléphone, les barres natives suivent aussi ; le web n'a pas cette fonction (le thème y passe par
+    // useColorScheme de l'appli).
+    if (Platform.OS !== 'web' && typeof Appearance.setColorScheme === 'function') {
+      Appearance.setColorScheme(themeChoice === 'system' ? 'unspecified' : themeChoice);
+    }
   }, [themeChoice]);
   // Police des titres ; en cas d'échec de chargement, l'appli démarre avec la police du système.
   const [fontsLoaded, fontError] = useFonts({ Cinzel_600SemiBold, Cinzel_700Bold });
@@ -58,6 +63,10 @@ export default function RootLayout() {
             <Stack.Screen name="gathering/index" options={{ title: 'Récolte' }} />
             <Stack.Screen name="map/index" options={{ title: 'Carte' }} />
             <Stack.Screen name="map/browse" options={{ title: 'Atlas' }} />
+            <Stack.Screen name="lore/index" options={{ title: 'Légende' }} />
+            <Stack.Screen name="lore/[type]" options={{ title: 'Légende' }} />
+            <Stack.Screen name="lore/chronique" options={{ title: 'Chronologie' }} />
+            <Stack.Screen name="lore/entry/[key]" options={{ title: '' }} />
             <Stack.Screen name="gathering/timed" options={{ title: 'Points à horaires' }} />
             <Stack.Screen name="gathering/items" options={{ title: 'Où récolter' }} />
             <Stack.Screen name="gathering/item/[id]" options={{ title: 'Objet' }} />

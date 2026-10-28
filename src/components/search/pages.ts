@@ -43,6 +43,8 @@ export const APP_PAGES: AppPage[] = [
   page('rentabilite', 'Rentabilité', 'Ce qui rapporte le plus à fabriquer', GameIcons.gil, '/crafting/profit', 'profit benefice gil'),
   page('marche', 'Marché', 'Prix, favoris et tendances', GameIcons.marketBoard, '/market', 'tableau des ventes prix'),
   page('notifications', 'Notifications', 'Rappels du jeu et alertes de prix', GameIcons.calendar, '/notifications', 'alertes rappels'),
+  page('legende', 'Légende', 'Le lore : personnages, lieux, chroniques, montures, mascottes', MenuIcons.journal, '/lore', 'lore histoire wiki chronologie'),
+  page('chronologie', 'Chronologie', 'La trame principale, ère par ère', MenuIcons.journal, '/lore/chronique', 'histoire lore ere'),
   page('guides', 'Guides', 'Heure d’Éorzéa, réinitialisations et modules', MenuIcons.guides, '/guides', 'heure eorzea reset'),
   page('reglages', 'Réglages', 'Région, personnages suivis, version de l’appli', MenuIcons.configuration, '/settings', 'parametres options'),
   page('ajouter', 'Ajouter un personnage', 'Depuis le Lodestone', MenuIcons.personnage, '/character/search', 'lodestone'),
