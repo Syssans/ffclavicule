@@ -76,7 +76,7 @@ export default function NodeScreen() {
         </GameWindow>
       ) : null}
 
-      <GameWindow icon={MenuIcons.objets} title="Objets" subtitle={`${items.length} objet${items.length > 1 ? 's' : ''}`}>
+      <GameWindow icon={MenuIcons.objets} title="Objets">
         {items.map((it, i) => (
           <ItemRow key={it.itemId} item={it} gathered={gathered ? gathered.ids.has(it.itemId) : null} first={i === 0} />
         ))}

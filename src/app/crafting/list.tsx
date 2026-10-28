@@ -46,7 +46,7 @@ export default function CraftListScreen() {
 
   return (
     <Screen>
-      <GameWindow icon={GameIcons.deliveries} title="À fabriquer" subtitle={`${list.length} recette${list.length > 1 ? 's' : ''}`}>
+      <GameWindow icon={GameIcons.deliveries} title="À fabriquer">
         {list.map((e, i) => (
           <View key={e.recipeId} style={[styles.row, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }]}>
             <Pressable

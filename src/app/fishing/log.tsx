@@ -39,7 +39,7 @@ export default function FishingLogScreen() {
   if (!linked) {
     return (
       <Screen>
-        <GameWindow icon={MenuIcons.peche} title="Carnet de pêche" subtitle="Avec le plugin Clavicule">
+        <GameWindow icon={MenuIcons.peche} title="Carnet de pêche">
           <ThemedText type="small">
             Le plugin lit ton carnet de pêche dans le jeu (pêche à la ligne et au harpon) : l’appli te montre ce qu’il te manque et ce que tu
             peux aller pêcher tout de suite.
@@ -85,7 +85,7 @@ export default function FishingLogScreen() {
       {list.length === 0 ? (
         <Empty>{filter === 'open' ? 'Rien qui te manque n’est pêchable en ce moment.' : 'Aucun poisson.'}</Empty>
       ) : (
-        <GameWindow icon={FishingIcons.fisher} title="Poissons" subtitle={`${list.length}`}>
+        <GameWindow icon={FishingIcons.fisher} title="Poissons">
           {list.slice(0, shown).map((f, i) => (
             <FishRow key={f.id} fish={f} status={statuses.get(f.id)} now={now} caught={caught.ids.has(f.id)} first={i === 0} />
           ))}

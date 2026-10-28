@@ -14,7 +14,7 @@ export function CraftSection({ recipes }: { recipes: Recipe[] }) {
   const theme = useTheme();
   if (!recipes.length) return null;
   return (
-    <GameWindow icon={MenuIcons.artisanat} title="Artisanat" subtitle={recipes.length > 1 ? `${recipes.length} recettes` : 'Recette, sous-recettes et liste de courses'}>
+    <GameWindow icon={MenuIcons.artisanat} title="Artisanat">
       {recipes.map((r, i) => (
         <Pressable
           key={r.id}

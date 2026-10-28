@@ -84,7 +84,7 @@ export default function GathererGuideScreen() {
       </GameWindow>
 
       {level < MAX_LEVEL ? (
-        <GameWindow icon={GameIcons.leves} title="Mandats" subtitle={bracket ? `Mandats de niveau ${bracket}` : 'Mandats de récolte de ton niveau'}>
+        <GameWindow icon={GameIcons.leves} title="Mandats" subtitle={bracket ? `Niveau ${bracket}` : null}>
           {leves.isPending ? <Loading label="Lecture des mandats…" /> : null}
           {leves.error ? <ErrorBox error={leves.error} onRetry={() => leves.refetch()} /> : null}
           {leves.data && shownLeves.length === 0 ? <Empty>Pas de mandat de récolte à ce niveau.</Empty> : null}
@@ -111,7 +111,7 @@ export default function GathererGuideScreen() {
         </GameWindow>
       ) : null}
 
-      <GameWindow icon={MenuIcons.objets} title="Objets de ton niveau" subtitle="La première récolte de chaque objet rapporte un bonus d’XP">
+      <GameWindow icon={MenuIcons.objets} title="Objets de ton niveau">
         {items.length === 0 ? <Empty>Aucun objet à ce niveau.</Empty> : null}
         {items.map((it, i) => (
           <ItemRow key={it.itemId} item={it} gathered={gathered ? gathered.ids.has(it.itemId) : null} first={i === 0} />

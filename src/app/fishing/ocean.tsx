@@ -41,7 +41,7 @@ export default function OceanScreen() {
           setSelected(0);
         }}
       />
-      <GameWindow icon={FishingIcons.ocean} title="Départs" subtitle="Toutes les 2 heures · inscriptions pendant 15 minutes">
+      <GameWindow icon={FishingIcons.ocean} title="Départs">
         {voyages.map((v, i) => {
           const r = data.routes[String(v.route)];
           const on = i === selected;

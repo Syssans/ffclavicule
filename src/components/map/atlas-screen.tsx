@@ -61,7 +61,7 @@ export function AtlasScreen({ target }: { target: MapRoute }) {
         results.length === 0 ? (
           <Empty>Aucun lieu trouvé.</Empty>
         ) : (
-          <GameWindow icon={60442} title="Résultats" subtitle={`${results.length}${results.length >= 60 ? '+' : ''}`}>
+          <GameWindow icon={60442} title="Résultats">
             {results.map((r) => (
               <MenuRow key={r.key} icon={r.icon} title={r.title} subtitle={r.subtitle} onPress={() => openOnMap(target, r.mapId, r.x, r.y)} />
             ))}
@@ -79,7 +79,7 @@ export function AtlasScreen({ target }: { target: MapRoute }) {
           />
           {tab === 'world' ? (
             <>
-              <MenuRow icon={60441} title="Hydaelyn" subtitle="Carte du monde" onPress={() => openOnMap(target, WORLD_MAP)} />
+              <MenuRow icon={60441} title="Hydaelyn" onPress={() => openOnMap(target, WORLD_MAP)} />
               {regions.map((id) => {
                 const region = getMap(id)!;
                 const children = childrenOf(id);
@@ -118,7 +118,7 @@ export function AtlasScreen({ target }: { target: MapRoute }) {
                 ))}
               </View>
               {group ? (
-                <GameWindow icon={group.icon || 60414} title={group.name} subtitle="Du plus bas niveau au plus haut">
+                <GameWindow icon={group.icon || 60414} title={group.name}>
                   {group.maps.slice(0, shown).map((id) => {
                     const m = getMap(id)!;
                     return (

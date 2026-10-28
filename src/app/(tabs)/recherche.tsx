@@ -14,7 +14,7 @@ import { isGatherable } from '@/components/item/gathering-section';
 import { Highlighted } from '@/components/search/highlighted';
 import { APP_PAGES, type AppPage } from '@/components/search/pages';
 import { ThemedText } from '@/components/themed-text';
-import { Badge, Chip, GameIcon, Input, Screen } from '@/components/ui';
+import { Badge, Chip, Empty, GameIcon, Input, Screen } from '@/components/ui';
 import { GameIcons } from '@/constants/game-icons';
 import { MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
@@ -43,8 +43,6 @@ const GROUPS: { key: Group; label: string; icon: number }[] = [
 const PREVIEW = 4;
 /** Résultats montrés d'un coup quand un seul groupe est affiché. */
 const PAGE = 30;
-
-const EXAMPLES = ['Épée', 'Sastasha', 'Limsa Lominsa', 'Pêche en mer', 'Mythrite', 'Éthérite'];
 
 interface Results {
   pages: AppPage[];
@@ -231,14 +229,14 @@ export default function SearchScreen() {
               const count = countOf(results, g.key);
               const more = count - limit;
               return (
-                <GameWindow key={g.key} icon={g.icon} title={g.label} subtitle={`${count} résultat${count > 1 ? 's' : ''}`}>
+                <GameWindow key={g.key} icon={g.icon} title={g.label}>
                   <GroupRows group={g.key} results={results} query={query} limit={limit} open={open} />
                   {more > 0 ? (
                     current === 'all' ? (
                       <MoreButton label={`Voir les ${count} résultats`} onPress={() => choose(g.key)} />
                     ) : g.key === 'items' && results.items.length <= limit ? (
                       <ThemedText type="small" themeColor="textSecondary" style={styles.hint}>
-                        {count} objets correspondent : précise ta recherche pour voir les autres.
+                        Précise ta recherche pour voir les autres.
                       </ThemedText>
                     ) : (
                       <MoreButton label={`Afficher ${Math.min(more, PAGE)} de plus`} onPress={() => setShown(shown + PAGE)} />
@@ -403,61 +401,37 @@ function MoreButton({ label, onPress }: { label: string; onPress: () => void }) 
   );
 }
 
-/** Avant de taper : les dernières recherches et quelques idées. */
+/** Avant de taper : les dernières recherches. */
 function Idle({ onPick }: { onPick: (text: string) => void }) {
   const recent = useSearchStore((s) => s.recent);
   const forget = useSearchStore((s) => s.forget);
   const clear = useSearchStore((s) => s.clear);
+  if (!recent.length) return null;
   return (
-    <>
-      {recent.length ? (
-        <GameWindow icon={MenuIcons.journal} title="Recherches récentes" right={<Chip label="Effacer" onPress={clear} />}>
-          {recent.map((r, i) => (
-            <View key={r}>
-              {i > 0 ? <Separator /> : null}
-              <View style={styles.recentRow}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Rechercher ${r}`}
-                  onPress={() => onPick(r)}
-                  style={({ pressed }) => [styles.rowText, pressed && styles.pressed]}>
-                  <ThemedText numberOfLines={1}>{r}</ThemedText>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Retirer ${r} des recherches récentes`}
-                  hitSlop={10}
-                  onPress={() => forget(r)}>
-                  <ThemedText themeColor="textSecondary">✕</ThemedText>
-                </Pressable>
-              </View>
-            </View>
-          ))}
-        </GameWindow>
-      ) : null}
-      <GameWindow icon={MenuIcons.guides} title="Que chercher ?" subtitle="Un seul champ pour tout Clavicule">
-        <ThemedText type="small" themeColor="textSecondary">
-          Objets, donjons, défis et raids, lieux et éthérites, aléas, coins de pêche, personnages suivis et pages de l’appli. Majuscules et accents ne
-          comptent pas : « epee » trouve « Épée ».
-        </ThemedText>
-        <View style={styles.examples}>
-          {EXAMPLES.map((e) => (
-            <Chip key={e} label={e} onPress={() => onPick(e)} />
-          ))}
+    <GameWindow icon={MenuIcons.journal} title="Recherches récentes" right={<Chip label="Effacer" onPress={clear} />}>
+      {recent.map((r, i) => (
+        <View key={r}>
+          {i > 0 ? <Separator /> : null}
+          <View style={styles.recentRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Rechercher ${r}`}
+              onPress={() => onPick(r)}
+              style={({ pressed }) => [styles.rowText, pressed && styles.pressed]}>
+              <ThemedText numberOfLines={1}>{r}</ThemedText>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={`Retirer ${r} des recherches récentes`} hitSlop={10} onPress={() => forget(r)}>
+              <ThemedText themeColor="textSecondary">✕</ThemedText>
+            </Pressable>
+          </View>
         </View>
-      </GameWindow>
-    </>
+      ))}
+    </GameWindow>
   );
 }
 
 function NoResult({ text }: { text: string }) {
-  return (
-    <GameWindow icon={MenuIcons.guides} title="Aucun résultat" subtitle={`Rien ne correspond à « ${text} »`}>
-      <ThemedText type="small" themeColor="textSecondary">
-        Vérifie l’orthographe, essaie un seul mot ou le début du nom (« mythr » trouve « Minerai de mythrite »).
-      </ThemedText>
-    </GameWindow>
-  );
+  return <Empty>Aucun résultat pour « {text} ».</Empty>;
 }
 
 const styles = StyleSheet.create({
@@ -470,6 +444,5 @@ const styles = StyleSheet.create({
   more: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: Spacing.two, alignItems: 'center' },
   hint: { textAlign: 'center' },
   recentRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two },
-  examples: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
   pressed: { opacity: 0.6 },
 });

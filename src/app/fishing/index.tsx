@@ -18,7 +18,7 @@ export default function FishingScreen() {
   const theme = useTheme();
   const now = useNow(1000);
   const statuses = useFishStatuses(now);
-  const { caught, linked } = useCaughtFish();
+  const { caught } = useCaughtFish();
   const data = fishingData();
 
   const big = useMemo(() => data.fish.filter((f) => f.big), [data]);
@@ -50,7 +50,7 @@ export default function FishingScreen() {
       <GameWindow
         icon={FishingIcons.fisher}
         title="Gros poissons"
-        subtitle={`${open.length} ouvert${open.length > 1 ? 's' : ''} en ce moment${caught ? ' (non attrapés)' : ''}`}>
+        subtitle={open.length ? `${open.length} ouvert${open.length > 1 ? 's' : ''}` : null}>
         {open.length === 0 ? <Empty>Aucun gros poisson ouvert pour l’instant.</Empty> : null}
         {open.slice(0, 8).map((f, i) => (
           <FishRow key={f.id} fish={f} status={statuses.get(f.id)} now={now} caught={caught?.ids.has(f.id)} first={i === 0} />
@@ -58,39 +58,27 @@ export default function FishingScreen() {
       </GameWindow>
 
       {soon.length > 0 ? (
-        <GameWindow icon={MenuIcons.calendrier} title="Bientôt" subtitle="Les prochaines fenêtres des gros poissons">
+        <GameWindow icon={MenuIcons.calendrier} title="Bientôt">
           {soon.map((f, i) => (
             <FishRow key={f.id} fish={f} status={statuses.get(f.id)} now={now} caught={caught?.ids.has(f.id)} first={i === 0} />
           ))}
         </GameWindow>
       ) : null}
 
-      <MenuEntry
-        icon={FishingIcons.fisher}
-        title="Tous les poissons"
-        subtitle={`${data.fish.length} poissons : où, quand, avec quel appât`}
-        onPress={() => router.push('/fishing/list')}
-      />
+      <MenuEntry icon={FishingIcons.fisher} title="Tous les poissons" onPress={() => router.push('/fishing/list')} />
       <MenuEntry
         icon={MenuIcons.peche}
         title="Carnet de pêche"
-        subtitle={linked ? 'Ce que tu as attrapé et ce qu’il te manque' : 'Avec le plugin : tes prises lues dans le jeu'}
         status={caught ? `${caught.ids.size} / ${caught.total}` : null}
         onPress={() => router.push('/fishing/log')}
       />
       <MenuEntry
         icon={FishingIcons.ocean}
         title="Pêche en mer"
-        subtitle="Prochains départs, escales, poissons bleus à viser"
         status={voyage.boarding ? 'Embarquement en cours' : `Départ dans ${formatCountdown(voyage.departure - now)}`}
         onPress={() => router.push('/fishing/ocean')}
       />
-      <MenuEntry
-        icon={FishingIcons.weather}
-        title="Météo d’Éorzéa"
-        subtitle="Prévisions de chaque zone, calculées comme le jeu"
-        onPress={() => router.push('/fishing/weather')}
-      />
+      <MenuEntry icon={FishingIcons.weather} title="Météo d’Éorzéa" onPress={() => router.push('/fishing/weather')} />
       <ThemedText type="small" themeColor="textSecondary">
         Fenêtres et appâts : FF14 Fish Tracker et Teamcraft (licence MIT). Météo et pêche en mer : données du jeu. Mis à jour le{' '}
         {new Date(data.updatedAt).toLocaleDateString('fr-FR')}.

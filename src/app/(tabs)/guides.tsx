@@ -1,18 +1,21 @@
-/** Onglet Guides : l'heure d'Éorzéa, puis l'encyclopédie du jeu, construite module par module. */
-import { router } from 'expo-router';
+/** Onglet Guides : l'heure d'Éorzéa, les modules du jeu et les prochaines réinitialisations. */
+import { router, type Href } from 'expo-router';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { MenuEntry, MenuGrid, MenuTile } from '@/components/game-ui';
 import { Clocks, ResetBoard } from '@/components/clocks';
+import { MenuIcon } from '@/components/game-ui';
 import { SettingsButton } from '@/components/home';
-import { Screen, Section } from '@/components/ui';
+import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/components/ui';
 import { MenuIcons } from '@/constants/menu-icons';
+import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
+import { useTheme } from '@/hooks/use-theme';
 
-const MODULES = [
-  { icon: MenuIcons.journal, title: 'Quêtes', subtitle: 'Scénario, quêtes de job, enchaînements' },
-  { icon: MenuIcons.actions, title: 'Jobs', subtitle: 'Actions, traits, niveaux' },
-  { icon: MenuIcons.bestiaire, title: 'Combats', subtitle: 'Donjons, défis, raids, butins' },
-  { icon: MenuIcons.alea, title: 'Chasse', subtitle: 'Rangs S et A, conditions d’apparition' },
+const MODULES: { title: string; icon: number; href: Href }[] = [
+  { title: 'Artisanat', icon: MenuIcons.artisanat, href: '/crafting' },
+  { title: 'Pêche', icon: MenuIcons.peche, href: '/fishing' },
+  { title: 'Récolte', icon: MenuIcons.recolte, href: '/gathering' },
 ];
 
 export default function GuidesScreen() {
@@ -20,32 +23,32 @@ export default function GuidesScreen() {
   return (
     <Screen title="Guides" tab right={<SettingsButton />}>
       <Clocks now={now} />
-      <MenuEntry
-        icon={MenuIcons.artisanat}
-        title="Artisanat"
-        subtitle="Recettes et sous-recettes, liste de courses, rentabilité au marché, guide de niveau des artisans."
-        onPress={() => router.push('/crafting')}
-      />
-      <MenuEntry
-        icon={MenuIcons.peche}
-        title="Pêche"
-        subtitle="Fenêtres des poissons, appâts, météo d’Éorzéa, carnet de pêche et pêche en mer."
-        onPress={() => router.push('/fishing')}
-      />
-      <MenuEntry
-        icon={MenuIcons.recolte}
-        title="Récolte"
-        subtitle="Points légendaires, immaculés et éphémères, où récolter chaque objet, carnet et guide de niveau."
-        onPress={() => router.push('/gathering')}
-      />
+      <View style={styles.modules}>
+        {MODULES.map((m) => (
+          <ModuleTile key={m.title} {...m} />
+        ))}
+      </View>
       <ResetBoard now={now} />
-      <Section title="Bientôt">
-        <MenuGrid>
-          {MODULES.map((m) => (
-            <MenuTile key={m.title} icon={m.icon} title={m.title} subtitle={m.subtitle} badge="Bientôt" disabled />
-          ))}
-        </MenuGrid>
-      </Section>
     </Screen>
   );
 }
+
+function ModuleTile({ title, icon, href }: { title: string; icon: number; href: Href }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push(href)}
+      style={({ pressed }) => [styles.tile, { borderColor: theme.frame, backgroundColor: theme.backgroundElement }, pressed && { opacity: 0.7 }]}>
+      <MenuIcon id={icon} size={52} />
+      <ThemedText type="smallBold" numberOfLines={1}>
+        {title}
+      </ThemedText>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  modules: { flexDirection: 'row', gap: Spacing.two },
+  tile: { flex: 1, alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.three, borderRadius: 14, borderWidth: 1 },
+});

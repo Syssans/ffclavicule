@@ -61,8 +61,7 @@ function AlertsLink() {
   return (
     <MenuEntry
       icon={GameIcons.marketBoard}
-      title="Alertes de prix"
-      subtitle="Être prévenu quand un objet passe sous un prix"
+      title="Gérer ses alertes"
       status={alerts.length ? `${active} active${active > 1 ? 's' : ''}` : null}
       onPress={() => router.push({ pathname: '/notifications', params: { tab: 'marche' } })}
     />
@@ -74,12 +73,8 @@ function SearchResults({ query }: { query: string }) {
   // Index des objets intégré à l'appli : instantané, et ni majuscules ni accents ne comptent.
   const { items, total } = useMemo(() => searchItemIndex(query, { marketableOnly: true, limit: 40 }), [query]);
   if (total === 0) return <Empty>Aucun objet vendable ne correspond.</Empty>;
-  const plural = total > 1 ? 's' : '';
   return (
-    <GameWindow
-      icon={MenuIcons.objets}
-      title="Résultats"
-      subtitle={total > items.length ? `${items.length} premiers sur ${total} objets vendables` : `${total} objet${plural} vendable${plural}`}>
+    <GameWindow icon={MenuIcons.objets} title="Résultats">
       {items.map((item, i) => (
         <Pressable
           key={item.id}
@@ -119,9 +114,9 @@ function Watchlist() {
 
   if (watchlist.length === 0) {
     return (
-      <GameWindow glyph={<FavoriteStar />} title="Favoris" subtitle="Aucun favori pour l’instant">
+      <GameWindow glyph={<FavoriteStar />} title="Favoris">
         <ThemedText type="small" themeColor="textSecondary">
-          Cherche un objet, ouvre sa fiche et touche l’étoile : son prix et sa tendance apparaîtront ici.
+          Touche l’étoile sur la fiche d’un objet pour l’ajouter ici.
         </ThemedText>
       </GameWindow>
     );
@@ -133,7 +128,6 @@ function Watchlist() {
     <GameWindow
       glyph={<FavoriteStar />}
       title="Favoris"
-      subtitle={`${scope} · prix le plus bas et tendance sur ${TREND_DAYS} jours`}
       right={
         <Chip
           label={refreshing ? '…' : 'Actualiser'}

@@ -68,14 +68,14 @@ export function CharacterView({ id }: { id: number }) {
 
       <Section title="Personnage">
         <MenuGrid>
-          <MenuTile icon={MenuIcons.personnage} title="Profil" subtitle={[p.race, p.cityState].filter(Boolean).join(' · ') || 'Race, divinité, compagnie'} onPress={() => openSection(id, 'profil')} />
+          <MenuTile icon={MenuIcons.personnage} title="Profil" subtitle={[p.race, p.cityState].filter(Boolean).join(' · ')} onPress={() => openSection(id, 'profil')} />
           <MenuTile
             icon={MenuIcons.actions}
             title="Jobs"
-            subtitle={p.activeJobLevel ? `Job actuel niveau ${p.activeJobLevel}` : 'Niveaux de chaque job'}
+            subtitle={p.activeJobLevel ? `Job actuel niveau ${p.activeJobLevel}` : null}
             onPress={() => openSection(id, 'jobs')}
           />
-          <MenuTile icon={MenuIcons.arsenal} title="Équipement" subtitle="Ce qu’il porte, matérias, teintures" onPress={() => openSection(id, 'equipement')} />
+          <MenuTile icon={MenuIcons.arsenal} title="Équipement" onPress={() => openSection(id, 'equipement')} />
           <MenuTile
             icon={MenuIcons.hautsFaits}
             title="Collections"
@@ -96,7 +96,7 @@ export function CharacterView({ id }: { id: number }) {
           <MenuTile
             icon={MenuIcons.inventaire}
             title="Inventaire"
-            subtitle={query.data ? formatGil(query.data.gil) : 'Sacs, arsenal, sacoches'}
+            subtitle={query.data ? formatGil(query.data.gil) : null}
             badge={pluginHint}
             disabled={!linked}
             onPress={() => openPrivate(id, 'inventory')}
@@ -118,7 +118,7 @@ export function CharacterView({ id }: { id: number }) {
           <MenuTile
             icon={PrivateIcons.mailbox}
             title="Courrier"
-            subtitle={summary ? (summary.unreadLetters ? `${summary.unreadLetters} non lu(s)` : 'Rien de nouveau') : 'Lettres et pièces jointes'}
+            subtitle={summary ? (summary.unreadLetters ? `${summary.unreadLetters} non lu(s)` : 'Rien de nouveau') : null}
             badge={summary?.unreadLetters ? String(summary.unreadLetters) : pluginHint}
             disabled={!linked}
             onPress={() => openPrivate(id, 'mail')}
@@ -131,7 +131,6 @@ export function CharacterView({ id }: { id: number }) {
           <MenuTile
             icon={MenuIcons.ath}
             title="ATH"
-            subtitle="Déplacer, redimensionner, masquer"
             badge={pluginHint}
             disabled={!linked}
             onPress={() => router.push({ pathname: '/hud/[id]', params: { id: String(id) } })}
@@ -139,7 +138,6 @@ export function CharacterView({ id }: { id: number }) {
           <MenuTile
             icon={MenuIcons.barres}
             title="Barres d’actions"
-            subtitle="Réorganiser par job"
             badge={pluginHint}
             disabled={!linked}
             onPress={() => router.push({ pathname: '/hotbars/[id]', params: { id: String(id) } })}

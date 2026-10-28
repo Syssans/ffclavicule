@@ -62,7 +62,7 @@ function Inventory({ snapshot, names }: { snapshot: PrivateSnapshot; names?: Nam
         found.length === 0 ? (
           <Empty>Aucun objet ne correspond.</Empty>
         ) : (
-          <GameWindow icon={PrivateIcons.inventory} title="Résultats" subtitle={`${found.length} trouvé${found.length > 1 ? 's' : ''}`}>
+          <GameWindow icon={PrivateIcons.inventory} title="Résultats">
             {found.map((f, i) => (
               <ItemRow key={`${f.place}-${f.id}-${f.hq}-${i}`} stack={f} names={names} detail={f.place} first={i === 0} />
             ))}
@@ -70,7 +70,7 @@ function Inventory({ snapshot, names }: { snapshot: PrivateSnapshot; names?: Nam
         )
       ) : (
         snapshot.inventories.map((group) => (
-          <GameWindow key={group.key} icon={groupIcon(group.key)} title={group.label} subtitle={`${group.items.length} objet${group.items.length > 1 ? 's' : ''}`}>
+          <GameWindow key={group.key} icon={groupIcon(group.key)} title={group.label}>
             {group.items.length === 0 ? <Empty>Vide.</Empty> : <ItemList items={group.items} names={names} />}
           </GameWindow>
         ))

@@ -42,7 +42,7 @@ function Results({ query }: { query: string }) {
   if (results.error) return <ErrorBox error={results.error} onRetry={() => results.refetch()} />;
   if (results.data.length === 0) return <Empty>Aucune recette ne fabrique un objet de ce nom.</Empty>;
   return (
-    <GameWindow icon={GameIcons.deliveries} title="Recettes" subtitle={`${results.data.length} trouvée${results.data.length > 1 ? 's' : ''}`}>
+    <GameWindow icon={GameIcons.deliveries} title="Recettes">
       {results.data.map((r, i) => (
         <Pressable
           key={r.id}
@@ -73,20 +73,18 @@ function Home() {
       <MenuEntry
         icon={GameIcons.deliveries}
         title="Ma liste"
-        subtitle="Plusieurs recettes, une seule liste de courses, avec ce que tu as déjà."
         status={list.length ? `${list.length} recette${list.length > 1 ? 's' : ''}` : 'Vide'}
         onPress={() => router.push('/crafting/list')}
       />
       <MenuEntry
         icon={GameIcons.marketBoard}
         title="Rentabilité"
-        subtitle="Les fabrications qui rapportent le plus sur ton serveur, et qui se vendent."
         onPress={() => router.push('/crafting/profit')}
       />
       <GameWindow
         icon={22}
         title="Mes artisans"
-        subtitle={character ? `${character.name} · touche un artisan pour son guide de niveau` : 'Ajoute ton personnage pour voir tes niveaux'}>
+        subtitle={character ? character.name : null}>
         {query.isPending && character ? <Loading label="Lecture du Lodestone…" /> : null}
         <View style={styles.crafters}>
           {CRAFTERS.map((c) => {

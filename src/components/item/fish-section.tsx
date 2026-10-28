@@ -69,10 +69,7 @@ export function FishSection({ id }: { id: number }) {
         ) : null}
       </GameWindow>
 
-      <GameWindow
-        icon={MenuIcons.calendrier}
-        title="Quand"
-        subtitle={status?.kind === 'always' ? 'À toute heure' : 'Conditions, puis prochaines fenêtres à ton heure locale'}>
+      <GameWindow icon={MenuIcons.calendrier} title="Quand">
         <Line label="Heures d’Éorzéa" value={allDay ? 'Toute la journée' : `${fish.h[0]} h – ${fish.h[1]} h`} />
         {fish.pw?.length ? (
           <View style={styles.line}>
@@ -116,10 +113,7 @@ export function FishSection({ id }: { id: number }) {
       </GameWindow>
 
       {fish.b?.length || fish.hk || fish.tg || fish.lu ? (
-        <GameWindow
-          icon={FishingIcons.fisher}
-          title="Comment"
-          subtitle={fish.b && fish.b.length > 1 ? 'Appât, puis réutilise chaque prise (mooching)' : null}>
+        <GameWindow icon={FishingIcons.fisher} title="Comment">
           {fish.b?.length ? (
             <View style={styles.chain}>
               {[...fish.b, fish.id].map((itemId, i) => (
@@ -177,7 +171,7 @@ export function FishSection({ id }: { id: number }) {
       ) : null}
 
       {zone ? (
-        <GameWindow icon={FishingIcons.weather} title={`Météo · ${zone.n}`} subtitle="Périodes de 8 heures d’Éorzéa (23 min 20 s)">
+        <GameWindow icon={FishingIcons.weather} title={`Météo · ${zone.n}`}>
           <View style={styles.forecast}>
             {forecast(zone.w, now, 6).map((p) => (
               <View key={p.start} style={styles.period}>

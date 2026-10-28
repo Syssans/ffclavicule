@@ -56,7 +56,7 @@ export default function GatherableItemsScreen() {
       {list.length === 0 ? (
         <Empty>Aucun objet récoltable ne correspond.</Empty>
       ) : (
-        <GameWindow icon={MenuIcons.objets} title="Objets" subtitle={`${list.length}`}>
+        <GameWindow icon={MenuIcons.objets} title="Objets">
           {list.slice(0, shown).map((it, i) => (
             <ItemRow key={it.itemId} item={it} gathered={gathered ? gathered.ids.has(it.itemId) : null} first={i === 0} />
           ))}

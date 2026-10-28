@@ -46,46 +46,27 @@ export function MarketAlerts() {
   const sorted = [...alerts].sort((a, b) => a.itemName.localeCompare(b.itemName, 'fr'));
   const active = alerts.filter((a) => a.enabled).length;
 
+  // Tant que les alertes ne sont pas activées sur ce téléphone, on ne propose que de les activer.
+  if (!secret) {
+    return (
+      <>
+        <Button label={activate.isPending ? 'Activation…' : 'Activer les alertes de prix'} onPress={() => activate.mutate()} disabled={activate.isPending} />
+        {activate.error ? <ErrorBox error={activate.error} /> : null}
+      </>
+    );
+  }
+
   return (
     <>
-
-      <GameWindow
-        icon={GameIcons.marketBoard}
-        title="Tableau des ventes"
-        subtitle={secret ? 'Prix vérifiés toutes les 10 minutes, même appli fermée.' : 'Une notification dès qu’un prix franchit ton seuil.'}>
-        {!secret ? (
-          <>
-            <ThemedText type="small">
-              Choisis un objet, un serveur et un prix : tu es prévenu dès qu’une vente passe sous ton seuil (ou au-dessus). Autant d’alertes que
-              tu veux.
-            </ThemedText>
-            <Button label={activate.isPending ? 'Activation…' : 'Activer les alertes du marché'} onPress={() => activate.mutate()} disabled={activate.isPending} />
-            {activate.error ? <ErrorBox error={activate.error} /> : null}
-          </>
-        ) : (
-          <>
-            {states.data?.disabled ? (
-              <ThemedText type="small" style={{ color: theme.danger }}>
-                Le service n’arrive plus à joindre ce téléphone : désactive puis réactive les alertes.
-              </ThemedText>
-            ) : null}
-            <View style={styles.row}>
-              <View style={styles.flex}>
-                <Button label={test.isSuccess ? 'Envoyée' : 'Notification d’essai'} variant="secondary" onPress={() => test.mutate()} />
-              </View>
-              <View style={styles.flex}>
-                <Button label="Désactiver" variant="danger" onPress={stop} />
-              </View>
-            </View>
-            {test.error ? <ErrorBox error={test.error} /> : null}
-          </>
-        )}
-      </GameWindow>
-
+      {states.data?.disabled ? (
+        <ThemedText type="small" style={{ color: theme.danger }}>
+          Le service n’arrive plus à joindre ce téléphone : désactive puis réactive les alertes.
+        </ThemedText>
+      ) : null}
       <GameWindow
         icon={GameIcons.gil}
         title="Mes alertes"
-        subtitle={alerts.length ? `${active} active${active > 1 ? 's' : ''} sur ${alerts.length}` : null}
+        subtitle={alerts.length ? `${active} sur ${alerts.length}` : null}
         right={
           <Pressable accessibilityRole="button" accessibilityLabel="Ajouter une alerte" hitSlop={8} onPress={() => router.push('/alert')}>
             <ThemedText type="subtitle" style={{ color: theme.accent }}>
@@ -94,7 +75,7 @@ export function MarketAlerts() {
           </Pressable>
         }>
         {sorted.length === 0 ? (
-          <Empty>Aucune alerte. Touche + ici, ou « Créer une alerte de prix » sur la fiche d’un objet.</Empty>
+          <Empty>Aucune alerte.</Empty>
         ) : (
           sorted.map((a, i) => {
             const state = states.data?.state[a.id];
@@ -125,6 +106,15 @@ export function MarketAlerts() {
         )}
       </GameWindow>
       <Button label="Ajouter une alerte" onPress={() => router.push('/alert')} />
+      <View style={styles.row}>
+        <View style={styles.flex}>
+          <Button label={test.isSuccess ? 'Envoyée' : 'Notification d’essai'} variant="secondary" onPress={() => test.mutate()} />
+        </View>
+        <View style={styles.flex}>
+          <Button label="Désactiver" variant="danger" onPress={stop} />
+        </View>
+      </View>
+      {test.error ? <ErrorBox error={test.error} /> : null}
     </>
   );
 }

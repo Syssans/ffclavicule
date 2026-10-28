@@ -63,7 +63,7 @@ export default function FishListScreen() {
       {list.length === 0 ? (
         <Empty>Aucun poisson ne correspond.</Empty>
       ) : (
-        <GameWindow icon={FishingIcons.fisher} title="Poissons" subtitle={`${list.length} · les ouverts d’abord, puis les plus proches`}>
+        <GameWindow icon={FishingIcons.fisher} title="Poissons">
           {list.slice(0, shown).map((f, i) => (
             <FishRow key={f.id} fish={f} status={statuses.get(f.id)} now={now} caught={caught ? caught.ids.has(f.id) : null} first={i === 0} />
           ))}

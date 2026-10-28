@@ -84,7 +84,7 @@ export default function CrafterGuideScreen() {
         <GameWindow
           icon={GameIcons.leves}
           title="Mandats"
-          subtitle={brackets.length ? `Mandats de niveau ${brackets.join(' et ')} : le plus rapide pour monter` : 'Mandats d’artisan de ton niveau'}>
+          subtitle={brackets.length ? `Niveau ${brackets.join(' et ')}` : null}>
           {leves.isPending ? <Loading label="Lecture des mandats…" /> : null}
           {leves.error ? <ErrorBox error={leves.error} onRetry={() => leves.refetch()} /> : null}
           {leves.data && shownLeves.length === 0 ? <Empty>Pas de mandat d’artisan à ce niveau : fabrique les recettes ci-dessous.</Empty> : null}
@@ -99,7 +99,7 @@ export default function CrafterGuideScreen() {
         </GameWindow>
       ) : null}
 
-      <GameWindow icon={jobIconOf(craftType)} title="Recettes de ton niveau" subtitle="La première fabrication de chaque recette rapporte un bonus d’XP">
+      <GameWindow icon={jobIconOf(craftType)} title="Recettes de ton niveau">
         {recipes.isPending ? <Loading label="Lecture des recettes…" /> : null}
         {recipes.error ? <ErrorBox error={recipes.error} onRetry={() => recipes.refetch()} /> : null}
         {recipes.data?.length === 0 ? <Empty>Aucune recette à ce niveau.</Empty> : null}

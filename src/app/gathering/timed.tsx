@@ -47,7 +47,7 @@ export default function TimedNodesScreen() {
       {nodes.length === 0 ? (
         <Empty>Aucun point ne correspond.</Empty>
       ) : (
-        <GameWindow icon={MenuIcons.recolte} title="Points" subtitle={`${nodes.length} · les ouverts d’abord, puis les plus proches`}>
+        <GameWindow icon={MenuIcons.recolte} title="Points">
           {nodes.map((n, i) => (
             <NodeRow key={nodeKey(n)} node={n} status={statuses.get(nodeKey(n))} now={now} first={i === 0} />
           ))}

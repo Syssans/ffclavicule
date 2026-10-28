@@ -135,7 +135,7 @@ export default function ItemScreen() {
             <Empty>Cet objet ne se vend pas au marché.</Empty>
           ) : (
             <>
-              <GameWindow icon={GameIcons.gil} title="Prix" subtitle={scope}>
+              <GameWindow icon={GameIcons.gil} title="Prix">
                 {region ? (
                   <Segmented
                     options={[
@@ -184,7 +184,6 @@ export default function ItemScreen() {
                   <GameWindow
                     icon={GameIcons.calendar}
                     title="Évolution"
-                    subtitle="Prix de vente médian par jour"
                     right={
                       <View style={{ width: 110 }}>
                         <Segmented
@@ -205,11 +204,11 @@ export default function ItemScreen() {
                       <PriceChart points={points} days={days} />
                     )}
                     <ThemedText type="small" themeColor="textSecondary">
-                      Touche la courbe pour lire un jour. Mis à jour {formatAgo(market.data.lastUploadTime ? toMillis(market.data.lastUploadTime) : null)}.
+                      Mis à jour {formatAgo(market.data.lastUploadTime ? toMillis(market.data.lastUploadTime) : null)}.
                     </ThemedText>
                   </GameWindow>
 
-                  <GameWindow icon={GameIcons.marketBoard} title="Annonces et ventes" subtitle="Prix envoyés par les joueurs à Universalis : ils peuvent dater un peu">
+                  <GameWindow icon={GameIcons.marketBoard} title="Annonces et ventes">
                     <Segmented
                       options={[
                         { value: 'listings', label: `Annonces (${market.data.listings.length})` },

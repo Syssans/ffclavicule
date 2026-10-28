@@ -58,7 +58,7 @@ export function GameReminders() {
             key={category.key}
             icon={category.icon}
             title={category.label}
-            subtitle={`${category.detail} · ${active}/${items.length} actif${active > 1 ? 's' : ''}`}
+            subtitle={active ? `${active} sur ${items.length}` : null}
             right={
               items.length > 1 ? (
                 <Chip label={all ? 'Aucun' : 'Tous'} onPress={() => toggle(items.map((r) => r.key), !all)} />

@@ -53,7 +53,7 @@ export default function GatheringLogScreen() {
   if (!linked) {
     return (
       <Screen>
-        <GameWindow icon={MenuIcons.recolte} title="Carnet de récolte" subtitle="Avec le plugin Clavicule">
+        <GameWindow icon={MenuIcons.recolte} title="Carnet de récolte">
           <ThemedText type="small">
             Le plugin lit ton carnet de récolte dans le jeu : l’appli te montre ce qu’il te manque, et ce que tu peux récolter tout de suite.
           </ThemedText>
@@ -101,7 +101,7 @@ export default function GatheringLogScreen() {
       {list.length === 0 ? (
         <Empty>Aucun objet.</Empty>
       ) : (
-        <GameWindow icon={MenuIcons.objets} title="Objets" subtitle={`${list.length}`}>
+        <GameWindow icon={MenuIcons.objets} title="Objets">
           {list.slice(0, shown).map((it, i) => (
             <ItemRow key={it.itemId} item={it} gathered={gathered.ids.has(it.itemId)} first={i === 0} />
           ))}

@@ -176,14 +176,14 @@ export function CraftPlanView({ targets }: { targets: { recipe: Recipe; quantity
       ) : null}
 
       {steps.length > 0 ? (
-        <GameWindow icon={GameIcons.deliveries} title="Étapes" subtitle="Dans l’ordre, de la première à la dernière fabrication">
+        <GameWindow icon={GameIcons.deliveries} title="Étapes">
           {steps.map((s, i) => (
             <StepRow key={s.itemId} entry={s} index={i + 1} first={i === 0} />
           ))}
         </GameWindow>
       ) : null}
 
-      <GameWindow icon={GameIcons.gil} title="Coût et bénéfice" subtitle={`Prix du marché sur ${prices.data ? 'ton serveur' : '…'}`}>
+      <GameWindow icon={GameIcons.gil} title="Coût et bénéfice">
         {prices.isPending ? <Loading label="Prix du marché…" /> : null}
         {prices.error ? <ErrorBox error={prices.error} onRetry={() => prices.refetch()} /> : null}
         {prices.data ? (

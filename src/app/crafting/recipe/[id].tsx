@@ -98,7 +98,7 @@ function RecipeBody({ recipeId, quantity, setQuantity }: { recipeId: number; qua
         </View>
       </View>
 
-      <GameWindow icon={jobIconOf(r.craftType)} title="Ingrédients" subtitle="Touche une étape pour la déplier, un objet pour son prix">
+      <GameWindow icon={jobIconOf(r.craftType)} title="Ingrédients">
         <TreeView node={tree} owned={linked ? owned : undefined} />
       </GameWindow>
 
