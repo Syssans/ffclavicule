@@ -6,14 +6,12 @@ import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 import { getDataCenters, getHistory, getMarket, regionLabel, type Listing, type Sale } from '@/api/universalis';
 import { recipesForItems } from '@/api/crafting';
 import { getItem } from '@/api/xivapi';
-import { MenuIcon } from '@/components/game-ui';
 import { CraftSection } from '@/components/item/craft-section';
-import { FishSection } from '@/components/item/fish-section';
-import { GatheringSection } from '@/components/item/gathering-section';
+import { FishSection, isFish } from '@/components/item/fish-section';
+import { GatheringSection, isGatherable } from '@/components/item/gathering-section';
 import { PriceChart } from '@/components/price-chart';
 import { ThemedText } from '@/components/themed-text';
 import { Badge, Button, Card, Empty, ErrorBox, GameIcon, Loading, Screen, Segmented, StatTile } from '@/components/ui';
-import { GameIcons } from '@/constants/game-icons';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/store/app-store';
@@ -23,6 +21,7 @@ import { dailyPrices } from '@/utils/prices';
 type Scope = 'home' | 'region';
 type Range = '7' | '30';
 type ListTab = 'listings' | 'sales';
+type ItemTab = 'fishing' | 'gathering' | 'crafting' | 'market';
 
 export default function ItemScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
@@ -34,6 +33,7 @@ export default function ItemScreen() {
   const [scopeKind, setScopeKind] = useState<Scope>('home');
   const [range, setRange] = useState<Range>('7');
   const [listTab, setListTab] = useState<ListTab>('listings');
+  const { tab: requestedTab } = useLocalSearchParams<{ tab?: string }>();
 
   const item = useQuery({ queryKey: ['xivapi', 'item', id], queryFn: () => getItem(id), enabled: Number.isFinite(id) });
   const recipes = useQuery({ queryKey: ['craft', 'for-item', id], queryFn: () => recipesForItems([id]), enabled: Number.isFinite(id), staleTime: 24 * 3600_000 });
@@ -55,6 +55,18 @@ export default function ItemScreen() {
     queryFn: () => getHistory(scope, id, days),
     enabled: Number.isFinite(id) && marketable,
   });
+
+  // Onglets : chaque façon d'obtenir l'objet, puis le marché. On arrive sur le marché depuis l'onglet Marché,
+  // sinon sur la première façon de l'obtenir.
+  const tabs: { value: ItemTab; label: string }[] = [
+    ...(isFish(id) ? [{ value: 'fishing' as const, label: 'Pêche' }] : []),
+    ...(isGatherable(id) ? [{ value: 'gathering' as const, label: 'Récolte' }] : []),
+    ...(recipes.data?.length ? [{ value: 'crafting' as const, label: 'Artisanat' }] : []),
+    { value: 'market' as const, label: 'Marché' },
+  ];
+  const [chosenTab, setTab] = useState<ItemTab | null>(null);
+  const preferred = requestedTab === 'market' ? 'market' : tabs[0].value;
+  const tab: ItemTab = chosenTab && tabs.some((t) => t.value === chosenTab) ? chosenTab : preferred;
 
   const cheapest = market.data?.listings[0];
   const points = history.data ? dailyPrices(history.data, days) : [];
@@ -109,20 +121,14 @@ export default function ItemScreen() {
             </ThemedText>
           ) : null}
 
-          {/* Comment l'obtenir : la même fiche, qu'on arrive du marché, de la pêche, de la récolte ou de l'artisanat. */}
-          {recipes.data ? <CraftSection recipes={recipes.data} /> : null}
-          <GatheringSection id={id} />
-          <FishSection id={id} />
+          {/* Une seule fiche par objet, qu'on arrive du marché, de la pêche, de la récolte ou de l'artisanat : un onglet par
+              façon de l'obtenir, et le marché. */}
+          {tabs.length > 1 ? <Segmented options={tabs} value={tab} onChange={setTab} /> : null}
+          {tab === 'fishing' ? <FishSection id={id} /> : null}
+          {tab === 'gathering' ? <GatheringSection id={id} /> : null}
+          {tab === 'crafting' && recipes.data ? <CraftSection recipes={recipes.data} /> : null}
 
-          {marketable ? (
-            <View style={styles.marketTitle}>
-              <MenuIcon id={GameIcons.marketBoard} size={28} />
-              <ThemedText type="display" style={{ color: theme.ornament }}>
-                Marché
-              </ThemedText>
-            </View>
-          ) : null}
-          {!marketable ? (
+          {tab !== 'market' ? null : !marketable ? (
             <Empty>Cet objet ne se vend pas au marché.</Empty>
           ) : (
             <>
@@ -277,7 +283,6 @@ function SaleRow({ sale, first }: { sale: Sale; first: boolean }) {
 }
 
 const styles = StyleSheet.create({
-  marketTitle: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two, marginTop: Spacing.two },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   badges: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.one },
   tiles: { flexDirection: 'row', gap: Spacing.two },

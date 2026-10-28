@@ -22,7 +22,7 @@ import { dailyPrices, trendPercent, type PricePoint } from '@/utils/prices';
 const TREND_DAYS = 7;
 
 function openItem(id: number) {
-  router.push({ pathname: '/item/[id]', params: { id: String(id) } });
+  router.push({ pathname: '/item/[id]', params: { id: String(id), tab: 'market' } });
 }
 
 export default function MarketScreen() {

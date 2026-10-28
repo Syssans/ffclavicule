@@ -92,21 +92,88 @@ export function CharacterSwitcher({ selected, onSelect }: { selected: number | n
   );
 }
 
+/** Petit téléphone doré (pastilles « téléphone connecté »). */
+export function PhoneIcon({ size = 12, color, screen }: { size?: number; color?: string; screen?: string }) {
+  const theme = useTheme();
+  const body = color ?? theme.accent;
+  const inner = screen ?? theme.background;
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Rect x={6} y={1.5} width={12} height={21} rx={2.5} fill={body} />
+      <Rect x={8} y={4} width={8} height={13} rx={0.8} fill={inner} />
+      <Circle cx={12} cy={19.6} r={1.2} fill={inner} />
+    </Svg>
+  );
+}
+
 /** Pastille dorée « téléphone connecté » en bas à droite du portrait. */
-function PhoneBadge() {
+export function PhoneBadge() {
   const theme = useTheme();
   return (
     <View style={[styles.phoneBadge, { backgroundColor: theme.background, borderColor: theme.accent }]}>
-      <Svg width={12} height={12} viewBox="0 0 24 24">
-        <Rect x={6} y={1.5} width={12} height={21} rx={2.5} fill={theme.accent} />
-        <Rect x={8} y={4} width={8} height={13} rx={0.8} fill={theme.background} />
-        <Circle cx={12} cy={19.6} r={1.2} fill={theme.background} />
-      </Svg>
+      <PhoneIcon />
+    </View>
+  );
+}
+
+/** Le personnage affiché par une page : portrait (avec la pastille téléphone s'il est connecté), nom et statut. */
+export function CharacterTag({ character }: { character: SavedCharacter }) {
+  const theme = useTheme();
+  const linked = useAppStore((s) => Boolean(s.privateLinks[character.id]));
+  return (
+    <View style={styles.tag} accessible accessibilityLabel={`${character.name}${linked ? ', téléphone connecté' : ''}`}>
+      <View>
+        <View style={[styles.avatarRing, { borderColor: theme.accent }]}>
+          {character.avatar ? (
+            <Image source={character.avatar} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: theme.backgroundSelected }]} />
+          )}
+        </View>
+        {linked ? <PhoneBadge /> : null}
+      </View>
+      <View style={styles.flex}>
+        <ThemedText type="smallBold" numberOfLines={1}>
+          {character.name}
+        </ThemedText>
+        <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+          {linked ? 'Personnage connecté à ce téléphone' : 'Personnage principal (plugin non connecté)'}
+        </ThemedText>
+      </View>
+    </View>
+  );
+}
+
+/** Mention discrète posée sur le portrait : personnage connecté (téléphone) ou simplement principal. */
+export function ConnectedPill({ characterId }: { characterId: number }) {
+  const linked = useAppStore((s) => Boolean(s.privateLinks[characterId]));
+  return (
+    <View style={styles.pill}>
+      {linked ? <PhoneIcon size={13} color="#E8C987" screen="rgba(5,8,15,0.9)" /> : null}
+      <ThemedText type="small" style={styles.pillText}>
+        {linked ? 'Personnage connecté' : 'Personnage principal'}
+      </ThemedText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  tag: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
+  pill: {
+    position: 'absolute',
+    top: Spacing.two,
+    left: Spacing.two,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: 'rgba(5,8,15,0.65)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,201,135,0.5)',
+  },
+  pillText: { color: '#E8C987', fontSize: 12, lineHeight: 16, fontWeight: '600' },
   phoneBadge: {
     position: 'absolute',
     right: -2,

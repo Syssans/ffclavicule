@@ -1,6 +1,6 @@
 /** Onglet Collections : progression du personnage principal, relevée en jeu par le plugin. */
 import { CollectionsOverview, CollectionsUnlinked } from '@/components/character/parts';
-import { useMainCharacter, Welcome } from '@/components/home';
+import { CharacterTag, useMainCharacter, Welcome } from '@/components/home';
 import { ErrorBox, Loading, Screen } from '@/components/ui';
 import { usePrivate } from '@/hooks/use-private';
 
@@ -9,6 +9,7 @@ export default function CollectionsScreen() {
   const { link, query } = usePrivate(main?.id ?? Number.NaN);
   return (
     <Screen title="Collections" tab>
+      {main ? <CharacterTag character={main} /> : null}
       {!main ? (
         <Welcome />
       ) : !link ? (

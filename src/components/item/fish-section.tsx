@@ -52,7 +52,9 @@ export function FishSection({ id }: { id: number }) {
         subtitle={`${zone?.n ?? '—'} · ${spot?.n ?? ''}${spot?.c ? ` (X ${spot.c[0]} · Y ${spot.c[1]})` : ''}`}>
         <View style={styles.badges}>
           <Badge label={label.text} tone={label.tone} />
-          {caught ? <Badge label={caught.ids.has(fish.id) ? 'Attrapé' : 'Pas encore attrapé'} tone={caught.ids.has(fish.id) ? 'up' : 'neutral'} /> : null}
+          {caught ? (
+            <Badge label={caught.ids.has(fish.id) ? 'Attrapé' : 'Pas encore attrapé'} tone={caught.ids.has(fish.id) ? 'up' : 'neutral'} />
+          ) : null}
           {fish.big ? <Badge label="Gros poisson" tone="accent" /> : null}
           {fish.g ? <Badge label={GIGS[fish.g] ?? 'Harpon'} /> : null}
           {fish.co ? <Badge label="Collectionnable" /> : null}
@@ -67,7 +69,10 @@ export function FishSection({ id }: { id: number }) {
         ) : null}
       </GameWindow>
 
-      <GameWindow icon={MenuIcons.calendrier} title="Quand" subtitle={allDay && !fish.w?.length ? 'À toute heure, par tous les temps' : null}>
+      <GameWindow
+        icon={MenuIcons.calendrier}
+        title="Quand"
+        subtitle={status?.kind === 'always' ? 'À toute heure' : 'Conditions, puis prochaines fenêtres à ton heure locale'}>
         <Line label="Heures d’Éorzéa" value={allDay ? 'Toute la journée' : `${fish.h[0]} h – ${fish.h[1]} h`} />
         {fish.pw?.length ? (
           <View style={styles.line}>
@@ -83,10 +88,38 @@ export function FishSection({ id }: { id: number }) {
           </ThemedText>
           {fish.w?.length ? <Weathers ids={fish.w} /> : <ThemedText type="smallBold">Toutes</ThemedText>}
         </View>
+        {status?.kind !== 'always' ? (
+          <ThemedText type="smallBold" style={{ color: theme.ornament, marginTop: Spacing.one }}>
+            Prochaines fenêtres
+          </ThemedText>
+        ) : null}
+        {status?.kind === 'always' ? (
+          <Empty>{fish.p?.length ? 'Toujours disponible, une fois l’intuition obtenue.' : 'Toujours disponible.'}</Empty>
+        ) : windows.length === 0 ? (
+          <Empty>Aucune fenêtre trouvée dans les mois à venir.</Empty>
+        ) : null}
+        {status?.kind !== 'always'
+          ? windows.map((w, i) => (
+              <View key={w.start} style={[styles.window, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }]}>
+                <ThemedText type="smallBold" style={styles.flex}>
+                  {w.start <= now ? 'Maintenant' : localTime(w.start, now)}
+                </ThemedText>
+                <ThemedText type="small" themeColor="textSecondary">
+                  {Math.round((w.end - w.start) / 60_000)} min
+                </ThemedText>
+                <ThemedText type="smallBold" style={{ color: w.start <= now ? theme.success : theme.ornament, minWidth: 80, textAlign: 'right' }}>
+                  {w.start <= now ? `encore ${formatCountdown(w.end - now)}` : formatCountdown(w.start - now)}
+                </ThemedText>
+              </View>
+            ))
+          : null}
       </GameWindow>
 
       {fish.b?.length || fish.hk || fish.tg || fish.lu ? (
-        <GameWindow icon={FishingIcons.fisher} title="Comment" subtitle={fish.b && fish.b.length > 1 ? 'Appât, puis réutilise chaque prise (mooching)' : null}>
+        <GameWindow
+          icon={FishingIcons.fisher}
+          title="Comment"
+          subtitle={fish.b && fish.b.length > 1 ? 'Appât, puis réutilise chaque prise (mooching)' : null}>
           {fish.b?.length ? (
             <View style={styles.chain}>
               {[...fish.b, fish.id].map((itemId, i) => (
@@ -142,29 +175,6 @@ export function FishSection({ id }: { id: number }) {
       {fish.fl ? (
         <GameWindow icon={MenuIcons.objetsPrecieux} title="Légendes" subtitle={data.folklore[String(fish.fl)] ?? 'Livre de légendes requis'} />
       ) : null}
-
-      <GameWindow icon={MenuIcons.calendrier} title="Prochaines fenêtres" subtitle="À ton heure locale">
-        {status?.kind === 'always' ? (
-          <Empty>{fish.p?.length ? 'Toujours disponible, une fois l’intuition obtenue.' : 'Toujours disponible.'}</Empty>
-        ) : windows.length === 0 ? (
-          <Empty>Aucune fenêtre trouvée dans les mois à venir.</Empty>
-        ) : null}
-        {status?.kind !== 'always'
-          ? windows.map((w, i) => (
-              <View key={w.start} style={[styles.window, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border }]}>
-                <ThemedText type="smallBold" style={styles.flex}>
-                  {w.start <= now ? 'Maintenant' : localTime(w.start, now)}
-                </ThemedText>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {Math.round((w.end - w.start) / 60_000)} min
-                </ThemedText>
-                <ThemedText type="smallBold" style={{ color: w.start <= now ? theme.success : theme.ornament, minWidth: 80, textAlign: 'right' }}>
-                  {w.start <= now ? `encore ${formatCountdown(w.end - now)}` : formatCountdown(w.start - now)}
-                </ThemedText>
-              </View>
-            ))
-          : null}
-      </GameWindow>
 
       {zone ? (
         <GameWindow icon={FishingIcons.weather} title={`Météo · ${zone.n}`} subtitle="Périodes de 8 heures d’Éorzéa (23 min 20 s)">

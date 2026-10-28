@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { PrivateSnapshot } from '@/api/private';
@@ -27,7 +27,7 @@ import { formatAgo, formatNumber } from '@/utils/format';
 import { fold } from '@/utils/inventory';
 
 /** Grand portrait du Lodestone, avec le nom et le job actif par-dessus ; bouton 3D si un modèle existe. */
-export function Hero({ profile, height }: { profile: CharacterProfile; height?: number }) {
+export function Hero({ profile, height, badge }: { profile: CharacterProfile; height?: number; badge?: ReactNode }) {
   const image = profile.portrait ?? profile.avatar;
   const info = useQuery({
     queryKey: ['sync', 'info', profile.id],
@@ -49,6 +49,7 @@ export function Hero({ profile, height }: { profile: CharacterProfile; height?: 
         />
       ) : null}
       <LinearGradient colors={['transparent', 'rgba(5,8,15,0.92)']} locations={[0.45, 1]} style={StyleSheet.absoluteFill} pointerEvents="none" />
+      {badge}
       <View style={styles.heroText} pointerEvents="none">
         {profile.title ? (
           <ThemedText type="smallBold" style={styles.heroTitle}>

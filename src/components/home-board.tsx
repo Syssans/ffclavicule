@@ -7,6 +7,7 @@ import { StyleSheet, View } from 'react-native';
 import { gameIconUrl } from '@/api/xivapi';
 import { openSection } from '@/components/character/character-view';
 import { Hero } from '@/components/character/parts';
+import { ConnectedPill } from '@/components/home';
 import { GameWindow, MenuIcon } from '@/components/game-ui';
 import { ThemedText } from '@/components/themed-text';
 import { Button, Chip, ErrorBox, GameIcon, Loading, ProgressBar } from '@/components/ui';
@@ -69,7 +70,7 @@ export function MainCharacterSheet({ id }: { id: number }) {
 
   return (
     <>
-      <Hero profile={p} height={320} />
+      <Hero profile={p} height={320} badge={<ConnectedPill characterId={id} />} />
       {facts.length > 0 ? (
         <GameWindow
           icon={MenuIcons.personnage}
