@@ -48,7 +48,7 @@ export function FishSection({ id }: { id: number }) {
     <>
       <GameWindow
         icon={FishingIcons.fisher}
-        title="Pêche"
+        title="Lieu"
         subtitle={`${zone?.n ?? '—'} · ${spot?.n ?? ''}${spot?.c ? ` (X ${spot.c[0]} · Y ${spot.c[1]})` : ''}`}>
         <View style={styles.badges}>
           <Badge label={label.text} tone={label.tone} />

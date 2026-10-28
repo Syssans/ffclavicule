@@ -5,12 +5,13 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { getHistories, getPriceSummaries } from '@/api/universalis';
 import { searchItems } from '@/api/xivapi';
-import { MenuRow } from '@/components/game-ui';
+import { GameWindow, MenuEntry } from '@/components/game-ui';
 import { SettingsButton } from '@/components/home';
 import { Sparkline } from '@/components/price-chart';
 import { ThemedText } from '@/components/themed-text';
-import { Badge, Card, Empty, ErrorBox, GameIcon, Input, Loading, Screen, Section } from '@/components/ui';
+import { Badge, Chip, Empty, ErrorBox, GameIcon, Input, Loading, Screen } from '@/components/ui';
 import { GameIcons } from '@/constants/game-icons';
+import { MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
 import { useDebounced } from '@/hooks/use-debounced';
 import { useTheme } from '@/hooks/use-theme';
@@ -56,14 +57,13 @@ function AlertsLink() {
   const alerts = useNotificationStore((s) => s.alerts);
   const active = alerts.filter((a) => a.enabled).length;
   return (
-    <Card style={styles.list}>
-      <MenuRow
-        icon={GameIcons.marketBoard}
-        title="Alertes de prix"
-        subtitle={alerts.length ? `${active} alerte(s) active(s)` : 'Être prévenu quand un objet passe sous un prix'}
-        onPress={() => router.push('/notifications/marche')}
-      />
-    </Card>
+    <MenuEntry
+      icon={GameIcons.marketBoard}
+      title="Alertes de prix"
+      subtitle="Être prévenu quand un objet passe sous un prix"
+      status={alerts.length ? `${active} active${active > 1 ? 's' : ''}` : null}
+      onPress={() => router.push('/notifications/marche')}
+    />
   );
 }
 
@@ -76,8 +76,9 @@ function SearchResults({ query }: { query: string }) {
   if (results.isPending) return <Loading />;
   if (results.error) return <ErrorBox error={results.error} onRetry={() => results.refetch()} />;
   if (results.data.length === 0) return <Empty>Aucun objet vendable ne correspond.</Empty>;
+  const plural = results.data.length > 1 ? 's' : '';
   return (
-    <Card style={styles.list}>
+    <GameWindow icon={MenuIcons.objets} title="Résultats" subtitle={`${results.data.length} objet${plural} vendable${plural}`}>
       {results.data.map((item, i) => (
         <Pressable
           key={item.id}
@@ -94,7 +95,7 @@ function SearchResults({ query }: { query: string }) {
           {item.itemLevel && item.itemLevel > 1 ? <Badge label={`niv. ${item.itemLevel}`} /> : null}
         </Pressable>
       ))}
-    </Card>
+    </GameWindow>
   );
 }
 
@@ -117,23 +118,33 @@ function Watchlist() {
 
   if (watchlist.length === 0) {
     return (
-      <Card>
-        <ThemedText>Aucun favori pour l’instant.</ThemedText>
+      <GameWindow icon={GameIcons.gil} title="Favoris" subtitle="Aucun favori pour l’instant">
         <ThemedText type="small" themeColor="textSecondary">
-          Cherche un objet, ouvre sa fiche et ajoute-le en favori : son prix et sa tendance apparaîtront ici.
+          Cherche un objet, ouvre sa fiche et touche l’étoile : son prix et sa tendance apparaîtront ici.
         </ThemedText>
-      </Card>
+      </GameWindow>
     );
   }
 
   const priceById = new Map(prices.data?.map((p) => [p.itemId, p]));
+  const refreshing = prices.isRefetching || histories.isRefetching;
   return (
-    <Section title={`Favoris · ${scope}`}>
-      <ThemedText type="small" themeColor="textSecondary">
-        Prix le plus bas en vente, et évolution du prix de vente médian sur {TREND_DAYS} jours.
-      </ThemedText>
+    <GameWindow
+      icon={GameIcons.gil}
+      title="Favoris"
+      subtitle={`${scope} · prix le plus bas et tendance sur ${TREND_DAYS} jours`}
+      right={
+        <Chip
+          label={refreshing ? '…' : 'Actualiser'}
+          disabled={refreshing}
+          onPress={() => {
+            prices.refetch();
+            histories.refetch();
+          }}
+        />
+      }>
       {prices.error ? <ErrorBox error={prices.error} onRetry={() => prices.refetch()} /> : null}
-      <Card style={styles.list}>
+      <View>
         {watchlist.map((item, i) => (
           <WatchRow
             key={item.id}
@@ -146,15 +157,8 @@ function Watchlist() {
             borderColor={theme.border}
           />
         ))}
-      </Card>
-      <RefreshHint
-        onRefresh={() => {
-          prices.refetch();
-          histories.refetch();
-        }}
-        refreshing={prices.isRefetching || histories.isRefetching}
-      />
-    </Section>
+      </View>
+    </GameWindow>
   );
 }
 
@@ -200,22 +204,9 @@ function WatchRow({
   );
 }
 
-/** Bouton discret pour recharger les prix des favoris. */
-function RefreshHint({ onRefresh, refreshing }: { onRefresh: () => void; refreshing: boolean }) {
-  return (
-    <Pressable accessibilityRole="button" onPress={onRefresh} disabled={refreshing} style={styles.refresh}>
-      <ThemedText type="small" themeColor="textSecondary">
-        {refreshing ? 'Mise à jour…' : 'Mettre à jour les prix'}
-      </ThemedText>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  list: { gap: 0, paddingVertical: Spacing.one },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two, minHeight: 56 },
   rowText: { flex: 1, minWidth: 0 },
   priceCol: { alignItems: 'flex-end', gap: 4 },
   trend: { flexDirection: 'row', alignItems: 'center', gap: Spacing.one },
-  refresh: { alignSelf: 'center', padding: Spacing.two },
 });

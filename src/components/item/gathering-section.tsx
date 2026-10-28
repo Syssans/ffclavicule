@@ -24,8 +24,8 @@ export function GatheringSection({ id }: { id: number }) {
   return (
     <GameWindow
       icon={MenuIcons.recolte}
-      title="Récolte"
-      subtitle={`${jobs.map((j) => GATHERER_NAME[j]).join(' ou ')} niv. ${item.level}${item.stars ? ` ${'★'.repeat(item.stars)}` : ''} · ${item.nodes.length} point${item.nodes.length > 1 ? 's' : ''}`}>
+      title={item.nodes.length > 1 ? 'Lieux' : 'Lieu'}
+      subtitle={`${jobs.map((j) => GATHERER_NAME[j]).join(' ou ')} niv. ${item.level}${item.stars ? ` ${'★'.repeat(item.stars)}` : ''} · ${item.nodes.length} point${item.nodes.length > 1 ? 's' : ''} de récolte`}>
       {gathered || item.hidden ? (
         <View style={styles.badges}>
           {gathered ? <Badge label={gathered.ids.has(id) ? 'Déjà récolté' : 'Pas encore récolté'} tone={gathered.ids.has(id) ? 'up' : 'neutral'} /> : null}

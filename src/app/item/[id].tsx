@@ -9,9 +9,12 @@ import { getItem } from '@/api/xivapi';
 import { CraftSection } from '@/components/item/craft-section';
 import { FishSection, isFish } from '@/components/item/fish-section';
 import { GatheringSection, isGatherable } from '@/components/item/gathering-section';
+import { GameWindow } from '@/components/game-ui';
 import { PriceChart } from '@/components/price-chart';
 import { ThemedText } from '@/components/themed-text';
-import { Badge, Button, Card, Empty, ErrorBox, GameIcon, Loading, Screen, Segmented, StatTile } from '@/components/ui';
+import { Badge, Button, Empty, ErrorBox, GameIcon, Loading, Screen, Segmented, StatTile } from '@/components/ui';
+import { GameIcons } from '@/constants/game-icons';
+import { MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/store/app-store';
@@ -58,11 +61,11 @@ export default function ItemScreen() {
 
   // Onglets : chaque façon d'obtenir l'objet, puis le marché. On arrive sur le marché depuis l'onglet Marché,
   // sinon sur la première façon de l'obtenir.
-  const tabs: { value: ItemTab; label: string }[] = [
-    ...(isFish(id) ? [{ value: 'fishing' as const, label: 'Pêche' }] : []),
-    ...(isGatherable(id) ? [{ value: 'gathering' as const, label: 'Récolte' }] : []),
-    ...(recipes.data?.length ? [{ value: 'crafting' as const, label: 'Artisanat' }] : []),
-    { value: 'market' as const, label: 'Marché' },
+  const tabs: { value: ItemTab; label: string; icon: number }[] = [
+    ...(isFish(id) ? [{ value: 'fishing' as const, label: 'Pêche', icon: MenuIcons.peche }] : []),
+    ...(isGatherable(id) ? [{ value: 'gathering' as const, label: 'Récolte', icon: MenuIcons.recolte }] : []),
+    ...(recipes.data?.length ? [{ value: 'crafting' as const, label: 'Artisanat', icon: MenuIcons.artisanat }] : []),
+    { value: 'market' as const, label: 'Marché', icon: GameIcons.marketBoard },
   ];
   const [chosenTab, setTab] = useState<ItemTab | null>(null);
   const preferred = requestedTab === 'market' ? 'market' : tabs[0].value;
@@ -132,28 +135,20 @@ export default function ItemScreen() {
             <Empty>Cet objet ne se vend pas au marché.</Empty>
           ) : (
             <>
-              <Button
-                label="Créer une alerte de prix"
-                variant="secondary"
-                onPress={() =>
-                  router.push({ pathname: '/alert', params: { itemId: String(id), name: item.data.name, icon: item.data.icon ?? '' } })
-                }
-              />
-              {region ? (
-                <Segmented
-                  options={[
-                    { value: 'home', label: homeScope },
-                    { value: 'region', label: regionLabel(region) },
-                  ]}
-                  value={scopeKind}
-                  onChange={setScopeKind}
-                />
-              ) : null}
-
-              {market.isPending ? <Loading label="Lecture d’Universalis…" /> : null}
-              {market.error ? <ErrorBox error={market.error} onRetry={() => market.refetch()} /> : null}
-              {market.data ? (
-                <>
+              <GameWindow icon={GameIcons.gil} title="Prix" subtitle={scope}>
+                {region ? (
+                  <Segmented
+                    options={[
+                      { value: 'home', label: homeScope },
+                      { value: 'region', label: regionLabel(region) },
+                    ]}
+                    value={scopeKind}
+                    onChange={setScopeKind}
+                  />
+                ) : null}
+                {market.isPending ? <Loading label="Lecture d’Universalis…" /> : null}
+                {market.error ? <ErrorBox error={market.error} onRetry={() => market.refetch()} /> : null}
+                {market.data ? (
                   <View style={styles.tiles}>
                     <StatTile
                       label="Moins cher"
@@ -176,11 +171,22 @@ export default function ItemScreen() {
                       }
                     />
                   </View>
+                ) : null}
+                <Button
+                  label="Créer une alerte de prix"
+                  variant="secondary"
+                  onPress={() => router.push({ pathname: '/alert', params: { itemId: String(id), name: item.data.name, icon: item.data.icon ?? '' } })}
+                />
+              </GameWindow>
 
-                  <Card>
-                    <View style={styles.chartHeader}>
-                      <ThemedText type="smallBold">Prix de vente médian</ThemedText>
-                      <View style={{ width: 120 }}>
+              {market.data ? (
+                <>
+                  <GameWindow
+                    icon={GameIcons.calendar}
+                    title="Évolution"
+                    subtitle="Prix de vente médian par jour"
+                    right={
+                      <View style={{ width: 110 }}>
                         <Segmented
                           options={[
                             { value: '7', label: '7 j' },
@@ -190,7 +196,7 @@ export default function ItemScreen() {
                           onChange={setRange}
                         />
                       </View>
-                    </View>
+                    }>
                     {history.isPending ? (
                       <Loading />
                     ) : history.error ? (
@@ -201,36 +207,37 @@ export default function ItemScreen() {
                     <ThemedText type="small" themeColor="textSecondary">
                       Touche la courbe pour lire un jour. Mis à jour {formatAgo(market.data.lastUploadTime ? toMillis(market.data.lastUploadTime) : null)}.
                     </ThemedText>
-                  </Card>
+                  </GameWindow>
 
-                  <Segmented
-                    options={[
-                      { value: 'listings', label: `Annonces (${market.data.listings.length})` },
-                      { value: 'sales', label: 'Ventes récentes' },
-                    ]}
-                    value={listTab}
-                    onChange={setListTab}
-                  />
-                  {listTab === 'listings' ? (
-                    market.data.listings.length === 0 ? (
-                      <Empty>Aucune annonce en ce moment.</Empty>
+                  <GameWindow icon={GameIcons.marketBoard} title="Annonces et ventes" subtitle="Prix envoyés par les joueurs à Universalis : ils peuvent dater un peu">
+                    <Segmented
+                      options={[
+                        { value: 'listings', label: `Annonces (${market.data.listings.length})` },
+                        { value: 'sales', label: 'Ventes récentes' },
+                      ]}
+                      value={listTab}
+                      onChange={setListTab}
+                    />
+                    {listTab === 'listings' ? (
+                      market.data.listings.length === 0 ? (
+                        <Empty>Aucune annonce en ce moment.</Empty>
+                      ) : (
+                        <View>
+                          {market.data.listings.map((l, i) => (
+                            <ListingRow key={`${l.retainerName}-${i}`} listing={l} first={i === 0} showWorld={scopeKind === 'region' || !market.data.worldName} />
+                          ))}
+                        </View>
+                      )
+                    ) : market.data.recentHistory.length === 0 ? (
+                      <Empty>Aucune vente récente connue.</Empty>
                     ) : (
-                      <Card style={styles.list}>
-                        {market.data.listings.map((l, i) => (
-                          <ListingRow key={`${l.retainerName}-${i}`} listing={l} first={i === 0} showWorld={scopeKind === 'region' || !market.data.worldName} />
+                      <View>
+                        {market.data.recentHistory.map((s, i) => (
+                          <SaleRow key={`${s.timestamp}-${i}`} sale={s} first={i === 0} />
                         ))}
-                      </Card>
-                    )
-                  ) : market.data.recentHistory.length === 0 ? (
-                    <Empty>Aucune vente récente connue.</Empty>
-                  ) : (
-                    <Card style={styles.list}>
-                      {market.data.recentHistory.map((s, i) => (
-                        <SaleRow key={`${s.timestamp}-${i}`} sale={s} first={i === 0} />
-                      ))}
-                    </Card>
-                  )}
-                  <Empty>Prix envoyés par les joueurs à Universalis : ils peuvent dater un peu.</Empty>
+                      </View>
+                    )}
+                  </GameWindow>
                 </>
               ) : null}
             </>
@@ -286,7 +293,5 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
   badges: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: Spacing.one },
   tiles: { flexDirection: 'row', gap: Spacing.two },
-  chartHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: Spacing.two },
-  list: { gap: 0, paddingVertical: Spacing.one },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two },
 });

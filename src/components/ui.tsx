@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ApiError } from '@/api/http';
+import { gameIconUrl } from '@/api/xivapi';
 import { ThemedText } from '@/components/themed-text';
 import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -196,7 +197,8 @@ export function Segmented<T extends string>({
   value,
   onChange,
 }: {
-  options: { value: T; label: string }[];
+  /** `icon` : icône du jeu (numéro) affichée avant le libellé. */
+  options: { value: T; label: string; icon?: number }[];
   value: T;
   onChange: (value: T) => void;
 }) {
@@ -210,9 +212,11 @@ export function Segmented<T extends string>({
             key={option.value}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
+            accessibilityLabel={option.label}
             onPress={() => onChange(option.value)}
-            style={[styles.segment, selected && { backgroundColor: theme.accent }]}>
-            <ThemedText type="smallBold" style={{ color: selected ? theme.accentText : theme.text }}>
+            style={[styles.segment, option.icon ? styles.segmentWithIcon : null, selected && { backgroundColor: theme.accent }]}>
+            {option.icon ? <Image source={gameIconUrl(option.icon)} style={styles.segmentIcon} contentFit="contain" /> : null}
+            <ThemedText type="smallBold" numberOfLines={1} style={{ color: selected ? theme.accentText : theme.text }}>
               {option.label}
             </ThemedText>
           </Pressable>
@@ -274,6 +278,8 @@ export function ProgressBar({ value }: { value: number }) {
 }
 
 const styles = StyleSheet.create({
+  segmentWithIcon: { flexDirection: 'row', gap: 6 },
+  segmentIcon: { width: 22, height: 22 },
   screen: {
     padding: Spacing.three,
     gap: Spacing.four,
