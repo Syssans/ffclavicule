@@ -278,25 +278,60 @@ function markerLayer(kind: number, icon: number): LayerKey {
   return 'landmarks';
 }
 
+/** Blasons des cités (feuille Town du jeu), d'après le début du nom de leur carte. */
+const CITY_CRESTS: [string, number][] = [
+  ['limsa lominsa', 60881],
+  ['gridania', 60882],
+  ['nouvelle gridania', 60882],
+  ['vieille gridania', 60882],
+  ['ul dah', 60883],
+  ['ishgard', 60884],
+  ['kugane', 60885],
+  ['cristarium', 60886],
+  ['vieille sharlayan', 60887],
+  ['tuliyollal', 60888],
+];
+
+/** Blason d'une cité, ou 0. */
+export function cityCrest(mapId: number): number {
+  const map = getMap(mapId);
+  if (!map || map.k !== 'city') return 0;
+  const name = fold(map.n);
+  return CITY_CRESTS.find(([prefix]) => name.startsWith(prefix))?.[1] ?? 0;
+}
+
 /** Repères officiels d'une carte (noms de lieux, éthérites, passages, services…). */
 export function officialPoints(id: number): MapPoint[] {
   const d = mapData();
   const map = getMap(id);
-  return (d.markers[String(id)] ?? []).map(([x, y, icon, name, kind, link, orientation], i) => {
+  const overview = map?.k === 'world' || map?.k === 'region';
+  const seen = new Set<string>();
+  const out: MapPoint[] = [];
+  (d.markers[String(id)] ?? []).forEach(([x, y, icon, name, kind, link, orientation], i) => {
+    // Plusieurs cartes d'un même lieu (Limsa Lominsa : trois ; un quartier et son annexe) ont chacune leur repère :
+    // un seul nom sur le monde et les régions. Dans une zone, deux sorties vers la même zone restent deux sorties.
+    if (kind === 2) {
+      const key = overview ? String(name) : `${x},${y},${name}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+    }
     const label = d.names[String(name)] ?? '';
-    const big = kind === 1 || ((map?.k === 'world' || map?.k === 'region') && kind === 2);
-    return {
+    const big = kind === 1 || (overview && kind === 2);
+    // Sur le monde et les régions, une cité se montre par son blason, son nom dessous.
+    const crest = overview && kind === 2 && !icon ? cityCrest(link) : 0;
+    out.push({
       id: `m${i}`,
       layer: markerLayer(kind, icon),
       x,
       y,
-      icon,
+      icon: crest || icon,
       label,
-      orientation: icon ? orientation : 0,
+      orientation: crest ? 4 : icon ? orientation : 0,
       rank: big || kind === 3 ? 0 : icon === 0 || kind === 2 ? 1 : 2,
       data: { type: 'marker', kind, link },
-    };
+    });
   });
+  return out;
 }
 
 export function fatePoints(id: number): MapPoint[] {

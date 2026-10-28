@@ -388,14 +388,15 @@ async function main() {
     questIcons,
   };
   // Régions assemblées : la carte de chaque zone, réduite de moitié et centrée sur son repère, à la place de sa
-  // silhouette. Une seule zone par emplacement (Limsa Lominsa a trois cartes au même endroit).
+  // silhouette. Les cités et quartiers résidentiels gardent leur silhouette du jeu : leurs cartes, à une autre
+  // échelle et souvent sur plusieurs étages, ne se laissent pas découper proprement.
   data.assembled = {};
   for (const [id, list] of Object.entries(overlays)) {
     const seen = new Set();
     data.assembled[id] = list
       .filter(([x, y, , zone]) => {
         const key = `${x},${y}`;
-        if (!zone || seen.has(key)) return false;
+        if (!zone || seen.has(key) || maps[zone]?.k !== 'zone') return false;
         seen.add(key);
         return true;
       })

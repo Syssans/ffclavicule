@@ -2,6 +2,7 @@ import { fishingData } from '@/utils/fishing';
 import { gatheringData } from '@/utils/gathering';
 import {
   breadcrumb,
+  cityCrest,
   childrenOf,
   fatePoints,
   findFishingSpot,
@@ -180,6 +181,14 @@ describe('points de la carte', () => {
     expect(placeLabels(points, 1, 2, 'b', 26, 170).has('b')).toBe(true);
     // Trop dézoomé : seuls les noms toujours visibles.
     expect([...placeLabels(points, 1, 0, null, 26, 170)]).toEqual(['c']);
+  });
+
+  it('montre une cité par son blason, une seule fois, sur sa région', () => {
+    const noscea = Number(Object.entries(mapData().maps).find(([, m]) => m.k === 'region' && m.n === 'Noscea')![0]);
+    const limsa = officialPoints(noscea).filter((p) => p.label === 'Limsa Lominsa');
+    expect(limsa).toHaveLength(1);
+    expect(limsa[0].icon).toBe(60881);
+    expect(cityCrest(limsa[0].data.type === 'marker' ? limsa[0].data.link : 0)).toBe(60881);
   });
 
   it('attrape un nom affiché quand on le touche, loin de son icône', () => {

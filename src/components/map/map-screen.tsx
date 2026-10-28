@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
 import { type ComponentRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { questsOnMap } from '@/api/map';
@@ -17,6 +17,8 @@ import { WeatherIcon, weatherName } from '@/components/fishing';
 import { ChipBar, MapChip, MapColors, PointCard, CardButton, CardText, RoundButton } from '@/components/map/map-overlays';
 import { MapViewer, type MapViewerHandle } from '@/components/map/map-viewer';
 import { PointDetails } from '@/components/map/point-details';
+import { MenuIcon } from '@/components/game-ui';
+import { MenuIcons } from '@/constants/menu-icons';
 import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import { useMapStore } from '@/store/map-store';
@@ -78,7 +80,10 @@ export interface MapScreenProps {
 export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
   const params = useLocalSearchParams<Params>();
   const safe = useSafeAreaInsets();
-  const insets = { ...safe, bottom: safe.bottom + (inTab ? BottomTabInset : 0) };
+  // Part du bas de l'écran cachée par la barre d'onglets (mesurée : selon la plateforme, la carte passe dessous ou
+  // s'arrête au-dessus).
+  const [underTabs, setUnderTabs] = useState(0);
+  const insets = { ...safe, bottom: inTab ? underTabs : safe.bottom };
   const now = useNow(10_000);
   const layers = useMapStore((s) => s.layers);
   const toggleLayer = useMapStore((s) => s.toggleLayer);
@@ -90,8 +95,15 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
   const root = useRef<ComponentRef<typeof View>>(null);
   const [underHeader, setUnderHeader] = useState(0);
   const measureHeader = useCallback(() => {
-    root.current?.measureInWindow((_x, y) => setUnderHeader(Math.max(0, Math.round(headerHeight - y))));
-  }, [headerHeight]);
+    root.current?.measureInWindow((_x, y, _w, h) => {
+      setUnderHeader(Math.max(0, Math.round(headerHeight - y)));
+      if (inTab && Platform.OS !== 'web') {
+        const screenBottom = Dimensions.get('window').height;
+        const tabsTop = screenBottom - safe.bottom - BottomTabInset;
+        setUnderTabs(Math.max(0, Math.round(y + h - tabsTop)));
+      }
+    });
+  }, [headerHeight, inTab, safe.bottom]);
 
   // La carte affichée suit les paramètres (ouverture depuis l'atlas, une fiche de poisson…) puis la navigation.
   const paramKey = `${params.map ?? ''}|${params.x ?? ''}|${params.y ?? ''}|${params.t ?? ''}`;
@@ -192,7 +204,7 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
           title,
           headerRight: () => (
             <Pressable accessibilityRole="button" accessibilityLabel="Atlas et recherche" hitSlop={10} onPress={() => router.push(atlas)}>
-              <Text style={styles.headerButton}>Atlas</Text>
+              <MenuIcon id={MenuIcons.guides} size={30} />
             </Pressable>
           ),
         }}
@@ -255,7 +267,7 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
       </View>
 
       {/* Zoom. */}
-      <View style={[styles.zoom, { top: underHeader + 150 }]} pointerEvents="box-none">
+      <View style={[styles.zoom, { top: underHeader + topHeight + Spacing.three }]} pointerEvents="box-none">
         <RoundButton label="+" accessibilityLabel="Zoomer" onPress={() => viewer.current?.zoomBy(1.8)} />
         <RoundButton label="−" accessibilityLabel="Dézoomer" onPress={() => viewer.current?.zoomBy(1 / 1.8)} />
         <RoundButton label="⤢" accessibilityLabel="Recadrer la carte" onPress={() => viewer.current?.reset()} />
@@ -309,7 +321,6 @@ function contentName(type: number | undefined): string | null {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: '#1A1712' },
-  headerButton: { color: MapColors.gold, fontSize: 16, fontWeight: '700' },
   top: {
     position: 'absolute',
     top: Spacing.two,
