@@ -59,6 +59,7 @@ Pour pointer l’appli vers le service local : `EXPO_PUBLIC_SYNC_URL=http://loca
 | PUT | `/v1/characters/:id/private` | secret du personnage | inventaire, servants, courrier (JSON, 2 Mo maximum) |
 | GET | `/v1/characters/:id/private` | jeton du téléphone | lecture de ces données (ETag) |
 | PUT | `/v1/notify/today` | secret du téléphone (+ jeton des données privées) | rappel « Aujourd’hui » avant les réinitialisations |
+| PUT | `/v1/notify/retainers` | secret du téléphone (+ jeton des données privées) | alertes des servants : objet vendu, prix cassé, invendu (vérifiées toutes les 30 min sur Universalis) |
 | PUT / GET | `/v1/characters/:id/catalog` | secret (PUT) / jeton du téléphone (GET) | catalogue des collections : tout ce qui existe et comment l’obtenir (envoyé rarement) |
 | POST | `/v1/characters/:id/pairing` | secret du personnage | code à 6 chiffres pour connecter un téléphone (10 min, une fois) |
 | POST | `/v1/pair` | aucune (10 essais par minute et par adresse) | `{ code, device }` → jeton du téléphone |

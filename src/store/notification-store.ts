@@ -20,18 +20,28 @@ export interface PriceAlert {
   createdAt: string;
 }
 
+/** Alertes des servants, envoyées par le service : vente, prix cassé (seuil en %), annonce qui dort (jours). */
+export interface RetainerAlerts {
+  characterId: number | null;
+  sold: boolean;
+  undercut: number | null;
+  stale: number | null;
+}
+
 interface NotificationState {
   reminders: Record<ReminderKey, ReminderSetting>;
   oceanHours: number[];
   alerts: PriceAlert[];
   /** Secret de ce téléphone auprès du service (alertes de prix), donné à la première inscription. */
   pushSecret: string | null;
+  retainerAlerts: RetainerAlerts;
 
   setReminder: (key: ReminderKey, patch: Partial<ReminderSetting>) => void;
   setOceanHours: (hours: number[]) => void;
   saveAlert: (alert: PriceAlert) => void;
   removeAlert: (id: string) => void;
   setPushSecret: (secret: string | null) => void;
+  setRetainerAlerts: (patch: Partial<RetainerAlerts>) => void;
 }
 
 export const useNotificationStore = create<NotificationState>()(
@@ -41,12 +51,14 @@ export const useNotificationStore = create<NotificationState>()(
       oceanHours: DEFAULT_SETTINGS.oceanHours,
       alerts: [],
       pushSecret: null,
+      retainerAlerts: { characterId: null, sold: false, undercut: null, stale: null },
 
       setReminder: (key, patch) => set((s) => ({ reminders: { ...s.reminders, [key]: { ...s.reminders[key], ...patch } } })),
       setOceanHours: (oceanHours) => set({ oceanHours: [...oceanHours].sort((a, b) => a - b) }),
       saveAlert: (alert) => set((s) => ({ alerts: [...s.alerts.filter((a) => a.id !== alert.id), alert] })),
       removeAlert: (id) => set((s) => ({ alerts: s.alerts.filter((a) => a.id !== id) })),
       setPushSecret: (pushSecret) => set({ pushSecret }),
+      setRetainerAlerts: (patch) => set((s) => ({ retainerAlerts: { ...s.retainerAlerts, ...patch } })),
     }),
     {
       name: 'clavicule-notifications',

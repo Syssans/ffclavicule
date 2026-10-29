@@ -9,10 +9,12 @@
  *   GET    /v1/notify/alerts     liste et état des alertes                     (secret)
  *   POST   /v1/notify/test       notification d'essai                         (secret)
  *   PUT    /v1/notify/today      rappel « Aujourd'hui » (voir today.ts)       (secret)
+ *   PUT    /v1/notify/retainers  alertes des servants (voir retainers.ts)     (secret)
  *   DELETE /v1/notify            oublie ce téléphone                           (secret)
  *   POST   /v1/notify/run        vérification immédiate (?now= pour les tests) (clé d'admin ; tests)
  */
 import { bearer, CORS, error, isAdmin, json, readJson, sha256, writeJson, type Env } from './common';
+import { parseRetainerWatch, retainerAlerts, type RetainerWatch } from './retainers';
 import { parseToday, todayReminders, todayResponse, type TodayWatch } from './today';
 
 export const MAX_ALERTS = 1000;
@@ -55,6 +57,8 @@ interface DeviceRecord {
   disabled?: boolean;
   /** Rappel « Aujourd'hui » avant les réinitialisations. */
   today?: TodayWatch;
+  /** Alertes des servants (ventes, prix cassés, invendus). */
+  retainers?: RetainerWatch;
 }
 
 const deviceKey = (hash: string) => `notify/${hash}.json`;
@@ -147,6 +151,15 @@ async function putToday(request: Request, env: Env): Promise<Response> {
   const next: DeviceRecord = { ...found.record, today: parsed.watch ?? undefined };
   await writeJson(env, found.key, next);
   return todayResponse(parsed.watch);
+}
+
+async function putRetainers(request: Request, env: Env): Promise<Response> {
+  const found = await deviceOf(request, env);
+  if (!found) return error(401, 'Téléphone inconnu : réactive les notifications.', 'unknown-device');
+  const parsed = await parseRetainerWatch(env, await request.json().catch(() => null), found.record.retainers);
+  if ('error' in parsed) return parsed.error;
+  await writeJson(env, found.key, { ...found.record, retainers: parsed.watch ?? undefined });
+  return json({ ok: true, enabled: Boolean(parsed.watch) });
 }
 
 async function getAlerts(request: Request, env: Env): Promise<Response> {
@@ -250,14 +263,14 @@ export function evaluate(alert: Alert, price: number | null, state: AlertState, 
  * Tâche planifiée : vérifie les alertes de prix de tous les téléphones et envoie les rappels « Aujourd'hui »
  * dont l'heure est venue.
  */
-export async function runAlerts(env: Env, nowMs = Date.now()): Promise<{ devices: number; checked: number; sent: number; reminders: number }> {
+export async function runAlerts(env: Env, nowMs = Date.now()): Promise<{ devices: number; checked: number; sent: number; reminders: number; retainers: number }> {
   const devices: { key: string; record: DeviceRecord }[] = [];
   let cursor: string | undefined;
   do {
     const page = await env.MODELS.list({ prefix: 'notify/', cursor });
     for (const object of page.objects) {
       const record = await readJson<DeviceRecord>(env, object.key);
-      if (record && !record.disabled && (record.alerts.some((a) => a.enabled) || record.today)) devices.push({ key: object.key, record });
+      if (record && !record.disabled && (record.alerts.some((a) => a.enabled) || record.today || record.retainers)) devices.push({ key: object.key, record });
     }
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
@@ -302,15 +315,18 @@ export async function runAlerts(env: Env, nowMs = Date.now()): Promise<{ devices
 
   const today = await todayReminders(env, devices, nowMs);
   for (const index of today.changed) changed.add(index);
+  const retainers = await retainerAlerts(env, devices, nowMs);
+  for (const index of retainers.changed) changed.add(index);
 
-  const dead = await sendPush(env, [...messages, ...today.messages]);
+  const dead = await sendPush(env, [...messages, ...today.messages, ...retainers.messages]);
   for (const index of changed) {
     const device = devices[index];
     if (dead.has(device.record.pushToken)) device.record.disabled = true;
     await writeJson(env, device.key, device.record);
   }
   const sent = messages.filter((m) => !dead.has(m.to)).length;
-  return { devices: devices.length, checked, sent, reminders: today.messages.filter((m) => !dead.has(m.to)).length };
+  const delivered = (list: { to: string }[]) => list.filter((m) => !dead.has(m.to)).length;
+  return { devices: devices.length, checked, sent, reminders: delivered(today.messages), retainers: delivered(retainers.messages) };
 }
 
 /** Routes des alertes ; null si la requête ne les concerne pas. */
@@ -324,6 +340,8 @@ export async function handleNotify(request: Request, env: Env, url: URL): Promis
       return putAlerts(request, env);
     case 'PUT /v1/notify/today':
       return putToday(request, env);
+    case 'PUT /v1/notify/retainers':
+      return putRetainers(request, env);
     case 'GET /v1/notify/alerts':
       return getAlerts(request, env);
     case 'POST /v1/notify/test':

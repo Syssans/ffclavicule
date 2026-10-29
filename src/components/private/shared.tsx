@@ -95,7 +95,20 @@ export function PrivateScreen({
   );
 }
 
-export function ItemRow({ stack, names, detail, first = false }: { stack: ItemStack; names?: Names; detail?: string | null; first?: boolean }) {
+export function ItemRow({
+  stack,
+  names,
+  detail,
+  note,
+  first = false,
+}: {
+  stack: ItemStack;
+  names?: Names;
+  detail?: string | null;
+  /** Ligne de plus sous le détail (prix du marché d'une annonce…). */
+  note?: ReactNode;
+  first?: boolean;
+}) {
   const theme = useTheme();
   const info = names?.get(stack.id);
   return (
@@ -111,6 +124,7 @@ export function ItemRow({ stack, names, detail, first = false }: { stack: ItemSt
             {detail ?? info?.category}
           </ThemedText>
         ) : null}
+        {note}
       </View>
       {stack.hq ? <Badge label="HQ" tone="accent" /> : null}
       <ThemedText type="smallBold">×{formatNumber(stack.qty)}</ThemedText>

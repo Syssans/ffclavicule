@@ -10,6 +10,8 @@ export interface Env {
   UNIVERSALIS_URL?: string;
   /** Facultatif : autre adresse du service de notifications d'Expo (tests). */
   EXPO_PUSH_URL?: string;
+  /** Facultatif : autre adresse de XIVAPI, pour les noms d'objets (tests). */
+  XIVAPI_URL?: string;
 }
 
 export interface Owner {

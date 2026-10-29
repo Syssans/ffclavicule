@@ -255,3 +255,22 @@ export async function getCraftPrices(scope: string, itemIds: number[]): Promise<
   for (let i = 0; i < unique.length; i += MAX_ITEMS_PER_REQUEST) await load(unique.slice(i, i + MAX_ITEMS_PER_REQUEST));
   return out;
 }
+
+/**
+ * Toutes les annonces de plusieurs objets sur un monde (avec le nom des servants), pour comparer les ventes
+ * de ses servants au reste du marché.
+ */
+export async function getBoards(world: string, itemIds: number[]): Promise<Map<number, MarketData>> {
+  const unique = [...new Set(itemIds)];
+  const out = new Map<number, MarketData>();
+  for (let i = 0; i < unique.length; i += MAX_ITEMS_PER_REQUEST) {
+    const chunk = unique.slice(i, i + MAX_ITEMS_PER_REQUEST);
+    const url = `${BASE}/v2/${encodeURIComponent(world)}/${chunk.join(',')}?entries=0`;
+    if (chunk.length === 1) out.set(chunk[0], await getJson<MarketData>(url, { source: SOURCE }));
+    else {
+      const data = await getJson<MultiMarketData>(url, { source: SOURCE });
+      for (const id of chunk) if (data.items?.[String(id)]) out.set(id, data.items[String(id)]);
+    }
+  }
+  return out;
+}

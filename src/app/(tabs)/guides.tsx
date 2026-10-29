@@ -8,12 +8,10 @@ import { Pressable, StyleSheet, Text } from 'react-native';
 import { Clocks, ResetBoard } from '@/components/clocks';
 import { ModuleTile, TileRow } from '@/components/game-ui';
 import { SettingsButton } from '@/components/home';
-import { TodayCard } from '@/components/today/task-ui';
 import { Screen } from '@/components/ui';
 import { MenuIcons } from '@/constants/menu-icons';
 import { DisplayFont, Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
-import { useToday } from '@/hooks/use-today';
 import { daySeed, loreImage, lorePick } from '@/utils/lore';
 
 /** Entrée de la Légende : un panorama du jour en bannière. */
@@ -46,11 +44,9 @@ const MODULES: { title: string; icon: number; href: Href }[] = [
 
 export default function GuidesScreen() {
   const now = useNow(1000);
-  const today = useToday(now);
   return (
     <Screen title="Guides" tab right={<SettingsButton />}>
       <Clocks now={now} />
-      <TodayCard daily={today.daily} weekly={today.weekly} now={now} onPress={() => router.push('/today')} />
       <LoreBanner />
       <TileRow>
         {MODULES.map((m) => (

@@ -42,8 +42,9 @@ export function MarketAlerts() {
     // Même si le service ne répond pas, ce téléphone arrête d'utiliser les alertes.
     if (secret) await forgetDevice(secret).catch(() => undefined);
     setPushSecret(null);
-    // Le rappel « Aujourd'hui » passe par la même inscription : il s'arrête aussi.
+    // Le rappel « Aujourd'hui » et les alertes des servants passent par la même inscription : ils s'arrêtent aussi.
     useTodayStore.getState().setReminder({ daily: false, weekly: false });
+    useNotificationStore.getState().setRetainerAlerts({ sold: false, undercut: null, stale: null });
   };
 
   const sorted = [...alerts].sort((a, b) => a.itemName.localeCompare(b.itemName, 'fr'));

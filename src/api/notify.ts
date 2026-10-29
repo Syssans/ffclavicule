@@ -73,3 +73,21 @@ export async function uploadToday(secret: string, settings: TodaySettings | { da
     messages: { 401: UNKNOWN, 403: 'Ce téléphone n’est plus connecté à ce personnage : reconnecte-le depuis sa fiche.' },
   });
 }
+
+export interface RetainerAlertUpload {
+  characterId: number;
+  privateToken: string;
+  sold: boolean;
+  undercut: number | null;
+  stale: number | null;
+}
+
+/** Alertes des servants : le service compare les annonces relevées par le plugin au marché. */
+export async function uploadRetainerAlerts(secret: string, settings: RetainerAlertUpload | { sold: false }, baseUrl: string = SYNC_URL): Promise<void> {
+  await request(`${baseUrl}/v1/notify/retainers`, {
+    source: SOURCE,
+    method: 'PUT',
+    ...json(secret, settings),
+    messages: { 401: UNKNOWN, 403: 'Ce téléphone n’est plus connecté à ce personnage : reconnecte-le depuis sa fiche.' },
+  });
+}

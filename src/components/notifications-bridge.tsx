@@ -8,7 +8,7 @@ import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useRef } from 'react';
 
-import { uploadAlerts, uploadToday } from '@/api/notify';
+import { uploadAlerts, uploadRetainerAlerts, uploadToday } from '@/api/notify';
 import { getPrivate } from '@/api/private';
 import { applyReminders, configureNotifications, notificationsSupported } from '@/notifications/device';
 import type { VentureReturn } from '@/notifications/reminders';
@@ -18,6 +18,7 @@ import { useNotificationStore } from '@/store/notification-store';
 import { useTodayStore } from '@/store/today-store';
 
 const TODAY_OFF = JSON.stringify({ daily: false, weekly: false });
+const RETAINERS_OFF = JSON.stringify({ sold: false });
 
 configureNotifications();
 
@@ -86,6 +87,27 @@ export function NotificationsBridge() {
     }, 800);
     return () => clearTimeout(timer);
   }, [secret, main, links, tracked, checked, todayReminder]);
+
+  // Alertes des servants : réglages et preuve que ce téléphone est connecté au personnage.
+  const retainerAlerts = useNotificationStore((s) => s.retainerAlerts);
+  const sentRetainers = useRef(RETAINERS_OFF);
+  useEffect(() => {
+    if (!secret) return;
+    const { characterId, sold, undercut, stale } = retainerAlerts;
+    const link = characterId !== null ? links[characterId] : undefined;
+    const on = (sold || undercut !== null || stale !== null) && characterId !== null && link;
+    const payload = on ? { characterId, privateToken: link.token, sold, undercut, stale } : { sold: false as const };
+    const key = JSON.stringify(payload);
+    if (key === sentRetainers.current) return;
+    const timer = setTimeout(() => {
+      uploadRetainerAlerts(secret, payload)
+        .then(() => {
+          sentRetainers.current = key;
+        })
+        .catch(() => undefined);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [secret, links, retainerAlerts]);
 
   useEffect(() => {
     if (!notificationsSupported) return;

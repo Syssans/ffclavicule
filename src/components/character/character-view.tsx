@@ -13,17 +13,20 @@ import { disconnect } from '@/api/private';
 import { gameIconUrl } from '@/api/xivapi';
 import { FollowActions, Hero } from '@/components/character/parts';
 import { ModuleTile, TileRow } from '@/components/game-ui';
-import { ConnectedPill, PhoneIcon } from '@/components/home';
+import { ConnectedPill, PhoneIcon, useMainCharacter } from '@/components/home';
 import { PrivateIcons } from '@/components/private/shared';
 import { ThemedText } from '@/components/themed-text';
+import { TodayCard } from '@/components/today/task-ui';
 import { Button, ErrorBox, GameIcon, Loading, Section } from '@/components/ui';
 import { GameIcons } from '@/constants/game-icons';
 import { MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
 import { jobIconId } from '@/data/jobs';
 import { useLodestoneCollection } from '@/hooks/use-lodestone-collection';
+import { useNow } from '@/hooks/use-now';
 import { usePrivate } from '@/hooks/use-private';
 import { useTheme } from '@/hooks/use-theme';
+import { useToday } from '@/hooks/use-today';
 import { getCharacter, getClassJobs, lodestoneProfileUrl, type CharacterProfile } from '@/lodestone/client';
 import { useAppStore } from '@/store/app-store';
 import { summarize } from '@/utils/character-summary';
@@ -84,6 +87,8 @@ export function CharacterView({ id }: { id: number }) {
       <IdentityCard profile={p} onPress={() => openSection(id, 'profil')} />
 
       <JobsStrip id={id} />
+
+      <MainToday id={id} />
 
       <TileRow>
         <ModuleTile icon={MenuIcons.arsenal} title="Équipement" onPress={() => openSection(id, 'equipement')} />
@@ -152,6 +157,15 @@ export function CharacterView({ id }: { id: number }) {
       </View>
     </>
   );
+}
+
+/** « Aujourd'hui » : les tâches du jour et de la semaine, sur la fiche du personnage principal. */
+function MainToday({ id }: { id: number }) {
+  const main = useMainCharacter();
+  const now = useNow(30_000);
+  const today = useToday(now);
+  if (main?.id !== id) return null;
+  return <TodayCard daily={today.daily} weekly={today.weekly} now={now} onPress={() => router.push('/today')} />;
 }
 
 /** Fiche d'identité : cité, divinité, Grande Compagnie, compagnie libre ; toucher ouvre le profil complet. */
