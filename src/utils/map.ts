@@ -54,7 +54,8 @@ export interface MapData {
   names: Record<string, string>;
   markers: Record<string, RawMarker[]>;
   /** Régions assemblées : [carte de la zone, x, y] (centre de la zone, réduite de moitié, sur la région). */
-  assembled: Record<string, [number, number, number][]>;
+  /** Zones posées sur chaque région : [zone, centre x, centre y, échelle de la carte de la zone dans sa silhouette]. */
+  assembled: Record<string, [number, number, number, number?][]>;
   /** [aléa, nom, niveau, x, y, icône]. */
   fates: Record<string, [number, string, number, number, number, number][]>;
   /** [coin de pêche, nom (PlaceName), niveau, x, y, rayon]. */
@@ -65,40 +66,9 @@ export interface MapData {
   questIcons: Record<string, number>;
 }
 
-/**
- * Norvrandt : ses zones, découpées dans le parchemin de la région, se chevauchent et débordent (leurs silhouettes
- * n'ont pas l'échelle de celles d'Éorzéa). La région s'affiche donc sur la carte peinte du Premier reflet, où
- * chaque zone a sa place ; ses noms y sont posés à la main, sur la zone peinte (pixels de la carte, 2048 de côté).
- */
-const NORVRANDT = 543;
-const NORVRANDT_IMAGE = 'world/02';
-const NORVRANDT_PLACES: Record<number, [number, number]> = {
-  494: [820, 846], // Il Mheg
-  495: [1220, 890], // Rak'tika
-  491: [936, 1004], // Grand-Lac
-  492: [610, 1136], // Kholusia
-  493: [1020, 1290], // Amh Araeng
-  496: [370, 1046], // La Tempête
-  497: [1080, 1100], // Cristarium
-  498: [440, 1300], // Eulmore
-  554: [440, 1300],
-  555: [440, 1300],
-};
-
 let cache: MapData | null = null;
 export function mapData(): MapData {
-  if (!cache) {
-    const d = require('@/data/map.json') as MapData;
-    const region = d.maps[String(NORVRANDT)];
-    if (region) d.maps[String(NORVRANDT)] = { ...region, i: NORVRANDT_IMAGE };
-    // Plus de zones collées dans la région : leurs points n'y ont plus de place.
-    if (d.assembled) d.assembled[String(NORVRANDT)] = [];
-    d.markers[String(NORVRANDT)] = (d.markers[String(NORVRANDT)] ?? []).map((m) => {
-      const at = NORVRANDT_PLACES[m[5]];
-      return at ? ([at[0], at[1], ...m.slice(2)] as typeof m) : m;
-    });
-    cache = d;
-  }
+  cache ??= require('@/data/map.json') as MapData;
   return cache;
 }
 
@@ -471,13 +441,16 @@ export function treasurePoints(id: number): MapPoint[] {
 
 /** Points des calques demandés (les quêtes, chargées à la demande, s'ajoutent à part). */
 /** Zones posées sur une carte de région assemblée, avec le centre de chacune sur la région. */
-export function assembledZones(id: number): { zone: number; cx: number; cy: number }[] {
-  return (mapData().assembled?.[String(id)] ?? []).map(([zone, cx, cy]) => ({ zone, cx, cy }));
+export function assembledZones(id: number): { zone: number; cx: number; cy: number; scale: number }[] {
+  return (mapData().assembled?.[String(id)] ?? []).map(([zone, cx, cy, scale]) => ({ zone, cx, cy, scale: scale ?? 1 }));
 }
 
-/** Position d'un point d'une zone sur sa région assemblée (la zone y est réduite de moitié, centrée sur cx, cy). */
-export function zoneToRegion(cx: number, cy: number, x: number, y: number): [number, number] {
-  return [cx + (x - MAP_SIZE / 2) / 2, cy + (y - MAP_SIZE / 2) / 2];
+/**
+ * Position d'un point d'une zone sur sa région assemblée : la zone y est réduite de moitié, centrée sur cx, cy, puis
+ * mise à l'échelle de sa silhouette (0,755 pour Norvrandt, 1,06 pour Dravania et Abalathia, 1 ailleurs).
+ */
+export function zoneToRegion(cx: number, cy: number, x: number, y: number, scale = 1): [number, number] {
+  return [cx + ((x - MAP_SIZE / 2) / 2) * scale, cy + ((y - MAP_SIZE / 2) / 2) * scale];
 }
 
 /**
@@ -490,9 +463,9 @@ export function regionZonePoints(id: number, layers: readonly LayerKey[]): MapPo
   if (!zones.length) return [];
   const on = new Set(layers);
   const out: MapPoint[] = [];
-  for (const { zone, cx, cy } of zones) {
+  for (const { zone, cx, cy, scale } of zones) {
     const place = (p: MapPoint, rank: number, minZoom?: number) => {
-      const [x, y] = zoneToRegion(cx, cy, p.x, p.y);
+      const [x, y] = zoneToRegion(cx, cy, p.x, p.y, scale);
       out.push({ ...p, id: `z${zone}-${p.id}`, x, y, rank, minZoom, source: { mapId: zone, x: p.x, y: p.y } });
     };
     for (const p of officialPoints(zone)) {

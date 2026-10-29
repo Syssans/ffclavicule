@@ -27,6 +27,12 @@ const REGION_DIR = join(ROOT, 'assets', 'maps', 'regions');
 const REGION_INDEX = join(ROOT, 'src', 'data', 'region-images.ts');
 /** Les terres sont posées à 70 % d'opacité, comme le rendu du jeu. */
 const OVERLAY_OPACITY = 0.7;
+/**
+ * Échelle de la carte d'une zone dans sa silhouette, par région (1 ailleurs). Mesurée en calant le contour de chaque
+ * silhouette sur les côtes de la carte de sa zone : Norvrandt réduit ses zones (0,755, sans décalage, les six
+ * zones pareil) ; Dravania et Abalathia, cartes à l'échelle 95, les agrandissent un peu.
+ */
+const ZONE_SCALE = { 543: 0.755, 258: 1.06, 259: 1.06 };
 const OVERLAY_SIZE = 1024;
 const MAP_SIZE = 2048;
 const XIVAPI = 'https://v2.xivapi.com/api';
@@ -400,7 +406,7 @@ async function main() {
         seen.add(key);
         return true;
       })
-      .map(([x, y, , zone]) => [zone, x, y]);
+      .map(([x, y, , zone]) => [zone, x, y, ZONE_SCALE[id] ?? 1]);
   }
   writeFileSync(OUT, JSON.stringify(data));
   await buildRegionImages(maps, overlays, data.assembled);
@@ -423,13 +429,27 @@ async function download(url) {
  * à 63499), la vraie carte de la zone. La silhouette est exactement la carte de la zone réduite de moitié (1024 pixels
  * de carte centrés sur le repère) : elle sert de masque. Une seule image à afficher, livrée avec l'appli.
  */
+/** Carte d'une zone à la taille de sa silhouette (OVERLAY_SIZE), réduite ou agrandie autour de son centre. */
+async function zoneInSilhouette(zoneImage, scale) {
+  const size = Math.round(OVERLAY_SIZE * scale);
+  const resized = sharp(zoneImage).resize(size, size).removeAlpha();
+  if (size === OVERLAY_SIZE) return resized.raw().toBuffer();
+  if (size > OVERLAY_SIZE) {
+    const cut = Math.floor((size - OVERLAY_SIZE) / 2);
+    return sharp(await resized.png().toBuffer()).extract({ left: cut, top: cut, width: OVERLAY_SIZE, height: OVERLAY_SIZE }).raw().toBuffer();
+  }
+  const pad = Math.floor((OVERLAY_SIZE - size) / 2);
+  return sharp(await resized.png().toBuffer())
+    .extend({ top: pad, left: pad, bottom: OVERLAY_SIZE - size - pad, right: OVERLAY_SIZE - size - pad, background: { r: 0, g: 0, b: 0 } })
+    .removeAlpha()
+    .raw()
+    .toBuffer();
+}
+
 async function buildRegionImages(maps, overlays, assembled) {
   mkdirSync(REGION_DIR, { recursive: true });
   const entries = [];
   for (const [id, list] of Object.entries(overlays)) {
-    // Norvrandt : ses silhouettes n'ont pas l'échelle de celles d'Éorzéa et les zones se chevauchent ; l'appli
-    // affiche la carte peinte du Premier reflet à la place (voir src/utils/map.ts).
-    if (Number(id) === 543) continue;
     const map = maps[id];
     const base = await download(`${XIVAPI}/asset/map/${map.i}`);
     const zones = new Set((assembled[id] ?? []).map(([zone, x, y]) => `${zone},${x},${y}`));
@@ -450,7 +470,7 @@ async function buildRegionImages(maps, overlays, assembled) {
       if (zone && maps[zone]) {
         // La carte de la zone, découpée selon la silhouette.
         const zoneImage = await download(`${XIVAPI}/asset/map/${maps[zone].i}`);
-        const rgb = await sharp(zoneImage).resize(OVERLAY_SIZE, OVERLAY_SIZE).removeAlpha().raw().toBuffer();
+        const rgb = await zoneInSilhouette(zoneImage, ZONE_SCALE[id] ?? 1);
         data = Buffer.alloc(OVERLAY_SIZE * OVERLAY_SIZE * 4);
         for (let p = 0; p < OVERLAY_SIZE * OVERLAY_SIZE; p++) {
           data[p * 4] = rgb[p * 3];

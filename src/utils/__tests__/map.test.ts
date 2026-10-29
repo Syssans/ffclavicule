@@ -16,6 +16,7 @@ import {
   mapImage,
   regionZonePoints,
   assembledZones,
+  zoneToRegion,
   mapPoints,
   nearestPoint,
   officialPoints,
@@ -260,5 +261,16 @@ describe('villes en plusieurs quartiers et mondes', () => {
       expect(getMap(w.id)?.k).toBe('world');
       expect(childrenOf(w.id).length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('zones posées dans leur silhouette', () => {
+  it('Norvrandt réduit ses zones, Dravania les agrandit un peu, Éorzéa les laisse telles quelles', () => {
+    expect(assembledZones(543).every((z) => z.scale === 0.755)).toBe(true);
+    expect(assembledZones(259)[0].scale).toBe(1.06);
+    expect(assembledZones(87)[0].scale).toBe(1);
+    // Le centre de la zone tombe sur son repère ; un bord, à la moitié de la carte fois l'échelle.
+    expect(zoneToRegion(1000, 1000, 1024, 1024, 0.755)).toEqual([1000, 1000]);
+    expect(zoneToRegion(1000, 1000, 2048, 1024, 0.755)).toEqual([1000 + 512 * 0.755, 1000]);
   });
 });
