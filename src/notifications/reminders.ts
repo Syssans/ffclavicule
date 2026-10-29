@@ -145,6 +145,8 @@ export interface PlannedReminder {
   trigger: ReminderTrigger;
   /** Page ouverte quand on touche la notification. */
   url?: string;
+  /** Icône du jeu jointe à la notification (l'image du rappel). */
+  icon?: number;
 }
 
 /** Heure locale d'un instant ; weekday de 1 (dimanche) à 7, comme les notifications. */
@@ -235,14 +237,16 @@ export function planReminders(
     if (items.length === 1) {
       const [info] = items;
       const what = info.what.charAt(0).toUpperCase() + info.what.slice(1);
-      planned.push({ id, trigger, title: info.label, body: `${what} ${when}.` });
+      planned.push({ id, trigger, title: info.label, body: `${what} ${when}.`, icon: info.icon });
     } else {
       const title = items.every((i) => i.schedule === WEEKLY)
         ? 'Réinitialisation hebdomadaire'
         : items.every((i) => i.schedule === DAILY)
           ? 'Réinitialisation quotidienne'
           : 'Rappels du jeu';
-      planned.push({ id, trigger, title, body: `${items.map((i) => i.label).join(', ')} : ${when}.` });
+      // Plusieurs rappels à la même minute : l'icône de la réinitialisation, ou du premier rappel.
+      const icon = items.every((i) => i.schedule === WEEKLY) ? GameIcons.calendar : items.every((i) => i.schedule === DAILY) ? GameIcons.roulettes : items[0].icon;
+      planned.push({ id, trigger, title, body: `${items.map((i) => i.label).join(', ')} : ${when}.`, icon });
     }
   }
 
@@ -264,6 +268,7 @@ export function planReminders(
         title: list.length > 1 ? 'Missions des servants' : `Mission de ${names}`,
         body: ventureSetting.lead ? `Retour de ${names} ${withLead(ventureSetting.lead)}.` : `${names} ${list.length > 1 ? 'sont revenus' : 'est revenu'} de mission.`,
         url: `/retainers/${list[0].characterId}`,
+        icon: GameIcons.retainers,
       });
     }
   }

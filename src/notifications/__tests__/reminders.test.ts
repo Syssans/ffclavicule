@@ -38,6 +38,15 @@ describe('rappels du jeu', () => {
     expect(planned[0].body).toBe('Bonus des roulettes renouvelés dans 15 min.');
   });
 
+  it('chaque notification porte l’image de son rappel', () => {
+    const ocean = REMINDERS.find((r) => r.key === 'ocean')!;
+    expect(planReminders(settings({ ocean: on() }, [0]), 'eu', NOW, paris)[0].icon).toBe(ocean.icon);
+    // Plusieurs rappels de la semaine à la même minute : l'icône de la réinitialisation.
+    const weekly = planReminders(settings({ tomestones: on(), raids: on() }), 'eu', NOW, paris);
+    expect(weekly).toHaveLength(1);
+    expect(weekly[0].icon).toBe(47);
+  });
+
   it('les rappels de la même minute sont réunis en une notification', () => {
     const planned = planReminders(settings({ tomestones: on(), raids: on(), wondrous: on(), huntElite: on(5) }), 'eu', NOW, paris);
     expect(planned).toHaveLength(2);

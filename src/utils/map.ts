@@ -65,9 +65,40 @@ export interface MapData {
   questIcons: Record<string, number>;
 }
 
+/**
+ * Norvrandt : ses zones, découpées dans le parchemin de la région, se chevauchent et débordent (leurs silhouettes
+ * n'ont pas l'échelle de celles d'Éorzéa). La région s'affiche donc sur la carte peinte du Premier reflet, où
+ * chaque zone a sa place ; ses noms y sont posés à la main, sur la zone peinte (pixels de la carte, 2048 de côté).
+ */
+const NORVRANDT = 543;
+const NORVRANDT_IMAGE = 'world/02';
+const NORVRANDT_PLACES: Record<number, [number, number]> = {
+  494: [820, 846], // Il Mheg
+  495: [1220, 890], // Rak'tika
+  491: [936, 1004], // Grand-Lac
+  492: [610, 1136], // Kholusia
+  493: [1020, 1290], // Amh Araeng
+  496: [370, 1046], // La Tempête
+  497: [1080, 1100], // Cristarium
+  498: [440, 1300], // Eulmore
+  554: [440, 1300],
+  555: [440, 1300],
+};
+
 let cache: MapData | null = null;
 export function mapData(): MapData {
-  cache ??= require('@/data/map.json') as MapData;
+  if (!cache) {
+    const d = require('@/data/map.json') as MapData;
+    const region = d.maps[String(NORVRANDT)];
+    if (region) d.maps[String(NORVRANDT)] = { ...region, i: NORVRANDT_IMAGE };
+    // Plus de zones collées dans la région : leurs points n'y ont plus de place.
+    if (d.assembled) d.assembled[String(NORVRANDT)] = [];
+    d.markers[String(NORVRANDT)] = (d.markers[String(NORVRANDT)] ?? []).map((m) => {
+      const at = NORVRANDT_PLACES[m[5]];
+      return at ? ([at[0], at[1], ...m.slice(2)] as typeof m) : m;
+    });
+    cache = d;
+  }
   return cache;
 }
 
@@ -189,14 +220,19 @@ const CITY_PARTS: number[][] = [
   [218, 219], // Ishgard : l'Assise et les Contreforts
 ];
 
-/** Les autres quartiers de la même ville (la carte elle-même comprise), ou [] pour une ville d'un seul tenant. */
+/**
+ * Toutes les cartes d'une ville en plusieurs quartiers, sous-parties comprises (aérodromes, district politique),
+ * dans l'ordre du jeu ; [] pour une ville d'un seul tenant.
+ */
 export function cityParts(id: number): number[] {
-  const c = canonicalMap(id);
-  return CITY_PARTS.find((group) => group.includes(c)) ?? [];
+  const t = getMap(id)?.t;
+  const group = t ? CITY_PARTS.find((parts) => parts.some((p) => getMap(p)?.t === t)) : undefined;
+  return group ? group.flatMap((p) => floorsOf(p)) : [];
 }
 
-/** Nom court d'un quartier : « L'Entrepont » pour « Limsa Lominsa - L'Entrepont ». */
-export function partLabel(map: Pick<MapInfo, 'n'>): string {
+/** Nom court d'un morceau de ville : sa sous-partie (« Aérodrome d'Ul'dah »), sinon son quartier (« L'Entrepont »). */
+export function partLabel(map: Pick<MapInfo, 'n' | 's'>): string {
+  if (map.s && map.s !== map.n) return map.s;
   const at = map.n.indexOf(' - ');
   return at >= 0 ? map.n.slice(at + 3) : map.n;
 }

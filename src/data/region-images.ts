@@ -10,7 +10,6 @@ export const REGION_IMAGES: Record<number, number> = {
   385: require('../../assets/maps/regions/region-07.webp'),
   386: require('../../assets/maps/regions/region-08.webp'),
   387: require('../../assets/maps/regions/region-09.webp'),
-  543: require('../../assets/maps/regions/region-10.webp'),
   732: require('../../assets/maps/regions/region-11.webp'),
   733: require('../../assets/maps/regions/region-12.webp'),
   734: require('../../assets/maps/regions/region-13.webp'),

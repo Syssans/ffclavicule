@@ -1,5 +1,5 @@
 /** Éléments posés sur la carte : barres de puces (calques, étages, fil d'Ariane), boutons ronds et fiche d'un point. */
-import { Image } from 'expo-image';
+import { Image, type ImageSource } from 'expo-image';
 import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -53,6 +53,61 @@ export function MapChip({
           {label}
         </Text>
       ) : null}
+    </Pressable>
+  );
+}
+
+/**
+ * Choix du monde, en tête du fil d'Ariane : le globe doré, le monde affiché et une flèche, bien visibles pour
+ * qu'on comprenne qu'on peut en changer.
+ */
+export function WorldChip({ globe, label, open, onPress }: { globe: ImageSource | number; label: string; open: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Monde : ${label}. Changer de monde`}
+      accessibilityState={{ expanded: open }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.chip, styles.world, open && { backgroundColor: MapColors.selected }, pressed && { opacity: 0.7 }]}>
+      <Image source={globe} style={styles.worldGlobe} contentFit="contain" />
+      <Text style={[styles.chipText, styles.worldText]} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={styles.worldArrow}>{open ? '▴' : '▾'}</Text>
+    </Pressable>
+  );
+}
+
+/** Un monde à choisir : la vignette de sa carte, son nom et ce qu'on y trouve. */
+export function WorldRow({
+  image,
+  title,
+  detail,
+  current,
+  onPress,
+}: {
+  image: string;
+  title: string;
+  detail: string;
+  current: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected: current }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.worldRow, current && { borderColor: MapColors.gold }, pressed && { opacity: 0.75 }]}>
+      <Image source={{ uri: image }} style={styles.worldThumb} contentFit="cover" cachePolicy="disk" />
+      <View style={styles.flex}>
+        <Text style={[styles.cardTitleText, current && { color: MapColors.gold }]} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={[styles.cardText, { color: MapColors.muted }]} numberOfLines={1}>
+          {detail}
+        </Text>
+      </View>
+      <Text style={[styles.cardText, { color: MapColors.gold }]}>›</Text>
     </Pressable>
   );
 }
@@ -150,6 +205,21 @@ export function CardRow({ image, title, detail, onPress }: { image?: string | nu
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
+  world: { borderColor: MapColors.gold, borderWidth: 1.5, paddingLeft: 6, gap: 4 },
+  worldGlobe: { width: 26, height: 26 },
+  worldText: { color: MapColors.gold, fontWeight: '700' },
+  worldArrow: { color: MapColors.gold, fontSize: 13 },
+  worldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.two,
+    padding: Spacing.one,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: MapColors.border,
+  },
+  worldThumb: { width: 84, height: 52, borderRadius: 8, backgroundColor: '#000' },
+  cardTitleText: { color: MapColors.text, fontSize: 16, fontWeight: '700' },
   bar: {
     gap: Spacing.one,
     paddingHorizontal: Spacing.two,

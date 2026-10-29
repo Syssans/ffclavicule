@@ -241,7 +241,15 @@ describe('points de la carte', () => {
 describe('villes en plusieurs quartiers et mondes', () => {
   it('chaque quartier mène aux autres, avec un nom court', () => {
     expect(cityParts(2)).toEqual([2, 3]);
-    expect(cityParts(12)).toEqual([11, 12]);
+    // Sous-parties comprises : l'aérodrome de Limsa Lominsa, celui d'Ul'dah et son district politique.
+    expect(cityParts(12)).toEqual([11, 74, 12]);
+    expect(cityParts(70)).toEqual([13, 70, 14, 73]);
+    expect(cityParts(70).map((id) => partLabel(getMap(id)!))).toEqual([
+      'Faubourg de Nald',
+      "Aérodrome d'Ul'dah",
+      'Faubourg de Thal',
+      'District politique',
+    ]);
     expect(cityParts(370)).toEqual([]);
     expect(cityParts(218).map((id) => partLabel(getMap(id)!))).toEqual(["L'Assise", 'Les Contreforts']);
     expect(partLabel(getMap(3)!)).toBe('Vieille Gridania');

@@ -427,6 +427,9 @@ async function buildRegionImages(maps, overlays, assembled) {
   mkdirSync(REGION_DIR, { recursive: true });
   const entries = [];
   for (const [id, list] of Object.entries(overlays)) {
+    // Norvrandt : ses silhouettes n'ont pas l'échelle de celles d'Éorzéa et les zones se chevauchent ; l'appli
+    // affiche la carte peinte du Premier reflet à la place (voir src/utils/map.ts).
+    if (Number(id) === 543) continue;
     const map = maps[id];
     const base = await download(`${XIVAPI}/asset/map/${map.i}`);
     const zones = new Set((assembled[id] ?? []).map(([zone, x, y]) => `${zone},${x},${y}`));

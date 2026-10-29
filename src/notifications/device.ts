@@ -3,8 +3,11 @@
  * de prix envoyées par le service.
  */
 import Constants from 'expo-constants';
+import { Directory, File, Paths } from 'expo-file-system';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+
+import { gameIconUrl } from '@/api/xivapi';
 
 import { planReminders, type PlannedReminder, type ReminderSettings, type VentureReturn } from '@/notifications/reminders';
 
@@ -38,13 +41,41 @@ export async function applyReminders(settings: ReminderSettings, region: 'eu' | 
   if (planned.length === 0) return 0;
   if (!(await ensurePermission())) throw new Error('Notifications refusées : autorise-les pour Clavicule dans les Réglages de l’iPhone.');
   for (const p of planned) {
+    const attachment = p.icon ? await attachmentFor(p.icon, p.id) : null;
     await Notifications.scheduleNotificationAsync({
       identifier: p.id,
-      content: { title: p.title, body: p.body, sound: 'default', data: p.url ? { url: p.url } : {} },
+      content: {
+        title: p.title,
+        body: p.body,
+        sound: 'default',
+        data: p.url ? { url: p.url } : {},
+        ...(attachment ? { attachments: [attachment] } : {}),
+      },
       trigger: toTrigger(p.trigger),
     });
   }
   return planned.length;
+}
+
+/**
+ * Image d'un rappel, à droite de la notification : l'icône du jeu, téléchargée une fois et gardée sur le téléphone,
+ * puis copiée pour chaque notification (iOS range la pièce jointe à part et la retire du dossier). Sans réseau la
+ * première fois, la notification part sans image.
+ */
+async function attachmentFor(icon: number, id: string): Promise<Notifications.NotificationContentAttachmentIos | null> {
+  if (Platform.OS !== 'ios') return null;
+  try {
+    const dir = new Directory(Paths.cache, 'rappels');
+    if (!dir.exists) dir.create({ intermediates: true, idempotent: true });
+    const source = new File(dir, `icone-${icon}.png`);
+    if (!source.exists) await File.downloadFileAsync(gameIconUrl(icon), source);
+    const copy = new File(dir, `${id}.png`);
+    if (copy.exists) copy.delete();
+    await source.copy(copy);
+    return { identifier: id, url: copy.uri, type: 'public.png' };
+  } catch {
+    return null;
+  }
 }
 
 function toTrigger(trigger: PlannedReminder['trigger']): Notifications.NotificationTriggerInput {

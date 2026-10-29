@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { questsOnMap } from '@/api/map';
 import { WeatherIcon, weatherName } from '@/components/fishing';
-import { ChipBar, MapChip, MapColors, PointCard, CardButton, CardRow, CardText, RoundButton } from '@/components/map/map-overlays';
+import { ChipBar, MapChip, MapColors, PointCard, CardButton, CardText, RoundButton, WorldChip, WorldRow } from '@/components/map/map-overlays';
 import { MapViewer, type MapViewerHandle } from '@/components/map/map-viewer';
 import { PointDetails } from '@/components/map/point-details';
 import { BottomTabInset, Spacing } from '@/constants/theme';
@@ -244,26 +244,35 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
         pointerEvents="box-none"
         onLayout={(e) => setTopHeight(Math.round(e.nativeEvent.layout.height))}>
         <ChipBar>
-          <MapChip
-            label="Mondes"
-            selected={worldsOpen}
+          <WorldChip
+            globe={ATLAS_ICON}
+            label={trail[0]?.map.k === 'world' ? trail[0].map.n : 'Mondes'}
+            open={worldsOpen}
             onPress={() => {
               setWorldsOpen((open) => !open);
               setSelected(null);
               setPin(null);
             }}
           />
-          {trail.map(({ id, map: m }) => (
-            <MapChip
-              key={id}
-              label={`› ${m.k === 'instance' ? dutyName(m) : m.n}`}
-              selected={id === mapId}
-              onPress={() => (id === mapId ? viewer.current?.reset() : openMap(id))}
-            />
-          ))}
+          {trail
+            .filter(({ map: m }) => m.k !== 'world')
+            .map(({ id, map: m }) => (
+              <MapChip
+                key={id}
+                label={`› ${m.k === 'instance' ? dutyName(m) : m.n}`}
+                selected={id === mapId}
+                onPress={() => (id === mapId ? viewer.current?.reset() : openMap(id))}
+              />
+            ))}
         </ChipBar>
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        {floors.length > 1 ? (
+        {parts.length > 1 ? (
+          <ChipBar>
+            {parts.map((id) => (
+              <MapChip key={id} label={partLabel(getMap(id)!)} selected={id === mapId} onPress={() => openMap(id)} />
+            ))}
+          </ChipBar>
+        ) : floors.length > 1 ? (
           <ChipBar>
             {floors.map((id, i) => {
               const floor = getMap(id)!;
@@ -276,12 +285,6 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
                 />
               );
             })}
-          </ChipBar>
-        ) : parts.length > 1 ? (
-          <ChipBar>
-            {parts.map((id) => (
-              <MapChip key={id} label={partLabel(getMap(id)!)} selected={id === mapId} onPress={() => openMap(id)} />
-            ))}
           </ChipBar>
         ) : null}
         {weather ? (
@@ -306,12 +309,14 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
       <View style={[styles.bottom, { paddingBottom: insets.bottom + Spacing.two }]} pointerEvents="box-none">
         {worldsOpen ? (
           <View style={styles.cardWrap}>
-            <PointCard title="Mondes" onClose={() => setWorldsOpen(false)}>
+            <PointCard title="Changer de monde" onClose={() => setWorldsOpen(false)}>
               {WORLDS.map((w) => (
-                <CardRow
+                <WorldRow
                   key={w.id}
+                  image={`https://v2.xivapi.com/api/asset/map/${getMap(w.id)!.i}`}
                   title={w.label}
                   detail={w.detail}
+                  current={trail[0]?.id === w.id}
                   onPress={() => {
                     setWorldsOpen(false);
                     openMap(w.id);
