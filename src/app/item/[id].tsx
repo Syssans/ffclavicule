@@ -10,6 +10,7 @@ import { CraftSection } from '@/components/item/craft-section';
 import { FishSection, isFish } from '@/components/item/fish-section';
 import { GatheringSection, isGatherable } from '@/components/item/gathering-section';
 import { GameWindow } from '@/components/game-ui';
+import { LoreLink } from '@/components/lore/lore-link';
 import { PriceChart } from '@/components/price-chart';
 import { ThemedText } from '@/components/themed-text';
 import { Badge, Button, Empty, ErrorBox, GameIcon, Loading, Screen, Segmented, StatTile } from '@/components/ui';
@@ -19,6 +20,7 @@ import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useAppStore } from '@/store/app-store';
 import { formatAgo, formatGil, formatNumber, toMillis } from '@/utils/format';
+import { loreForItem } from '@/utils/lore';
 import { dailyPrices } from '@/utils/prices';
 
 type Scope = 'home' | 'region';
@@ -29,6 +31,8 @@ type ItemTab = 'fishing' | 'gathering' | 'crafting' | 'market';
 export default function ItemScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
   const id = Number(rawId);
+  // Ce que l'objet débloque (monture, mascotte, carte) a sa fiche dans la Légende.
+  const lore = loreForItem(id);
   const theme = useTheme();
   const homeScope = useAppStore((s) => s.marketScope);
   const watched = useAppStore((s) => s.watchlist.some((w) => w.id === id));
@@ -123,6 +127,7 @@ export default function ItemScreen() {
               {item.data.description}
             </ThemedText>
           ) : null}
+          {lore ? <LoreLink entry={lore} /> : null}
 
           {/* Une seule fiche par objet, qu'on arrive du marché, de la pêche, de la récolte ou de l'artisanat : un onglet par
               façon de l'obtenir, et le marché. */}

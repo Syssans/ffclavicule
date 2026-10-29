@@ -8,6 +8,8 @@ import { getPriceSummaries } from '@/api/universalis';
 import { gameIconUrl } from '@/api/xivapi';
 import { ThemedText } from '@/components/themed-text';
 import { Badge, Card, Chip, Empty, ErrorBox, GameIcon, Input, Loading, Screen, Segmented } from '@/components/ui';
+import { openLoreEntry } from '@/components/lore/lore-card';
+import { LoreLink } from '@/components/lore/lore-link';
 import { Spacing } from '@/constants/theme';
 import { useCatalog, usePrivate } from '@/hooks/use-private';
 import { useTheme } from '@/hooks/use-theme';
@@ -24,6 +26,7 @@ import {
 import { enrich, findReference, formatRarity, indexReference, loadReference, type Enriched } from '@/utils/collect-reference';
 import { formatAgo, formatGil } from '@/utils/format';
 import { fold } from '@/utils/inventory';
+import { loreForCollection } from '@/utils/lore';
 
 type Tab = 'owned' | 'missing';
 type Sort = 'name' | 'rare' | 'common';
@@ -155,7 +158,7 @@ export default function CollectionScreen() {
             </ScrollView>
           ) : null}
 
-          {detail ? <EntryDetail entry={detail} places={detail.item !== undefined ? places.get(detail.item) : undefined} owned={tab === 'owned'} onClose={() => setSelected(null)} /> : null}
+          {detail ? <EntryDetail entry={detail} places={detail.item !== undefined ? places.get(detail.item) : undefined} owned={tab === 'owned'} collection={key} onClose={() => setSelected(null)} /> : null}
 
           {tab === 'owned' ? (
             owned.length === 0 ? (
@@ -164,7 +167,14 @@ export default function CollectionScreen() {
               <Grid
                 tiles={owned}
                 selected={selected}
-                onPress={(t) => setSelected(catalogCollection ? t.id : null)}
+                onPress={(t) => {
+                  // Sans le catalogue, pas de détail : la fiche de la Légende, s'il y en a une.
+                  if (catalogCollection) setSelected(t.id);
+                  else {
+                    const lore = loreForCollection(key, t.id);
+                    if (lore) openLoreEntry(lore);
+                  }
+                }}
                 caption={(t) => (t.rarity !== undefined ? { text: `${formatRarity(t.rarity)} des joueurs` } : undefined)}
               />
             )
@@ -242,7 +252,20 @@ function Grid({
 }
 
 /** Détail d'un élément : comment l'obtenir, s'il est déjà dans l'inventaire, et son prix au marché. */
-function EntryDetail({ entry, places, owned, onClose }: { entry: Enriched; places?: string[]; owned: boolean; onClose: () => void }) {
+function EntryDetail({
+  entry,
+  places,
+  owned,
+  collection,
+  onClose,
+}: {
+  entry: Enriched;
+  places?: string[];
+  owned: boolean;
+  collection: string;
+  onClose: () => void;
+}) {
+  const lore = loreForCollection(collection, entry.id);
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const scope = useAppStore((s) => s.marketScope);
@@ -304,6 +327,7 @@ function EntryDetail({ entry, places, owned, onClose }: { entry: Enriched; place
             </ThemedText>
           ) : null}
         </Card>
+        {lore ? <LoreLink entry={lore} onOpen={onClose} /> : null}
       </View>
     </Modal>
   );

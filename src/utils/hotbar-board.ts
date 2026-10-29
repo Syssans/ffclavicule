@@ -79,7 +79,12 @@ export function screenLayout(
   maxHeight: number,
 ): BoardLayout & { scale: number } {
   if (!bars.length || width <= 0) return { placements: [], height: 0, scale: 0 };
-  const rects = bars.map((b) => ({ id: b.id, shape: b.element.shape, rect: elementRect(b.element, screen) }));
+  // La place réellement affichée par le jeu au moment du relevé, quand on l'a ; sinon, celle que donne la disposition.
+  const rects = bars.map((b) => {
+    const live = b.element.live;
+    const rect = live?.shown && live.w > 0 && live.h > 0 ? { x: live.x, y: live.y, w: live.w, h: live.h } : elementRect(b.element, screen);
+    return { id: b.id, shape: b.element.shape, rect };
+  });
   const margin = 12;
   const x0 = Math.min(...rects.map((r) => r.rect.x)) - margin;
   const y0 = Math.min(...rects.map((r) => r.rect.y)) - margin;

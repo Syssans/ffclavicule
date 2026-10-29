@@ -69,7 +69,7 @@ export function HotbarFullscreen({
           </View>
         </View>
         <ScrollView
-          style={[styles.panel, landscape ? { width: PANEL_WIDTH } : null, { backgroundColor: theme.background }]}
+          style={[styles.panel, landscape ? { width: PANEL_WIDTH } : { maxHeight: height * 0.4 }, { backgroundColor: theme.background }]}
           contentContainerStyle={styles.panelContent}>
           <View style={styles.panelHead}>
             <ThemedText type="smallBold" style={styles.flex} numberOfLines={1}>
@@ -91,9 +91,10 @@ export function HotbarFullscreen({
 const styles = StyleSheet.create({
   overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100 },
   root: { flex: 1, backgroundColor: '#05070C', gap: Spacing.three, paddingVertical: Spacing.three },
-  boardArea: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  boardArea: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center' },
   screen: { backgroundColor: SLOT_COLORS.panel, borderRadius: 14, padding: Spacing.three },
-  panel: { borderRadius: 14 },
+  // Largeur fixe : une ScrollView s'étire sinon dans une rangée et repousse les barres hors de l'écran.
+  panel: { borderRadius: 14, flexGrow: 0, flexShrink: 0 },
   panelContent: { padding: Spacing.three, gap: Spacing.two },
   panelHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   flex: { flex: 1, minWidth: 0 },

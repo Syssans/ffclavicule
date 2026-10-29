@@ -95,6 +95,13 @@ export default function LoreEntryScreen() {
             </View>
           ) : null}
           {body ? <LoreText text={body} links={bodyLinks} /> : null}
+          {entry.o ? (
+            <Button
+              label="Voir l’objet"
+              variant="secondary"
+              onPress={() => router.push({ pathname: '/item/[id]', params: { id: String(entry.o) } })}
+            />
+          ) : null}
           {onMap ? (
             <Button
               label="Voir sur la carte"

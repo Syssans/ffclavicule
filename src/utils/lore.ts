@@ -33,11 +33,15 @@ export interface LoreEntry {
   g?: string;
   lx?: LoreLink[];
   le?: LoreLink[];
+  /** Objet qui débloque cette monture, mascotte ou carte. */
+  o?: number;
 }
 
 interface LoreFile {
   updatedAt: string;
   entries: LoreEntry[];
+  /** Objet -> fiche de ce qu'il débloque. */
+  items?: Record<string, string>;
 }
 
 export const EXPANSIONS = ['A Realm Reborn', 'Heavensward', 'Stormblood', 'Shadowbringers', 'Endwalker', 'Dawntrail'];
@@ -214,4 +218,19 @@ export function linkify(text: string, zones: { id: number; name: string }[] = []
     out.push([start, m[0].length, key]);
   }
   return out.sort((a, b) => a[0] - b[0]);
+}
+
+/** Fiche de la Légende de ce qu'un objet débloque (monture, mascotte, carte), s'il y en a une. */
+export function loreForItem(itemId: number): LoreEntry | undefined {
+  const key = load().file.items?.[String(itemId)];
+  return key ? load().byKey.get(key) : undefined;
+}
+
+/** Préfixe des fiches de chaque collection du jeu qui a sa catégorie dans la Légende. */
+const COLLECTION_PREFIX: Record<string, string> = { mounts: 'm', minions: 'c', cards: 'p' };
+
+/** Fiche d'un élément de collection (monture, mascotte, carte) par son numéro dans le jeu. */
+export function loreForCollection(collection: string, id: number): LoreEntry | undefined {
+  const prefix = COLLECTION_PREFIX[collection];
+  return prefix ? load().byKey.get(`${prefix}${id}`) : undefined;
 }

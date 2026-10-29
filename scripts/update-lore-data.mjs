@@ -157,6 +157,23 @@ async function companions(base, transient, type, prefix) {
 await companions('Mount', 'MountTransient', 'monture', 'm');
 await companions('Companion', 'CompanionTransient', 'mascotte', 'c');
 
+// ——— Objets : ce qui débloque une monture, une mascotte ou une carte ———
+// L'action d'un objet dit ce qu'il apprend (1322 monture, 853 mascotte, 3357 carte de Triple Triade) ; sa première
+// donnée, le numéro de la monture, de la mascotte ou de la carte.
+const UNLOCKS = { 1322: 'm', 853: 'c', 3357: 'p' };
+const byKey = new Map(entries.map((e) => [e.k, e]));
+const items = {};
+for (const r of await sheet('Item', 'ItemAction.Action@as(raw),ItemAction.Data@as(raw)')) {
+  const action = get(r.fields, 'ItemAction.Action@as(raw)');
+  const data = get(r.fields, 'ItemAction.Data@as(raw)');
+  const prefix = UNLOCKS[action];
+  if (!prefix || !Array.isArray(data) || !data[0]) continue;
+  const entry = byKey.get(`${prefix}${data[0]}`);
+  if (!entry) continue;
+  items[r.row_id] = entry.k;
+  entry.o ??= r.row_id;
+}
+
 // ——— Liens : noms de fiches et de zones cités dans les textes ———
 const targets = new Map();
 const addTarget = (name, key) => {
@@ -210,8 +227,9 @@ for (const e of entries) {
   linkCount += (lx?.length ?? 0) + (le?.length ?? 0);
 }
 
-writeFileSync(OUT, JSON.stringify({ updatedAt: new Date().toISOString().slice(0, 10), entries }) + '\n');
+writeFileSync(OUT, JSON.stringify({ updatedAt: new Date().toISOString().slice(0, 10), entries, items }) + '\n');
 const count = (t) => entries.filter((e) => e.t === t).length;
+console.log(`${Object.keys(items).length} objets reliés à leur fiche`);
 console.log(
   `${entries.length} fiches : ${count('perso')} personnages, ${count('lieu')} lieux, ${count('recit')} chroniques, ${count('monture')} montures, ${count('mascotte')} mascottes ; ${linkCount} liens`,
 );
