@@ -1,6 +1,6 @@
 /** Briques d'interface partagées par les écrans. */
 import { Image } from 'expo-image';
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
   TextInput,
   View,
+  type ScrollViewInstance,
   type ScrollViewProps,
   type StyleProp,
   type TextInputProps,
@@ -28,11 +29,13 @@ export function Screen({
   tab = false,
   right,
   children,
+  ref,
   ...scrollProps
-}: { title?: string; tab?: boolean; right?: ReactNode; children: ReactNode } & ScrollViewProps) {
+}: { title?: string; tab?: boolean; right?: ReactNode; children: ReactNode; ref?: Ref<ScrollViewInstance> } & ScrollViewProps) {
   const theme = useTheme();
   const content = (
     <ScrollView
+      ref={ref}
       style={{ backgroundColor: theme.background }}
       contentContainerStyle={[
         styles.screen,

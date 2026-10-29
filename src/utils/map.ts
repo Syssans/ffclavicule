@@ -181,6 +181,32 @@ export function floorsOf(id: number): number[] {
   return d.order.filter((other) => d.maps[String(other)]?.t === map.t);
 }
 
+/** Villes en plusieurs cartes (quartiers), dans l'ordre du jeu : on passe de l'une à l'autre d'un toucher. */
+const CITY_PARTS: number[][] = [
+  [2, 3], // Nouvelle et Vieille Gridania
+  [11, 12], // Limsa Lominsa : le Tillac et l'Entrepont
+  [13, 14], // Ul'dah : faubourgs de Nald et de Thal
+  [218, 219], // Ishgard : l'Assise et les Contreforts
+];
+
+/** Les autres quartiers de la même ville (la carte elle-même comprise), ou [] pour une ville d'un seul tenant. */
+export function cityParts(id: number): number[] {
+  const c = canonicalMap(id);
+  return CITY_PARTS.find((group) => group.includes(c)) ?? [];
+}
+
+/** Nom court d'un quartier : « L'Entrepont » pour « Limsa Lominsa - L'Entrepont ». */
+export function partLabel(map: Pick<MapInfo, 'n'>): string {
+  const at = map.n.indexOf(' - ');
+  return at >= 0 ? map.n.slice(at + 3) : map.n;
+}
+
+/** Mondes, au-dessus d'Hydaelyn : la Source et le Premier reflet, qu'aucune carte ne relie entre eux. */
+export const WORLDS: { id: number; label: string; detail: string }[] = [
+  { id: WORLD_MAP, label: 'Hydaelyn', detail: 'La Source' },
+  { id: 535, label: 'Premier reflet', detail: 'Norvrandt et l’Ancien monde' },
+];
+
 /** Instances groupées par type de contenu, du plus bas niveau au plus haut. */
 export function instancesByType(): {
   type: number;

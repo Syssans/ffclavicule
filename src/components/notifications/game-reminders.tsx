@@ -18,13 +18,18 @@ import {
   OCEAN_HOURS,
   oceanLocalLabel,
   REMINDERS,
+  type ReminderCategory,
   type ReminderInfo,
   type ReminderKey,
 } from '@/notifications/reminders';
 import { useAppStore } from '@/store/app-store';
 import { useNotificationStore } from '@/store/notification-store';
 
-export function GameReminders() {
+/**
+ * `focus` : famille de rappels à mettre en avant (ouverte depuis la pêche en mer, par exemple) ; `onFocusAt`
+ * reçoit sa position dans la page pour y faire défiler l'écran.
+ */
+export function GameReminders({ focus, onFocusAt }: { focus?: ReminderCategory; onFocusAt?: (y: number) => void } = {}) {
   const theme = useTheme();
   const reminders = useNotificationStore((s) => s.reminders);
   const setReminder = useNotificationStore((s) => s.setReminder);
@@ -54,9 +59,10 @@ export function GameReminders() {
         const active = items.filter((r) => reminders[r.key]?.enabled).length;
         const all = active === items.length;
         return (
+          <View key={category.key} onLayout={category.key === focus ? (e) => onFocusAt?.(e.nativeEvent.layout.y) : undefined}>
           <GameWindow
-            key={category.key}
             icon={category.icon}
+            style={category.key === focus ? { borderColor: theme.accent, borderWidth: 2 } : undefined}
             title={category.label}
             subtitle={active ? `${active} sur ${items.length}` : null}
             right={
@@ -68,6 +74,7 @@ export function GameReminders() {
               <ReminderRow key={info.key} info={info} first={i === 0} onToggle={(enabled) => toggle([info.key], enabled)} />
             ))}
           </GameWindow>
+          </View>
         );
       })}
     </>

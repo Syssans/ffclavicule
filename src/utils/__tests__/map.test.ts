@@ -24,6 +24,9 @@ import {
   searchMap,
   toGameCoords,
   type MapPoint,
+  cityParts,
+  partLabel,
+  WORLDS,
 } from '@/utils/map';
 
 const CENTRAL_SHROUD = 4;
@@ -232,5 +235,22 @@ describe('points de la carte', () => {
   it('trouve les lieux, les donjons et les aléas', () => {
     expect(searchMap('sastasha').some((r) => r.subtitle.startsWith('Donjons'))).toBe(true);
     expect(searchMap('brancharquee').length).toBeGreaterThan(0);
+  });
+});
+
+describe('villes en plusieurs quartiers et mondes', () => {
+  it('chaque quartier mène aux autres, avec un nom court', () => {
+    expect(cityParts(2)).toEqual([2, 3]);
+    expect(cityParts(12)).toEqual([11, 12]);
+    expect(cityParts(370)).toEqual([]);
+    expect(cityParts(218).map((id) => partLabel(getMap(id)!))).toEqual(["L'Assise", 'Les Contreforts']);
+    expect(partLabel(getMap(3)!)).toBe('Vieille Gridania');
+  });
+
+  it('les mondes existent et ont des régions', () => {
+    for (const w of WORLDS) {
+      expect(getMap(w.id)?.k).toBe('world');
+      expect(childrenOf(w.id).length).toBeGreaterThan(0);
+    }
   });
 });

@@ -55,7 +55,7 @@ export default function OceanScreen() {
           icon={GameIcons.calendar}
           title="Rappels"
           detail={reminderOn ? 'Activés' : null}
-          onPress={() => router.push({ pathname: '/notifications', params: { tab: 'jeu' } })}
+          onPress={() => router.push({ pathname: '/notifications', params: { tab: 'jeu', section: 'ocean' } })}
         />
       </TileRow>
       <Segmented

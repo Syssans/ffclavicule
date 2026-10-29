@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { questsOnMap } from '@/api/map';
 import { WeatherIcon, weatherName } from '@/components/fishing';
-import { ChipBar, MapChip, MapColors, PointCard, CardButton, CardText, RoundButton } from '@/components/map/map-overlays';
+import { ChipBar, MapChip, MapColors, PointCard, CardButton, CardRow, CardText, RoundButton } from '@/components/map/map-overlays';
 import { MapViewer, type MapViewerHandle } from '@/components/map/map-viewer';
 import { PointDetails } from '@/components/map/point-details';
 import { BottomTabInset, Spacing } from '@/constants/theme';
@@ -24,6 +24,9 @@ import { useMapStore } from '@/store/map-store';
 import { fishingData, forecast, periodStart } from '@/utils/fishing';
 import {
   breadcrumb,
+  cityParts,
+  partLabel,
+  WORLDS,
   canonicalMap,
   contentFrame,
   dutyName,
@@ -125,6 +128,9 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
   const map = getMap(mapId)!;
   const trail = useMemo(() => breadcrumb(mapId), [mapId]);
   const floors = useMemo(() => floorsOf(mapId), [mapId]);
+  const parts = useMemo(() => cityParts(mapId), [mapId]);
+  // Choix du monde (la Source, le Premier reflet), au-dessus de la carte du monde.
+  const [worldsOpen, setWorldsOpen] = useState(false);
   const counts = useMemo(() => layerCounts(mapId), [mapId]);
   const frame = useMemo(() => contentFrame(mapId), [mapId]);
   // Hauteur des puces du haut (fil d'Ariane, étages, météo), pour cadrer la carte sous elles.
@@ -171,6 +177,7 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
       setView({ mapId: target, focus: focus ?? null, key: `${target}|${Date.now()}` });
       setSelected(null);
       setPin(null);
+      setWorldsOpen(false);
       setLastMap(target);
     },
     [setLastMap],
@@ -179,6 +186,7 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
   const onTap = useCallback(
     (point: MapPoint | null) => {
       setPin(null);
+      setWorldsOpen(false);
       // Sur le monde et les régions, toucher un nom ouvre directement la carte.
       if (point?.data.type === 'marker' && point.data.kind === 2 && (map.k === 'world' || map.k === 'region')) {
         openMap(point.data.link);
@@ -236,10 +244,19 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
         pointerEvents="box-none"
         onLayout={(e) => setTopHeight(Math.round(e.nativeEvent.layout.height))}>
         <ChipBar>
-          {trail.map(({ id, map: m }, i) => (
+          <MapChip
+            label="Mondes"
+            selected={worldsOpen}
+            onPress={() => {
+              setWorldsOpen((open) => !open);
+              setSelected(null);
+              setPin(null);
+            }}
+          />
+          {trail.map(({ id, map: m }) => (
             <MapChip
               key={id}
-              label={`${i > 0 ? '› ' : ''}${m.k === 'instance' ? dutyName(m) : m.n}`}
+              label={`› ${m.k === 'instance' ? dutyName(m) : m.n}`}
               selected={id === mapId}
               onPress={() => (id === mapId ? viewer.current?.reset() : openMap(id))}
             />
@@ -259,6 +276,12 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
                 />
               );
             })}
+          </ChipBar>
+        ) : parts.length > 1 ? (
+          <ChipBar>
+            {parts.map((id) => (
+              <MapChip key={id} label={partLabel(getMap(id)!)} selected={id === mapId} onPress={() => openMap(id)} />
+            ))}
           </ChipBar>
         ) : null}
         {weather ? (
@@ -281,7 +304,23 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
 
       {/* Bas : fiche du point, calques. */}
       <View style={[styles.bottom, { paddingBottom: insets.bottom + Spacing.two }]} pointerEvents="box-none">
-        {shownSelected ? (
+        {worldsOpen ? (
+          <View style={styles.cardWrap}>
+            <PointCard title="Mondes" onClose={() => setWorldsOpen(false)}>
+              {WORLDS.map((w) => (
+                <CardRow
+                  key={w.id}
+                  title={w.label}
+                  detail={w.detail}
+                  onPress={() => {
+                    setWorldsOpen(false);
+                    openMap(w.id);
+                  }}
+                />
+              ))}
+            </PointCard>
+          </View>
+        ) : shownSelected ? (
           <View style={styles.cardWrap}>
             <PointDetails map={map} point={shownSelected} now={now} onOpenMap={openMap} onClose={() => setSelected(null)} />
           </View>

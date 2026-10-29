@@ -6,8 +6,8 @@
  */
 import * as Notifications from 'expo-notifications';
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { AppState, Linking, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AppState, Linking, StyleSheet, View, type ScrollViewInstance } from 'react-native';
 
 import { GameReminders } from '@/components/notifications/game-reminders';
 import { MarketAlerts } from '@/components/notifications/market-alerts';
@@ -17,6 +17,7 @@ import { Button, Screen, Segmented } from '@/components/ui';
 import { GameIcons } from '@/constants/game-icons';
 import { Spacing } from '@/constants/theme';
 import { ensurePermission, notificationsSupported } from '@/notifications/device';
+import { CATEGORIES, type ReminderCategory } from '@/notifications/reminders';
 
 type Tab = 'jeu' | 'marche';
 type Permission = 'granted' | 'ask' | 'denied' | 'unknown';
@@ -43,7 +44,16 @@ function usePermission(): [Permission, () => Promise<void>] {
 }
 
 export default function NotificationsScreen() {
-  const params = useLocalSearchParams<{ tab?: string }>();
+  const params = useLocalSearchParams<{ tab?: string; section?: string }>();
+  const scroll = useRef<ScrollViewInstance>(null);
+  // Famille de rappels demandée (« ocean » depuis la pêche en mer) : l'écran y descend une fois placée.
+  const section = CATEGORIES.some((c) => c.key === params.section) ? (params.section as ReminderCategory) : undefined;
+  const [scrolledTo, setScrolledTo] = useState<string | null>(null);
+  const scrollTo = (y: number) => {
+    if (scrolledTo === section) return;
+    setScrolledTo(section ?? null);
+    scroll.current?.scrollTo({ y: Math.max(0, y - Spacing.three), animated: true });
+  };
   const requested: Tab = params.tab === 'marche' ? 'marche' : 'jeu';
   const [seen, setSeen] = useState(requested);
   const [tab, setTab] = useState<Tab>(requested);
@@ -55,7 +65,7 @@ export default function NotificationsScreen() {
   const [permission, requestPermission] = usePermission();
 
   return (
-    <Screen>
+    <Screen ref={scroll}>
       {!notificationsSupported ? <WebNotice /> : null}
       {/* L'autorisation n'apparaît que lorsqu'il y a quelque chose à faire. */}
       {permission === 'ask' ? <Button label="Autoriser les notifications" onPress={requestPermission} /> : null}
@@ -76,7 +86,7 @@ export default function NotificationsScreen() {
           { value: 'marche', label: 'Alertes de prix', icon: GameIcons.marketBoard },
         ]}
       />
-      {tab === 'jeu' ? <GameReminders /> : <MarketAlerts />}
+      {tab === 'jeu' ? <GameReminders focus={section} onFocusAt={scrollTo} /> : <MarketAlerts />}
     </Screen>
   );
 }
