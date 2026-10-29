@@ -4,9 +4,10 @@
  */
 import { gameIconUrl } from '@/api/xivapi';
 import { MenuIcons } from '@/constants/menu-icons';
+import { CODEX, type CodexParagraph } from '@/data/lore-codex';
 import { parseQuery, rankMatches, searchKey } from '@/utils/search';
 
-export type LoreType = 'perso' | 'lieu' | 'recit' | 'monture' | 'mascotte';
+export type LoreType = 'perso' | 'lieu' | 'notion' | 'recit' | 'monture' | 'mascotte';
 
 /** Lien d'un texte : position, longueur, fiche visée (ou « map:<id> » pour une zone de la carte). */
 export type LoreLink = [number, number, string];
@@ -35,6 +36,23 @@ export interface LoreEntry {
   le?: LoreLink[];
   /** Objet qui débloque cette monture, mascotte ou carte. */
   o?: number;
+  // ——— Fiches du codex (src/data/lore-codex.ts) ———
+  /** Article : paragraphes, chacun avec l'extension qu'il dévoile. */
+  b?: CodexParagraph[];
+  /** Liens de chaque paragraphe. */
+  lb?: LoreLink[][];
+  /** Autres noms. */
+  aka?: string[];
+  /** Cartes de Triple Triade regroupées (portraits et citations). */
+  cards?: string[];
+  /** Fiches à lire ensuite. */
+  see?: string[];
+  /** Carte du jeu du lieu. */
+  map?: number;
+  /** Image par adresse (carte du lieu), quand la fiche n'a pas d'icône du jeu. */
+  u?: string;
+  /** Catégorie de l'image (celle de la fiche qui la prête), pour la cadrer. */
+  it?: LoreType;
 }
 
 interface LoreFile {
@@ -49,30 +67,81 @@ export const LAST_EXPANSION = EXPANSIONS.length - 1;
 
 export const LORE_TYPES: Record<LoreType, { label: string; plural: string; icon: number; tagline: string }> = {
   perso: { label: 'Personnage', plural: 'Personnages', icon: MenuIcons.personnage, tagline: 'Héros, ennemis et légendes, avec leurs mots' },
-  lieu: { label: 'Lieu', plural: 'Lieux', icon: MenuIcons.carte, tagline: 'Les panoramas du carnet d’exploration' },
+  lieu: { label: 'Lieu', plural: 'Lieux', icon: MenuIcons.carte, tagline: 'Cités, terres et panoramas du carnet d’exploration' },
+  notion: { label: 'Notion', plural: 'Notions', icon: MenuIcons.journal, tagline: 'Factions, peuples et grands événements' },
   recit: { label: 'Chronique', plural: 'Chroniques', icon: MenuIcons.bestiaire, tagline: 'Ce qui se joue dans chaque donjon, défi et raid' },
   monture: { label: 'Monture', plural: 'Montures', icon: MenuIcons.montures, tagline: 'L’histoire de chaque monture' },
   mascotte: { label: 'Mascotte', plural: 'Mascottes', icon: MenuIcons.mascottes, tagline: 'Les petites histoires des mascottes' },
 };
-export const LORE_ORDER: LoreType[] = ['perso', 'lieu', 'recit', 'monture', 'mascotte'];
+export const LORE_ORDER: LoreType[] = ['perso', 'lieu', 'notion', 'recit', 'monture', 'mascotte'];
 
-let cache: { file: LoreFile; byKey: Map<string, LoreEntry>; byType: Map<LoreType, LoreEntry[]>; backlinks: Map<string, string[]> } | null = null;
+let cache: {
+  file: LoreFile;
+  /** Toutes les fiches visibles (les cartes regroupées dans une fiche du codex n'y sont plus). */
+  all: LoreEntry[];
+  byKey: Map<string, LoreEntry>;
+  byType: Map<LoreType, LoreEntry[]>;
+  backlinks: Map<string, string[]>;
+} | null = null;
+
+const MAP_IMAGE = (image: string) => `https://v2.xivapi.com/api/asset/map/${image}`;
 
 function load() {
   if (cache) return cache;
   const file = require('@/data/lore.json') as LoreFile;
-  const byKey = new Map(file.entries.map((e) => [e.k, e]));
-  const byType = new Map<LoreType, LoreEntry[]>();
-  const backlinks = new Map<string, string[]>();
-  for (const e of file.entries) {
-    byType.set(e.t, [...(byType.get(e.t) ?? []), e]);
-    for (const [, , target] of [...(e.lx ?? []), ...(e.le ?? [])]) {
-      const list = backlinks.get(target) ?? [];
+  const raw = new Map(file.entries.map((e) => [e.k, e]));
+
+  // Fiches du codex : elles prennent l'image et la première citation des cartes qu'elles regroupent.
+  const absorbed = new Map<string, string>();
+  const byMap = new Map<string, string>();
+  // Panoramas du carnet d'exploration par carte : ils illustrent les lieux du codex.
+  const vistaByMap = new Map<number, LoreEntry>();
+  for (const e of file.entries) if (e.t === 'lieu' && e.m && !vistaByMap.has(e.m[0])) vistaByMap.set(e.m[0], e);
+  const codex: LoreEntry[] = CODEX.map((c) => {
+    for (const card of c.cards ?? []) absorbed.set(card, c.k);
+    if (c.map) for (const m of [c.map, ...(c.also ?? [])]) byMap.set(`map:${m}`, c.k);
+    const vista = c.map ? [c.map, ...(c.also ?? [])].map((m) => vistaByMap.get(m)).find(Boolean) : undefined;
+    const source = raw.get(c.img ?? c.cards?.[0] ?? '') ?? vista;
+    const firstCard = raw.get(c.cards?.[0] ?? '');
+    const mapImage = !source && c.map ? (require('@/data/map.json') as { maps: Record<string, { i: string }> }).maps[String(c.map)]?.i : undefined;
+    return {
+      k: c.k,
+      t: c.t,
+      n: c.n,
+      s: c.s,
+      v: c.v,
+      e: firstCard?.e ?? null,
+      i: source?.i ?? 0,
+      u: mapImage ? MAP_IMAGE(mapImage) : undefined,
+      it: source?.t ?? (mapImage ? 'lieu' : undefined),
+      b: c.b,
+      aka: c.aka,
+      cards: c.cards,
+      see: c.see,
+      map: c.map,
+    };
+  });
+
+  // Les mentions d'une carte regroupée ou d'un lieu du codex mènent à sa fiche.
+  const retarget = (links?: LoreLink[]) =>
+    links?.map(([at, length, target]): LoreLink => [at, length, absorbed.get(target) ?? byMap.get(target) ?? target]);
+  const kept = file.entries.filter((e) => !absorbed.has(e.k)).map((e) => ({ ...e, lx: retarget(e.lx), le: retarget(e.le) }));
+  const all = [...codex, ...kept];
+  const byKey = new Map(all.map((e) => [e.k, e]));
+  for (const [card, key] of absorbed) byKey.set(card, byKey.get(key)!);
+  cache = { file, all, byKey, byType: new Map(), backlinks: new Map() };
+
+  // Liens des articles du codex : les noms des autres fiches qu'ils citent.
+  for (const e of codex) e.lb = e.b?.map(([, text]) => linkify(text).filter(([, , target]) => target !== e.k));
+
+  for (const e of all) {
+    cache.byType.set(e.t, [...(cache.byType.get(e.t) ?? []), e]);
+    for (const [, , target] of [...(e.lx ?? []), ...(e.le ?? []), ...(e.lb ?? []).flat()]) {
+      const list = cache.backlinks.get(target) ?? [];
       if (!list.includes(e.k)) list.push(e.k);
-      backlinks.set(target, list);
+      cache.backlinks.set(target, list);
     }
   }
-  cache = { file, byKey, byType, backlinks };
   return cache;
 }
 
@@ -85,16 +154,34 @@ export function loreEntries(type: LoreType): LoreEntry[] {
 }
 
 export function loreCount(): number {
-  return load().file.entries.length;
+  return load().all.length;
+}
+
+/** Cartes de Triple Triade regroupées dans une fiche du codex (portrait et citation de chacune). */
+export function loreCardsOf(entry: LoreEntry): LoreEntry[] {
+  const raw = load().file.entries;
+  return (entry.cards ?? []).map((k) => raw.find((e) => e.k === k)).filter((e): e is LoreEntry => Boolean(e));
 }
 
 /** Fiches dont le texte cite celle-ci (ou une zone, avec « map:<id> »). */
 export function loreBacklinks(key: string): LoreEntry[] {
-  return (load().backlinks.get(key) ?? []).map((k) => load().byKey.get(k)!).filter(Boolean);
+  // Une carte regroupée dans une fiche du codex : les liens vont à la fiche.
+  const target = load().byKey.get(key)?.k ?? key;
+  return (load().backlinks.get(target) ?? []).map((k) => load().byKey.get(k)!).filter(Boolean);
 }
 
-export function loreImage(entry: Pick<LoreEntry, 'i'>): string | null {
-  return entry.i ? gameIconUrl(entry.i) : null;
+export function loreImage(entry: Pick<LoreEntry, 'i' | 'u'>): string | null {
+  return entry.i ? gameIconUrl(entry.i) : (entry.u ?? null);
+}
+
+/** Catégorie qui donne le cadrage de l'image d'une fiche (une fiche du codex emprunte celle d'une autre). */
+export function imageKind(entry: Pick<LoreEntry, 't' | 'it'>): LoreType {
+  return entry.it ?? entry.t;
+}
+
+/** Paragraphes d'un article, voilés au-delà de la progression du joueur. */
+export function articleParagraphs(entry: LoreEntry, progress: number): { text: string; links?: LoreLink[]; hidden: boolean; v: number }[] {
+  return (entry.b ?? []).map(([v, text], i) => ({ text, links: entry.lb?.[i], hidden: v > progress, v }));
 }
 
 /** Fiches voisines dans leur catégorie, pour feuilleter comme un livre. */
@@ -138,7 +225,7 @@ export function lorePick(type: LoreType, count: number, seed: number, keep: (e: 
 
 /** Une fiche au hasard parmi toutes (ou celles qu'on accepte). */
 export function loreRandom(keep: (e: LoreEntry) => boolean = () => true, random = Math.random): LoreEntry {
-  const all = load().file.entries.filter(keep);
+  const all = load().all.filter(keep);
   return all[Math.floor(random() * all.length)];
 }
 
@@ -161,14 +248,16 @@ let textIndex: Map<string, string> | null = null;
 export function searchLore(text: string, limit = 60): LoreHit[] {
   const query = parseQuery(text);
   if (query.key.length < 2) return [];
-  const entries = load().file.entries;
-  const named = rankMatches(entries, (e) => searchKey(e.n), query);
+  const entries = load().all;
+  // Le nom d'abord, puis les autres noms (« Hadès » trouve Emet-Selch).
+  const named = rankMatches(entries, (e) => searchKey([e.n, ...(e.aka ?? [])].join(' ')), query);
   const seen = new Set(named.map((e) => e.k));
-  textIndex ??= new Map(entries.map((e) => [e.k, searchKey(`${e.x ?? ''} ${e.e ?? ''}`)]));
+  const textOf = (e: LoreEntry) => `${e.x ?? ''} ${e.e ?? ''} ${(e.b ?? []).map(([, t]) => t).join(' ')}`;
+  textIndex ??= new Map(entries.map((e) => [e.k, searchKey(textOf(e))]));
   const mentioned = entries.filter((e) => !seen.has(e.k) && query.words.every((w) => textIndex!.get(e.k)!.includes(w)));
   return [
     ...named.map((entry) => ({ entry, byName: true })),
-    ...mentioned.map((entry) => ({ entry, byName: false, snippet: snippetOf(`${entry.x ?? ''} ${entry.e ?? ''}`, query.words[0]) })),
+    ...mentioned.map((entry) => ({ entry, byName: false, snippet: snippetOf(textOf(entry), query.words[0]) })),
   ].slice(0, limit);
 }
 
@@ -195,7 +284,10 @@ export function linkify(text: string, zones: { id: number; name: string }[] = []
       const n = name.replace(/^(le|la|les|l’|l')\s*/i, '').trim();
       if (n.length >= 5 && !targets.has(n)) targets.set(n, key);
     };
-    for (const e of load().file.entries) if (e.t === 'perso' || e.t === 'recit') add(e.n, e.k);
+    // Les fiches du codex d'abord (avec leurs autres noms), puis les personnages et chroniques, puis les zones.
+    for (const c of CODEX) for (const name of [c.n, ...(c.aka ?? [])]) add(name, c.k);
+    // Une carte regroupée dans une fiche du codex mène à cette fiche.
+    for (const e of load().file.entries) if (e.t === 'perso' || e.t === 'recit') add(e.n, load().byKey.get(e.k)?.k ?? e.k);
     for (const z of zones) add(z.name, `map:${z.id}`);
     const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     linkPatterns = [...targets.entries()]

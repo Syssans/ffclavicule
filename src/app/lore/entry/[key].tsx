@@ -15,7 +15,20 @@ import { Button, Empty, Screen, Section } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useLoreStore } from '@/store/lore-store';
-import { EXPANSIONS, isSpoiler, LORE_TYPES, loreBacklinks, loreEntry, loreImage, loreNeighbours, lorePick, type LoreEntry } from '@/utils/lore';
+import {
+  articleParagraphs,
+  EXPANSIONS,
+  imageKind,
+  isSpoiler,
+  LORE_TYPES,
+  loreBacklinks,
+  loreCardsOf,
+  loreEntry,
+  loreImage,
+  loreNeighbours,
+  lorePick,
+  type LoreEntry,
+} from '@/utils/lore';
 import { fromWorld, getMap } from '@/utils/map';
 
 export default function LoreEntryScreen() {
@@ -26,16 +39,22 @@ export default function LoreEntryScreen() {
   const visited = useLoreStore((s) => s.visited);
   const visit = useLoreStore((s) => s.visit);
   const [revealed, setRevealed] = useState<string | null>(null);
+  // Suite de l'article au-delà de la progression : dévoilée à la demande, fiche par fiche.
+  const [revealedBody, setRevealedBody] = useState<string | null>(null);
 
   useEffect(() => {
     if (entry) visit(entry.k);
   }, [entry, visit]);
 
   const backlinks = useMemo(() => (entry ? loreBacklinks(entry.k) : []), [entry]);
+  const related = useMemo(() => (entry?.see ?? []).map((k) => loreEntry(k)).filter((e): e is LoreEntry => Boolean(e)), [entry]);
   // D'autres fiches de la même catégorie, différentes selon la fiche (mais stables pour elle).
   const more = useMemo(
-    () => (entry ? lorePick(entry.t, 6, hash(entry.k), (e) => e.k !== entry.k && !backlinks.some((b) => b.k === e.k)) : []),
-    [entry, backlinks],
+    () =>
+      entry
+        ? lorePick(entry.t, 6, hash(entry.k), (e) => e.k !== entry.k && !backlinks.some((b) => b.k === e.k) && !related.some((r) => r.k === e.k))
+        : [],
+    [entry, backlinks, related],
   );
 
   if (!entry) {
@@ -50,9 +69,16 @@ export default function LoreEntryScreen() {
   const hidden = isSpoiler(entry, progress) && revealed !== entry.k;
   const { previous, next } = loreNeighbours(entry);
   const image = loreImage(entry);
-  const onMap = entry.m ? mapPoint(entry.m) : null;
+  const onMap = entry.m ? mapPoint(entry.m) : entry.map ? { map: entry.map } : null;
+  const paragraphs = articleParagraphs(entry, revealedBody === entry.k ? Number.MAX_SAFE_INTEGER : progress);
+  const veiled = paragraphs.filter((p) => p.hidden);
+  const cards = loreCardsOf(entry);
+  // Les autres noms peuvent dévoiler l'histoire (l'Exarque de Cristal) : seulement une fois l'article entier visible.
+  const aka = entry.aka?.length && !veiled.length ? entry.aka : null;
   // Pour un lieu, le texte du carnet décrit, l'impression se lit comme une citation ; ailleurs, la réplique cite.
-  const quote = entry.t === 'lieu' ? entry.x : entry.e;
+  // Fiche rédigée en partie voilée : la citation de sa carte pourrait dévoiler la suite (« Hadès »), elle attend.
+  const quote =
+    entry.b && articleParagraphs(entry, progress).some((p) => p.hidden) && revealedBody !== entry.k ? null : entry.t === 'lieu' ? entry.x : entry.e;
   const quoteLinks = entry.t === 'lieu' ? entry.lx : entry.le;
   const body = entry.t === 'lieu' ? entry.e : entry.t === 'perso' ? null : entry.x;
   const bodyLinks = entry.t === 'lieu' ? entry.le : entry.lx;
@@ -77,6 +103,11 @@ export default function LoreEntryScreen() {
             {entry.s}
           </ThemedText>
         ) : null}
+        {aka && !hidden ? (
+          <ThemedText type="small" style={{ color: theme.ornament }}>
+            Aussi appelé : {aka.join(', ')}
+          </ThemedText>
+        ) : null}
       </View>
 
       {hidden ? (
@@ -95,6 +126,17 @@ export default function LoreEntryScreen() {
             </View>
           ) : null}
           {body ? <LoreText text={body} links={bodyLinks} /> : null}
+          {paragraphs
+            .filter((p) => !p.hidden)
+            .map((p, i) => (
+              <LoreText key={i} text={p.text} links={p.links} />
+            ))}
+          {veiled.length ? (
+            <View style={[styles.veil, { borderColor: theme.frame, backgroundColor: theme.backgroundElement }]}>
+              <ThemedText type="smallBold">La suite parle de {EXPANSIONS[Math.min(...veiled.map((p) => p.v))]}.</ThemedText>
+              <Button label="Lire la suite quand même" variant="secondary" onPress={() => setRevealedBody(entry.k)} />
+            </View>
+          ) : null}
           {entry.o ? (
             <Button
               label="Voir l’objet"
@@ -106,11 +148,41 @@ export default function LoreEntryScreen() {
             <Button
               label="Voir sur la carte"
               variant="secondary"
-              onPress={() => router.push({ pathname: '/map', params: { map: String(onMap.map), x: String(onMap.x), y: String(onMap.y) } })}
+              onPress={() =>
+                router.push({
+                  pathname: '/map',
+                  params: 'x' in onMap ? { map: String(onMap.map), x: String(onMap.x), y: String(onMap.y) } : { map: String(onMap.map) },
+                })
+              }
             />
           ) : null}
         </>
       )}
+
+      {cards.length > 1 && !hidden ? (
+        <Section title="Ses cartes">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf}>
+            {cards.map((c) => (
+              <View key={c.k} style={styles.cardTile}>
+                <LinearGradient colors={NIGHT} style={styles.cardTileArt}>
+                  <Image source={loreImage(c)} style={StyleSheet.absoluteFill} contentFit="contain" />
+                </LinearGradient>
+                {c.e ? (
+                  <ThemedText type="small" themeColor="textSecondary" numberOfLines={4} style={styles.cardQuote}>
+                    {c.e}
+                  </ThemedText>
+                ) : null}
+              </View>
+            ))}
+          </ScrollView>
+        </Section>
+      ) : null}
+
+      {related.length ? (
+        <Section title="À lire aussi">
+          <Shelf entries={related} progress={progress} visited={visited} />
+        </Section>
+      ) : null}
 
       {backlinks.length ? (
         <Section title="Cité dans">
@@ -135,14 +207,15 @@ export default function LoreEntryScreen() {
 /** Image de la fiche, à la façon de sa catégorie. */
 function Hero({ entry, image, hidden }: { entry: LoreEntry; image: string | null; hidden: boolean }) {
   if (!image) return null;
-  if (entry.t === 'perso') {
+  const kind = imageKind(entry);
+  if (kind === 'perso') {
     return (
       <LinearGradient colors={NIGHT} style={styles.cardStage}>
         <Image source={image} style={{ width: 208, aspectRatio: LORE_ASPECT.perso }} contentFit="contain" blurRadius={hidden ? 24 : 0} />
       </LinearGradient>
     );
   }
-  if (entry.t === 'monture' || entry.t === 'mascotte') {
+  if (kind === 'monture' || kind === 'mascotte') {
     return (
       <LinearGradient colors={NIGHT} style={styles.artStage}>
         <Image source={image} style={styles.art} contentFit="contain" blurRadius={hidden ? 24 : 0} />
@@ -152,7 +225,7 @@ function Hero({ entry, image, hidden }: { entry: LoreEntry; image: string | null
   return (
     <Image
       source={image}
-      style={[styles.wide, { aspectRatio: LORE_ASPECT[entry.t] }]}
+      style={[styles.wide, { aspectRatio: LORE_ASPECT[kind] }]}
       contentFit="cover"
       blurRadius={hidden ? 24 : 0}
       transition={200}
@@ -190,7 +263,7 @@ function PageButton({ entry, label, align }: { entry?: LoreEntry; label: string;
 }
 
 function shelfWidth(entry: LoreEntry): number {
-  return entry.t === 'recit' ? 260 : entry.t === 'lieu' ? 220 : entry.t === 'perso' ? 112 : 130;
+  return entry.t === 'recit' ? 260 : entry.t === 'lieu' || entry.t === 'notion' ? 220 : entry.t === 'perso' ? 112 : 130;
 }
 
 /** Position d'un lieu sur la carte de l'appli, d'après ses coordonnées dans le monde. */
@@ -223,4 +296,7 @@ const styles = StyleSheet.create({
   pager: { flexDirection: 'row', gap: Spacing.two, marginTop: Spacing.two },
   page: { flex: 1, borderWidth: 1, borderRadius: 12, padding: Spacing.two, gap: 2 },
   pageName: { fontSize: 14, fontWeight: '700' },
+  cardTile: { width: 150, gap: Spacing.one },
+  cardTileArt: { width: 150, aspectRatio: LORE_ASPECT.perso, borderRadius: 8, overflow: 'hidden' },
+  cardQuote: { fontStyle: 'italic', fontSize: 13, lineHeight: 18 },
 });

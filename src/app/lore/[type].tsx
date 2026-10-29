@@ -1,4 +1,4 @@
-/** Une catégorie de la Légende en galerie : personnages, lieux, chroniques, montures ou mascottes. */
+/** Une catégorie de la Légende en galerie : personnages, lieux, notions, chroniques, montures ou mascottes. */
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
@@ -11,7 +11,9 @@ import { useLoreStore } from '@/store/lore-store';
 import { EXPANSIONS, LORE_TYPES, loreEntries, type LoreEntry, type LoreType } from '@/utils/lore';
 import { parseQuery, rankMatches, searchKey } from '@/utils/search';
 
-const COLUMNS: Record<LoreType, number> = { perso: 3, lieu: 2, recit: 1, monture: 3, mascotte: 3 };
+const COLUMNS: Record<LoreType, number> = { perso: 3, lieu: 2, notion: 2, recit: 1, monture: 3, mascotte: 3 };
+/** Fiches rédigées (personnages majeurs), en tête des personnages. */
+const MAJOR = 'Grandes figures';
 const PAGE = 60;
 const OTHERS = 'Autres';
 
@@ -30,20 +32,28 @@ export default function LoreGalleryScreen() {
   // Filtres : type de carte pour les personnages, extension pour les lieux et les chroniques.
   const filters = useMemo(() => {
     if (type === 'perso') {
-      const groups = [...new Set(all.map((e) => e.s).filter(Boolean))] as string[];
-      return groups.length ? [...groups, OTHERS] : [];
+      // Types des cartes de Triple Triade ; les fiches rédigées du codex à part.
+      const groups = [
+        ...new Set(
+          all
+            .filter((e) => !e.b)
+            .map((e) => e.s)
+            .filter(Boolean),
+        ),
+      ] as string[];
+      return [MAJOR, ...groups, OTHERS];
     }
-    if (type === 'lieu' || type === 'recit') return EXPANSIONS;
+    if (type === 'lieu' || type === 'recit' || type === 'notion') return EXPANSIONS;
     return [];
   }, [all, type]);
   const matches = (e: LoreEntry) => {
     if (!filter) return true;
-    if (type === 'perso') return filter === OTHERS ? !e.s : e.s === filter;
+    if (type === 'perso') return filter === MAJOR ? Boolean(e.b) : !e.b && (filter === OTHERS ? !e.s : e.s === filter);
     return EXPANSIONS[e.v ?? 0] === filter;
   };
   const list = useMemo(() => {
     const pool = all.filter(matches);
-    return searchKey(query).length >= 2 ? rankMatches(pool, (e) => searchKey(e.n), parseQuery(query)) : pool;
+    return searchKey(query).length >= 2 ? rankMatches(pool, (e) => searchKey([e.n, ...(e.aka ?? [])].join(' ')), parseQuery(query)) : pool;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [all, filter, query]);
 

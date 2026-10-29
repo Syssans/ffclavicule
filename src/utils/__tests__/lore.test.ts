@@ -1,15 +1,49 @@
-import { isSpoiler, linkify, loreBacklinks, loreEntries, loreEntry, loreNeighbours, lorePick, searchLore } from '@/utils/lore';
+import {
+  articleParagraphs,
+  isSpoiler,
+  linkify,
+  loreBacklinks,
+  loreCardsOf,
+  loreEntries,
+  loreEntry,
+  loreNeighbours,
+  lorePick,
+  searchLore,
+} from '@/utils/lore';
 
 describe('Légende', () => {
-  it('rassemble les cinq catégories', () => {
+  it('rassemble les catégories, avec les fiches rédigées', () => {
     for (const type of ['perso', 'lieu', 'recit', 'monture', 'mascotte'] as const) expect(loreEntries(type).length).toBeGreaterThan(100);
-    expect(loreEntry('p90')?.n).toBe('Ysayle');
+    expect(loreEntries('notion').length).toBeGreaterThan(10);
+    // La carte d'Ysayle mène à sa fiche rédigée.
+    expect(loreEntry('p90')?.k).toBe('x-ysayle');
+  });
+
+  it('une seule fiche par personnage, avec toutes ses cartes', () => {
+    expect(loreEntry('p201')).toBe(loreEntry('p346'));
+    const zenos = loreEntry('x-zenos')!;
+    expect(loreCardsOf(zenos).map((c) => c.k)).toEqual(['p201', 'p346']);
+    expect(loreEntries('perso').filter((e) => e.n.startsWith('Zenos'))).toHaveLength(1);
   });
 
   it('relie les fiches dans les deux sens', () => {
     const ysayle = loreBacklinks('p90');
     expect(ysayle.length).toBeGreaterThan(0);
-    for (const e of ysayle) expect([...(e.lx ?? []), ...(e.le ?? [])].some(([, , target]) => target === 'p90')).toBe(true);
+    for (const e of ysayle)
+      expect([...(e.lx ?? []), ...(e.le ?? []), ...(e.lb ?? []).flat()].some(([, , target]) => target === 'x-ysayle')).toBe(true);
+    // Les mentions d'Eulmore dans les textes du jeu mènent à la fiche de la cité.
+    expect(loreBacklinks('x-eulmore').some((e) => e.t === 'lieu' && !e.b)).toBe(true);
+  });
+
+  it('trouve un personnage par ses autres noms', () => {
+    expect(searchLore('hades')[0].entry.k).toBe('x-emet-selch');
+    expect(searchLore('exarque')[0].entry.k).toBe('x-graha');
+  });
+
+  it('voile la suite d’un article au-delà de la progression', () => {
+    const emet = loreEntry('x-emet-selch')!;
+    expect(articleParagraphs(emet, 2).map((p) => p.hidden)).toEqual([false, true, true]);
+    expect(articleParagraphs(emet, 5).every((p) => !p.hidden)).toBe(true);
   });
 
   it('trouve par le nom puis par le texte, sans accents ni majuscules', () => {
@@ -37,8 +71,8 @@ describe('Légende', () => {
     const text = 'Ysayle rejoint Ishgard.';
     const links = linkify(text, [{ id: 218, name: 'Ishgard' }]);
     expect(links.map(([start, length, target]) => [text.slice(start, start + length), target])).toEqual([
-      ['Ysayle', 'p90'],
-      ['Ishgard', 'map:218'],
+      ['Ysayle', 'x-ysayle'],
+      ['Ishgard', 'x-ishgard'],
     ]);
   });
 });

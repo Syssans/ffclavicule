@@ -9,10 +9,17 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/hooks/use-theme';
-import { EXPANSIONS, isSpoiler, loreImage, type LoreEntry, type LoreType } from '@/utils/lore';
+import { EXPANSIONS, imageKind, isSpoiler, loreImage, type LoreEntry, type LoreType } from '@/utils/lore';
 
 /** Largeur sur hauteur de l'image de chaque catégorie. */
-export const LORE_ASPECT: Record<LoreType, number> = { perso: 208 / 256, lieu: 800 / 480, recit: 1128 / 360, monture: 1, mascotte: 1 };
+export const LORE_ASPECT: Record<LoreType, number> = {
+  perso: 208 / 256,
+  lieu: 800 / 480,
+  notion: 800 / 480,
+  recit: 1128 / 360,
+  monture: 1,
+  mascotte: 1,
+};
 
 export const NIGHT = ['#232B48', '#0B0F1C'] as const;
 
@@ -36,7 +43,9 @@ export function LoreCard({
   const hidden = isSpoiler(entry, progress);
   const height = width / LORE_ASPECT[entry.t];
   const image = loreImage(entry);
-  const overlay = entry.t === 'lieu' || entry.t === 'recit';
+  const overlay = entry.t === 'lieu' || entry.t === 'recit' || entry.t === 'notion';
+  const kind = imageKind(entry);
+  const contain = kind === 'monture' || kind === 'mascotte' || kind === 'perso';
   const name = hidden ? `Spoiler · ${EXPANSIONS[entry.v ?? 0]}` : entry.n;
 
   return (
@@ -46,12 +55,12 @@ export function LoreCard({
       onPress={() => openLoreEntry(entry)}
       style={({ pressed }) => [{ width }, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]}>
       <View style={[styles.frame, { width, height, borderRadius: entry.t === 'perso' ? 8 : 12 }]}>
-        {entry.t === 'monture' || entry.t === 'mascotte' ? <LinearGradient colors={NIGHT} style={StyleSheet.absoluteFill} /> : null}
+        {contain || !image ? <LinearGradient colors={NIGHT} style={StyleSheet.absoluteFill} /> : null}
         {image ? (
           <Image
             source={image}
             style={StyleSheet.absoluteFill}
-            contentFit={entry.t === 'monture' || entry.t === 'mascotte' || entry.t === 'perso' ? 'contain' : 'cover'}
+            contentFit={contain ? 'contain' : 'cover'}
             blurRadius={hidden ? 24 : 0}
             transition={150}
             recyclingKey={entry.k}

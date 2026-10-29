@@ -20,8 +20,10 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { useTheme } from '@/hooks/use-theme';
 import { useLoreStore } from '@/store/lore-store';
 import {
+  articleParagraphs,
   daySeed,
   EXPANSIONS,
+  imageKind,
   isSpoiler,
   LAST_EXPANSION,
   LORE_ORDER,
@@ -37,7 +39,7 @@ import {
 } from '@/utils/lore';
 import { parseQuery } from '@/utils/search';
 
-const SHELF_WIDTH = { perso: 112, lieu: 220, recit: 260, monture: 130, mascotte: 130 } as const;
+const SHELF_WIDTH = { perso: 112, lieu: 220, notion: 220, recit: 260, monture: 130, mascotte: 130 } as const;
 
 export default function LoreHomeScreen() {
   const progress = useLoreStore((s) => s.progress);
@@ -73,7 +75,9 @@ export default function LoreHomeScreen() {
           {daily ? <Daily entry={daily} /> : null}
           <ChronicleBanner />
           {LORE_ORDER.map((type) => {
-            const shelf = lorePick(type, 10, seed, safe);
+            // Les fiches rédigées (grandes figures, cités) d'abord, puis les autres.
+            const written = lorePick(type, 6, seed, (e) => safe(e) && Boolean(e.b));
+            const shelf = [...written, ...lorePick(type, 10 - written.length, seed, (e) => safe(e) && !e.b)];
             const all = loreEntries(type);
             return (
               <Section
@@ -143,8 +147,10 @@ function Daily({ entry }: { entry: LoreEntry }) {
   const theme = useTheme();
   const image = loreImage(entry);
   const type = LORE_TYPES[entry.t];
-  const portrait = entry.t === 'perso' || entry.t === 'monture' || entry.t === 'mascotte';
-  const teaser = (entry.t === 'perso' ? entry.e : entry.x) ?? '';
+  const kind = imageKind(entry);
+  const portrait = kind === 'perso' || kind === 'monture' || kind === 'mascotte';
+  const progress = useLoreStore((s) => s.progress);
+  const teaser = (entry.b ? articleParagraphs(entry, progress).find((p) => !p.hidden)?.text : entry.t === 'perso' ? entry.e : entry.x) ?? '';
   return (
     <Pressable
       accessibilityRole="button"
@@ -154,7 +160,7 @@ function Daily({ entry }: { entry: LoreEntry }) {
         { borderColor: theme.ornament, backgroundColor: theme.backgroundElement },
         pressed && { opacity: 0.85 },
       ]}>
-      {image && !portrait ? <Image source={image} style={[styles.dailyWide, { aspectRatio: LORE_ASPECT[entry.t] }]} contentFit="cover" /> : null}
+      {image && !portrait ? <Image source={image} style={[styles.dailyWide, { aspectRatio: LORE_ASPECT[kind] }]} contentFit="cover" /> : null}
       <View style={styles.dailyBody}>
         {image && portrait ? (
           <LinearGradient colors={['#232B48', '#0B0F1C']} style={styles.dailyThumb}>
