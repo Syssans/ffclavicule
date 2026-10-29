@@ -56,6 +56,7 @@ export default function RootLayout() {
             <Stack.Screen name="character/[id]/[section]" options={{ title: '' }} />
             <Stack.Screen name="settings" options={{ title: 'Réglages' }} />
             <Stack.Screen name="notifications/index" options={{ title: 'Notifications' }} />
+            <Stack.Screen name="today" options={{ title: 'Aujourd’hui' }} />
             <Stack.Screen name="alert" options={{ title: 'Alerte de prix', presentation: 'modal' }} />
             <Stack.Screen name="item/[id]" options={{ title: '' }} />
             <Stack.Screen name="crafting/index" options={{ title: 'Artisanat' }} />

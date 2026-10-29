@@ -13,6 +13,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { getPushToken } from '@/notifications/device';
 import { GameIcons } from '@/constants/game-icons';
 import { useNotificationStore } from '@/store/notification-store';
+import { useTodayStore } from '@/store/today-store';
 import { formatAgo, formatGil } from '@/utils/format';
 
 export function MarketAlerts() {
@@ -41,6 +42,8 @@ export function MarketAlerts() {
     // Même si le service ne répond pas, ce téléphone arrête d'utiliser les alertes.
     if (secret) await forgetDevice(secret).catch(() => undefined);
     setPushSecret(null);
+    // Le rappel « Aujourd'hui » passe par la même inscription : il s'arrête aussi.
+    useTodayStore.getState().setReminder({ daily: false, weekly: false });
   };
 
   const sorted = [...alerts].sort((a, b) => a.itemName.localeCompare(b.itemName, 'fr'));

@@ -8,10 +8,12 @@
  *   PUT    /v1/notify/alerts     { pushToken?, alerts }   enregistre la liste  (secret)
  *   GET    /v1/notify/alerts     liste et état des alertes                     (secret)
  *   POST   /v1/notify/test       notification d'essai                         (secret)
+ *   PUT    /v1/notify/today      rappel « Aujourd'hui » (voir today.ts)       (secret)
  *   DELETE /v1/notify            oublie ce téléphone                           (secret)
- *   POST   /v1/notify/run        vérification immédiate                       (clé d'admin ; tests)
+ *   POST   /v1/notify/run        vérification immédiate (?now= pour les tests) (clé d'admin ; tests)
  */
 import { bearer, CORS, error, isAdmin, json, readJson, sha256, writeJson, type Env } from './common';
+import { parseToday, todayReminders, todayResponse, type TodayWatch } from './today';
 
 export const MAX_ALERTS = 1000;
 const REGISTER_PER_MINUTE = 10;
@@ -51,6 +53,8 @@ interface DeviceRecord {
   createdAt: string;
   /** Expo a répondu que ce téléphone n'existe plus : on arrête d'envoyer. */
   disabled?: boolean;
+  /** Rappel « Aujourd'hui » avant les réinitialisations. */
+  today?: TodayWatch;
 }
 
 const deviceKey = (hash: string) => `notify/${hash}.json`;
@@ -133,6 +137,16 @@ async function putAlerts(request: Request, env: Env): Promise<Response> {
   if (isPushToken(body.pushToken)) next.pushToken = body.pushToken;
   await writeJson(env, found.key, next);
   return json({ ok: true, alerts: kept.length });
+}
+
+async function putToday(request: Request, env: Env): Promise<Response> {
+  const found = await deviceOf(request, env);
+  if (!found) return error(401, 'Téléphone inconnu : réactive les notifications.', 'unknown-device');
+  const parsed = await parseToday(env, await request.json().catch(() => null), found.record.today);
+  if ('error' in parsed) return parsed.error;
+  const next: DeviceRecord = { ...found.record, today: parsed.watch ?? undefined };
+  await writeJson(env, found.key, next);
+  return todayResponse(parsed.watch);
 }
 
 async function getAlerts(request: Request, env: Env): Promise<Response> {
@@ -232,15 +246,18 @@ export function evaluate(alert: Alert, price: number | null, state: AlertState, 
   return { notify, state: { ...next, triggered: true, ...(notify ? { notifiedPrice: price!, notifiedAt: now } : {}) } };
 }
 
-/** Vérifie toutes les alertes de tous les téléphones (tâche planifiée). */
-export async function runAlerts(env: Env): Promise<{ devices: number; checked: number; sent: number }> {
+/**
+ * Tâche planifiée : vérifie les alertes de prix de tous les téléphones et envoie les rappels « Aujourd'hui »
+ * dont l'heure est venue.
+ */
+export async function runAlerts(env: Env, nowMs = Date.now()): Promise<{ devices: number; checked: number; sent: number; reminders: number }> {
   const devices: { key: string; record: DeviceRecord }[] = [];
   let cursor: string | undefined;
   do {
     const page = await env.MODELS.list({ prefix: 'notify/', cursor });
     for (const object of page.objects) {
       const record = await readJson<DeviceRecord>(env, object.key);
-      if (record && !record.disabled && record.alerts.some((a) => a.enabled)) devices.push({ key: object.key, record });
+      if (record && !record.disabled && (record.alerts.some((a) => a.enabled) || record.today)) devices.push({ key: object.key, record });
     }
     cursor = page.truncated ? page.cursor : undefined;
   } while (cursor);
@@ -253,12 +270,11 @@ export async function runAlerts(env: Env): Promise<{ devices: number; checked: n
   const prices = new Map<string, Map<number, MarketPrice>>();
   for (const [scope, ids] of byScope) prices.set(scope, await fetchPrices(env, scope, [...ids]));
 
-  const now = new Date().toISOString();
+  const now = new Date(nowMs).toISOString();
   const messages: PushMessage[] = [];
-  const changed: { key: string; record: DeviceRecord }[] = [];
+  const changed = new Set<number>();
   let checked = 0;
-  for (const device of devices) {
-    let dirty = false;
+  for (const [index, device] of devices.entries()) {
     for (const a of device.record.alerts) {
       if (!a.enabled) continue;
       const market = prices.get(a.scope)?.get(a.itemId);
@@ -267,7 +283,7 @@ export async function runAlerts(env: Env): Promise<{ devices: number; checked: n
       const price = a.hq ? market.minHq : market.min;
       const { notify, state } = evaluate(a, price, device.record.state[a.id] ?? { triggered: false }, now);
       device.record.state[a.id] = state;
-      dirty = true;
+      changed.add(index);
       if (notify && price !== null) {
         const where = !a.hq && market.world && market.world !== a.scope ? `${market.world} (${a.scope})` : a.scope;
         messages.push({
@@ -282,15 +298,19 @@ export async function runAlerts(env: Env): Promise<{ devices: number; checked: n
         });
       }
     }
-    if (dirty) changed.push(device);
   }
 
-  const dead = await sendPush(env, messages);
-  for (const device of changed) {
+  const today = await todayReminders(env, devices, nowMs);
+  for (const index of today.changed) changed.add(index);
+
+  const dead = await sendPush(env, [...messages, ...today.messages]);
+  for (const index of changed) {
+    const device = devices[index];
     if (dead.has(device.record.pushToken)) device.record.disabled = true;
     await writeJson(env, device.key, device.record);
   }
-  return { devices: devices.length, checked, sent: messages.length - [...dead].length };
+  const sent = messages.filter((m) => !dead.has(m.to)).length;
+  return { devices: devices.length, checked, sent, reminders: today.messages.filter((m) => !dead.has(m.to)).length };
 }
 
 /** Routes des alertes ; null si la requête ne les concerne pas. */
@@ -302,6 +322,8 @@ export async function handleNotify(request: Request, env: Env, url: URL): Promis
       return register(request, env);
     case 'PUT /v1/notify/alerts':
       return putAlerts(request, env);
+    case 'PUT /v1/notify/today':
+      return putToday(request, env);
     case 'GET /v1/notify/alerts':
       return getAlerts(request, env);
     case 'POST /v1/notify/test':
@@ -310,7 +332,7 @@ export async function handleNotify(request: Request, env: Env, url: URL): Promis
       return forget(request, env);
     case 'POST /v1/notify/run':
       if (!isAdmin(request, env)) return error(403, 'Réservé à l’administration.', 'forbidden');
-      return json(await runAlerts(env));
+      return json(await runAlerts(env, url.searchParams.has('now') ? Date.parse(url.searchParams.get('now')!) : Date.now()));
     default:
       return error(404, 'Route inconnue.', 'not-found');
   }

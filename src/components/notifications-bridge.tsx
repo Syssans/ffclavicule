@@ -1,19 +1,23 @@
 /**
  * Tourne en permanence à la racine de l'appli : reprogramme les rappels du jeu (au démarrage et à chaque
- * changement de réglage), envoie la liste des alertes de prix au service quand elle change, et ouvre la
- * bonne page quand on touche une notification.
+ * changement de réglage), envoie au service la liste des alertes de prix et les réglages du rappel
+ * « Aujourd'hui » quand ils changent, et ouvre la bonne page quand on touche une notification.
  */
 import { useQueries } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 import { router } from 'expo-router';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
-import { uploadAlerts } from '@/api/notify';
+import { uploadAlerts, uploadToday } from '@/api/notify';
 import { getPrivate } from '@/api/private';
 import { applyReminders, configureNotifications, notificationsSupported } from '@/notifications/device';
 import type { VentureReturn } from '@/notifications/reminders';
+import { useMainCharacter } from '@/components/home';
 import { useAppStore } from '@/store/app-store';
 import { useNotificationStore } from '@/store/notification-store';
+import { useTodayStore } from '@/store/today-store';
+
+const TODAY_OFF = JSON.stringify({ daily: false, weekly: false });
 
 configureNotifications();
 
@@ -57,6 +61,31 @@ export function NotificationsBridge() {
     const timer = setTimeout(() => uploadAlerts(secret, alerts).catch(() => undefined), 800);
     return () => clearTimeout(timer);
   }, [alerts, secret]);
+
+  // Rappel « Aujourd'hui » : le service a besoin de la liste suivie et des cases cochées pour dire ce qu'il reste.
+  const main = useMainCharacter();
+  const tracked = useTodayStore((s) => s.tracked);
+  const checked = useTodayStore((s) => s.checked);
+  const todayReminder = useTodayStore((s) => s.reminder);
+  const sentToday = useRef(TODAY_OFF);
+  useEffect(() => {
+    if (!secret) return;
+    const link = main ? links[main.id] : undefined;
+    const on = (todayReminder.daily || todayReminder.weekly) && main && link;
+    const payload = on
+      ? { characterId: main.id, privateToken: link.token, tracked, checked, daily: todayReminder.daily, weekly: todayReminder.weekly, lead: todayReminder.lead }
+      : { daily: false as const, weekly: false as const };
+    const key = JSON.stringify(payload);
+    if (key === sentToday.current) return;
+    const timer = setTimeout(() => {
+      uploadToday(secret, payload)
+        .then(() => {
+          sentToday.current = key;
+        })
+        .catch(() => undefined);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [secret, main, links, tracked, checked, todayReminder]);
 
   useEffect(() => {
     if (!notificationsSupported) return;

@@ -67,7 +67,8 @@ public sealed record PrivateSnapshot(
     List<RetainerInfo> Retainers,
     Mailbox? Mail,
     List<CollectionInfo>? Collections = null,
-    AchievementSummary? Achievements = null)
+    AchievementSummary? Achievements = null,
+    DutyProgress? Duties = null)
 {
     public const int CurrentSchema = 1;
 
@@ -89,6 +90,7 @@ public sealed record PrivateSnapshot(
             Inventories = Inventories.Select(g => g with { UpdatedAt = default }).ToList(),
             Mail = Mail == null ? null : Mail with { UpdatedAt = default },
             Achievements = Achievements == null ? null : Achievements with { UpdatedAt = default },
+            Duties = Duties == null ? null : Duties with { UpdatedAt = default },
         };
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(undated, Json))))[..16];
     }
@@ -106,6 +108,9 @@ public sealed class PrivateMemory
     public Dictionary<string, ItemGroup> Inventories { get; set; } = new();
     /// <summary>Derniers hauts faits connus (chargés par le jeu seulement sur demande).</summary>
     public AchievementSummary? Achievements { get; set; }
+
+    /// <summary>Carnet de Khloé vu cette semaine (pour savoir s'il a été rendu).</summary>
+    public BingoMemory? Bingo { get; set; }
 
     /// <summary>Dernière version vue des collections que le jeu ne charge qu'à certains moments (titres, armoire).</summary>
     public Dictionary<string, CollectionInfo> Collections { get; set; } = new();

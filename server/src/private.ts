@@ -62,6 +62,16 @@ async function devicesOf(env: Env, id: number): Promise<Device[]> {
   return (await readJson<{ devices: Device[] }>(env, devicesKey(id)))?.devices ?? [];
 }
 
+/** Le téléphone de ce jeton (empreinte) est-il toujours associé au personnage ? */
+export async function isPaired(env: Env, id: number, tokenHash: string): Promise<boolean> {
+  return (await devicesOf(env, id)).some((d) => safeEqual(d.tokenHash, tokenHash));
+}
+
+/** Dernières données privées envoyées par le plugin (pour les rappels du service). */
+export async function readPrivate<T>(env: Env, id: number): Promise<T | null> {
+  return readJson<T>(env, documentKey('private', id));
+}
+
 /** Téléphone associé correspondant au jeton de la requête, s'il y en a un. */
 export async function deviceOf(request: Request, env: Env, id: number): Promise<{ device: Device; all: Device[] } | null> {
   const token = bearer(request);

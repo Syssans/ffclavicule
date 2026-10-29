@@ -146,3 +146,56 @@ public class PrivateSyncTests
         Assert.True((await client.RevokeDeviceAsync(Url, secret, id, devices!.First(d => d.Name == "Test").Id)).Ok);
     }
 }
+
+public class DutyTests
+{
+    [Fact]
+    public void Cycles_changent_aux_heures_de_reinitialisation()
+    {
+        // 14 h 59 et 15 h 00 UTC tombent dans deux jours de jeu différents.
+        var before = new DateTime(2026, 10, 27, 14, 59, 0, DateTimeKind.Utc);
+        var after = new DateTime(2026, 10, 27, 15, 0, 0, DateTimeKind.Utc);
+        Assert.Equal(ResetCycles.Daily(before) + 1, ResetCycles.Daily(after));
+        // Le 27 octobre 2026 est un mardi : la semaine change à 8 h.
+        Assert.Equal(ResetCycles.Weekly(new DateTime(2026, 10, 27, 7, 59, 0, DateTimeKind.Utc)) + 1,
+                     ResetCycles.Weekly(new DateTime(2026, 10, 27, 8, 0, 0, DateTimeKind.Utc)));
+        Assert.Equal(ResetCycles.Weekly(new DateTime(2026, 10, 27, 8, 0, 0, DateTimeKind.Utc)),
+                     ResetCycles.Weekly(new DateTime(2026, 11, 3, 7, 59, 0, DateTimeKind.Utc)));
+    }
+
+    [Fact]
+    public void Un_carnet_complet_qui_disparait_a_ete_rendu()
+    {
+        var (state, memory) = WondrousTailsTracker.Track(null, 100, true, 9, 1_800_000_000, 2);
+        Assert.False(state.TurnedIn);
+        (state, memory) = WondrousTailsTracker.Track(memory, 100, false, 0, 0, 2);
+        Assert.True(state.TurnedIn);
+        Assert.False(state.Journal);
+        // Semaine suivante : tout recommence.
+        (state, _) = WondrousTailsTracker.Track(memory, 101, false, 0, 0, 2);
+        Assert.False(state.TurnedIn);
+        // Un carnet incomplet qui disparaît (expiré) n'a pas été rendu.
+        (state, memory) = WondrousTailsTracker.Track(null, 100, true, 5, 1_800_000_000, 0);
+        (state, _) = WondrousTailsTracker.Track(memory, 100, false, 0, 0, 0);
+        Assert.False(state.TurnedIn);
+    }
+
+    [Fact]
+    public void Les_taches_entrent_dans_l_empreinte_sans_leur_date()
+    {
+        PrivateSnapshot Make(DateTime at, List<int> roulettes, long daily = 20000) =>
+            new(PrivateSnapshot.CurrentSchema, at, "Six Clavicule", "Moogle", 0, new(), [], [], null, null, null,
+                new DutyProgress(at, daily, 2800, roulettes, 6, 0, 12, new WondrousTails(true, 3, 1_800_000_000, 1, false), 120, 450));
+        var a = Make(DateTime.UtcNow, [5]);
+        Assert.Equal(a.ContentHash(), Make(DateTime.UtcNow.AddMinutes(30), [5]).ContentHash());
+        Assert.NotEqual(a.ContentHash(), Make(DateTime.UtcNow, [5, 1]).ContentHash());
+        // Une réinitialisation passée en jeu provoque un envoi, même si rien d'autre n'a bougé.
+        Assert.NotEqual(a.ContentHash(), Make(DateTime.UtcNow, [5], 20001).ContentHash());
+
+        using var doc = JsonDocument.Parse(a.ToJson());
+        var duties = doc.RootElement.GetProperty("duties");
+        Assert.Equal(5, duties.GetProperty("roulettes")[0].GetInt32());
+        Assert.Equal(3, duties.GetProperty("bingo").GetProperty("stickers").GetInt32());
+        Assert.Equal(450, duties.GetProperty("tomestoneLimit").GetInt32());
+    }
+}

@@ -35,6 +35,14 @@ Le plugin envoie aussi tes **collections**, lues directement en jeu : montures, 
 
 Avec les collections, le plugin envoie un **catalogue** : tout ce qui existe dans chaque collection, l’objet qui le débloque, s’il se vend au marché, et comment l’obtenir. La provenance est tirée des données du jeu : récompense de haut fait ou de quête, artisanat, boutiques (gils, sceaux, marques de loup, points du Gold Saucer…), description des rouleaux d’orchestrion. Le catalogue est construit une fois par session en tâche de fond, et renvoyé seulement s’il a changé, en pratique après une mise à jour du jeu. Les règles de provenance reprennent celles de [FFXIV Collect](https://github.com/fae-industries/ffxiv-collect) (licence MIT).
 
+Le plugin relève aussi tes **tâches du jour et de la semaine** pour la liste « Aujourd’hui » de l’appli :
+- les missions aléatoires faites ;
+- les quêtes des peuples alliés restantes ;
+- la prochaine carte au trésor ;
+- les commandes spéciales restantes ;
+- le carnet de Khloé (vignettes, carnet rendu) ;
+- les mémoquartz de la semaine.
+
 Ces données ne sont visibles que sur les téléphones connectés, et tu peux les retirer depuis la même section. Quelques données ne sont lisibles qu’à certains moments, et le plugin garde la dernière version vue :
 
 - l’inventaire d’un servant : ouvre-le à la sonnette ;

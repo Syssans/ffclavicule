@@ -84,7 +84,59 @@ public static unsafe class PrivateCollector
             CollectRetainers(manager, memory, now),
             CollectMail(memory, now),
             memory.MergeCollections(collections.Collect()),
-            memory.MergeAchievements(collections.CollectAchievements(now)));
+            memory.MergeAchievements(collections.CollectAchievements(now)),
+            CollectDuties(manager, memory, now));
+    }
+
+    /// <summary>Demande au serveur les minuteurs du jeu (carte au trésor), comme la fenêtre des minuteurs.</summary>
+    public static void RequestTimers()
+    {
+        var ui = UIState.Instance();
+        if (ui != null) ui->RequestResetTimestamps();
+    }
+
+    /// <summary>Tâches du jour et de la semaine : roulettes, peuples alliés, carte au trésor, commandes, Khloé, mémoquartz.</summary>
+    private static DutyProgress CollectDuties(InventoryManager* manager, PrivateMemory memory, DateTime now)
+    {
+        var weekly = ResetCycles.Weekly(now);
+        var roulettes = new List<int>();
+        var content = InstanceContent.Instance();
+        if (content != null)
+            foreach (var id in DutyProgress.TrackedRoulettes)
+                if (content->IsRouletteComplete((byte)id)) roulettes.Add(id);
+
+        var quests = QuestManager.Instance();
+        var ui = UIState.Instance();
+        long? mapReadyAt = null;
+        if (ui != null)
+        {
+            // 0 : pas encore connu du jeu (fenêtre des minuteurs jamais ouverte, demande en cours).
+            var next = ui->GetNextMapAllowanceTimestamp();
+            if (next > 0) mapReadyAt = next > DateTimeOffset.UtcNow.ToUnixTimeSeconds() ? next : 0;
+        }
+        var supply = SatisfactionSupplyManager.Instance();
+
+        WondrousTails? bingo = null;
+        var player = PlayerState.Instance();
+        if (player != null)
+        {
+            var journal = player->HasWeeklyBingoJournal;
+            (bingo, memory.Bingo) = WondrousTailsTracker.Track(memory.Bingo, weekly, journal, journal ? player->WeeklyBingoNumPlacedStickers : 0,
+                                                               journal ? player->GetWeeklyBingoExpireUnixTimestamp() : 0,
+                                                               (int)player->WeeklyBingoNumSecondChancePoints);
+        }
+
+        return new DutyProgress(
+            now,
+            ResetCycles.Daily(now),
+            weekly,
+            roulettes,
+            quests == null ? null : (int)quests->GetBeastTribeAllowance(),
+            mapReadyAt,
+            supply == null ? null : supply->GetRemainingAllowances(),
+            bingo,
+            manager->GetWeeklyAcquiredTomestoneCount(),
+            InventoryManager.GetLimitedTomestoneWeeklyLimit());
     }
 
     private static List<RetainerInfo> CollectRetainers(InventoryManager* manager, PrivateMemory memory, DateTime now)

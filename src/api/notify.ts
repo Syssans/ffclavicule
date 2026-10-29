@@ -53,3 +53,23 @@ export async function sendTestPush(secret: string, baseUrl: string = SYNC_URL): 
 export async function forgetDevice(secret: string, baseUrl: string = SYNC_URL): Promise<void> {
   await request(`${baseUrl}/v1/notify`, { source: SOURCE, method: 'DELETE', ...json(secret), allow: [401] }).catch(() => undefined);
 }
+
+export interface TodaySettings {
+  characterId: number;
+  privateToken: string;
+  tracked: string[];
+  checked: Record<string, number>;
+  daily: boolean;
+  weekly: boolean;
+  lead: number;
+}
+
+/** Rappel « Aujourd'hui » : la liste suivie et les cases cochées, pour que le service prévienne avant la réinitialisation. */
+export async function uploadToday(secret: string, settings: TodaySettings | { daily: false; weekly: false }, baseUrl: string = SYNC_URL): Promise<void> {
+  await request(`${baseUrl}/v1/notify/today`, {
+    source: SOURCE,
+    method: 'PUT',
+    ...json(secret, settings),
+    messages: { 401: UNKNOWN, 403: 'Ce téléphone n’est plus connecté à ce personnage : reconnecte-le depuis sa fiche.' },
+  });
+}

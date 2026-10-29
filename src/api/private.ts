@@ -6,6 +6,7 @@ import { Platform } from 'react-native';
 
 import { ApiError, request } from '@/api/http';
 import { SYNC_URL } from '@/constants/service';
+import type { DutyProgress } from '@/shared/today';
 
 const SOURCE = 'Clavicule Sync';
 
@@ -124,6 +125,8 @@ export interface PrivateSnapshot {
   collections?: CollectionInfo[];
   /** Absent tant que le jeu n'a pas chargé les hauts faits. */
   achievements?: AchievementSummary;
+  /** Tâches du jour et de la semaine (absent avec un plugin plus ancien). */
+  duties?: DutyProgress;
 }
 
 export interface PrivateLink {
