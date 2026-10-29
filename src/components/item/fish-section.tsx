@@ -15,6 +15,7 @@ import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
 import { fishingData, fishStatus, forecast, nextWindows } from '@/utils/fishing';
+import { itemByName } from '@/utils/items-index';
 import { findFishingSpot } from '@/utils/map';
 import { formatCountdown } from '@/utils/timers';
 
@@ -166,9 +167,7 @@ export function FishSection({ id }: { id: number }) {
         </GameWindow>
       ) : null}
 
-      {fish.fl ? (
-        <GameWindow icon={MenuIcons.objetsPrecieux} title="Légendes" subtitle={data.folklore[String(fish.fl)] ?? 'Livre de légendes requis'} />
-      ) : null}
+      {fish.fl ? <FolkloreBook name={data.folklore[String(fish.fl)]} /> : null}
 
       {zone ? (
         <GameWindow icon={FishingIcons.weather} title={`Météo · ${zone.n}`}>
@@ -218,6 +217,31 @@ function Line({ label, value }: { label: string; value: string }) {
       </ThemedText>
       <ThemedText type="smallBold">{value}</ThemedText>
     </View>
+  );
+}
+
+/** Livre de légendes à lire avant que ce poisson morde, avec un lien vers sa fiche (où l'obtenir). */
+function FolkloreBook({ name }: { name?: string }) {
+  const book = name ? itemByName(name) : null;
+  return (
+    <GameWindow icon={MenuIcons.objetsPrecieux} title="Livre de légendes requis" subtitle={name ?? null}>
+      <ThemedText type="small" themeColor="textSecondary">
+        Ce poisson ne mord qu’une fois ce livre lu. Il s’échange contre des assignats de récolteur, chez l’échangeur d’assignats des grandes cités ;
+        utilise-le ensuite depuis ton inventaire. Il débloque aussi les autres poissons légendaires de la région.
+      </ThemedText>
+      {book ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => router.push({ pathname: '/item/[id]', params: { id: String(book.id) } })}
+          style={styles.predator}>
+          <GameIcon uri={book.icon} size={32} />
+          <ThemedText type="small" style={styles.flex}>
+            Fiche du livre
+          </ThemedText>
+          <ThemedText themeColor="textSecondary">›</ThemedText>
+        </Pressable>
+      ) : null}
+    </GameWindow>
   );
 }
 

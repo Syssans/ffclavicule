@@ -96,3 +96,9 @@ export function itemById(id: number): ItemHit | null {
   const e = byId.get(id);
   return e ? toHit(e) : null;
 }
+
+/** Un objet de l'index par son nom exact (le premier trouvé). */
+export function itemByName(name: string): ItemHit | null {
+  const e = load().find((x) => x.name === name);
+  return e ? toHit(e) : null;
+}
