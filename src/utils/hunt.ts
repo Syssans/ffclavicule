@@ -3,7 +3,7 @@
  * réapparition. Données : src/data/hunt.json (voir scripts/update-hunt-data.mjs) et src/data/hunt-notes.ts.
  */
 import { RESPAWN, S_RANK_NOTES, SS_RANK_NOTES, type SpawnNote } from '@/data/hunt-notes';
-import { getMap, mapForTerritory } from '@/utils/map';
+import { canonicalMap, fromGameCoords, getMap, mapForTerritory } from '@/utils/map';
 
 export type HuntRank = 'B' | 'A' | 'S' | 'SS' | 'sbire';
 
@@ -187,13 +187,16 @@ export function billTargets(bill: HuntBill): { id: number; target: HuntTarget; k
   return out;
 }
 
-/** Où chasser une cible : carte et position centrale (pixels de la carte), ou null. */
+/** Où chasser une cible : carte et centre de ses positions relevées, en pixels de la carte ; ou null. */
 export function targetSpot(target: HuntTarget): { mapId: number; x: number; y: number } | null {
-  const map = getMap(target.m);
+  const mapId = canonicalMap(target.m);
+  const map = getMap(mapId);
   if (!map || target.c.length === 0) return null;
-  const x = target.c.reduce((s, c) => s + c[0], 0) / target.c.length;
-  const y = target.c.reduce((s, c) => s + c[1], 0) / target.c.length;
-  return { mapId: target.m, x, y };
+  const gx = target.c.reduce((s, c) => s + c[0], 0) / target.c.length;
+  const gy = target.c.reduce((s, c) => s + c[1], 0) / target.c.length;
+  // La carte attend des pixels, pas les coordonnées du jeu.
+  const [x, y] = fromGameCoords(map, gx, gy);
+  return { mapId, x, y };
 }
 
 /** Nom de la carte d'une cible. */

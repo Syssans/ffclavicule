@@ -8,7 +8,7 @@ import { nodeStatusLabel } from '@/components/gathering';
 import { RankBadge } from '@/components/hunt';
 import { CardButton, CardRow, CardText, PointCard } from '@/components/map/map-overlays';
 import { fishingData } from '@/utils/fishing';
-import { flagRanks, huntZone, mainMarks, markName, sRankNote } from '@/utils/hunt';
+import { flagRanks, huntTarget, huntZone, mainMarks, markName, placeName, sRankNote } from '@/utils/hunt';
 import { KIND_LABEL, kindOf, nodeItems, nodeKey, nodeStatus, scheduleText, GATHERER_NAME, jobOf } from '@/utils/gathering';
 import { dutyName, formatCoords, getMap, mapData, toGameCoords, type MapInfo, type MapPoint } from '@/utils/map';
 
@@ -184,6 +184,25 @@ export function PointDetails({
             label="Fiche de la zone de chasse"
             onPress={() => router.push({ pathname: '/hunt/zone/[territory]', params: { territory: String(data.territory) } })}
           />
+          {zoneButton}
+        </PointCard>
+      );
+    }
+    case 'huntTarget': {
+      const target = huntTarget(data.targetId);
+      const place = placeName(target?.p);
+      return (
+        <PointCard
+          icon={point.icon}
+          title={target ? markName(target.n) : 'Cible de contrat'}
+          subtitle={['Cible de contrat', place && place !== map.n ? place : null, where].filter(Boolean).join(' · ')}
+          onClose={onClose}>
+          <CardText muted>
+            {target && target.c.length > 1
+              ? `Vue à ${target.c.length} endroits de la zone : elle rôde autour de ces points.`
+              : 'Vue à cet endroit de la zone.'}
+            {target?.f ? ' Elle n’apparaît que pendant un ALÉA.' : ''}
+          </CardText>
           {zoneButton}
         </PointCard>
       );

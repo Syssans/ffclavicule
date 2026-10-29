@@ -138,11 +138,14 @@ export function MarkRow({
 
 /** Une cible de contrat : icône du contrat, nom, lieu, victimes, et sa position sur la carte. */
 export function TargetRow({
+  id,
   target,
   kills,
   progress,
   showMap = true,
 }: {
+  /** Cible (MobHuntTarget), pour montrer ses positions sur la carte. */
+  id: number;
   target: HuntTarget;
   kills: number;
   progress?: number;
@@ -153,7 +156,8 @@ export function TargetRow({
   const spot = targetSpot(target);
   const mapName = targetMapName(target);
   const place = placeName(target.p);
-  const where = [showMap ? mapName : null, place && place !== mapName ? place : null].filter(Boolean).join(' · ') || (showMap ? '' : 'Dans toute la zone');
+  const where =
+    [showMap ? mapName : null, place && place !== mapName ? place : null].filter(Boolean).join(' · ') || (showMap ? '' : 'Dans toute la zone');
   const done = progress !== undefined && progress >= kills;
   return (
     <Pressable
@@ -164,7 +168,13 @@ export function TargetRow({
         spot &&
         router.push({
           pathname: '/map',
-          params: { map: String(spot.mapId), x: String(Math.round(spot.x)), y: String(Math.round(spot.y)), label: markName(target.n) },
+          params: {
+            map: String(spot.mapId),
+            x: String(Math.round(spot.x)),
+            y: String(Math.round(spot.y)),
+            label: markName(target.n),
+            hunt: String(id),
+          },
         })
       }
       style={({ pressed }) => [styles.target, pressed && { backgroundColor: theme.backgroundSelected }]}>

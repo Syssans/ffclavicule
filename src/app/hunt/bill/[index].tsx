@@ -62,7 +62,7 @@ export default function HuntBillScreen() {
         <GameWindow title="En main" subtitle="Relevé par le plugin">
           {order.map(([id, needed], i) => {
             const target = huntTarget(id);
-            return target ? <TargetRow key={id} target={target} kills={held.needed[i] ?? needed} progress={held.kills[i] ?? 0} /> : null;
+            return target ? <TargetRow key={id} id={id} target={target} kills={held.needed[i] ?? needed} progress={held.kills[i] ?? 0} /> : null;
           })}
         </GameWindow>
       ) : null}
@@ -75,7 +75,7 @@ export default function HuntBillScreen() {
             {map}
           </ThemedText>
           {list.map(({ id, target, kills }) => (
-            <TargetRow key={id} target={target} kills={kills} showMap={false} />
+            <TargetRow key={id} id={id} target={target} kills={kills} showMap={false} />
           ))}
         </View>
       ))}

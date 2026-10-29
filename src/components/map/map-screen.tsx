@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useHeaderHeight } from 'expo-router/react-navigation';
-import { type ComponentRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ComponentRef, useCallback, useMemo, useRef, useState } from 'react';
 import { Dimensions, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -37,6 +37,7 @@ import {
   layerCounts,
   mapData,
   mapImage,
+  huntTargetPoints,
   mapPoints,
   nearestPoint,
   toGameCoords,
@@ -55,7 +56,12 @@ const BOTTOM_BAR = 56;
 
 /** `label` : nom du repère posé au point demandé quand aucun marqueur de la carte ne s'y trouve. */
 /** `layer` : calque à afficher à l'ouverture (les points d'apparition de la chasse…). */
-type Params = { map?: string; x?: string; y?: string; t?: string; label?: string; layer?: string };
+type Params = { map?: string; x?: string; y?: string; t?: string; label?: string; layer?: string; hunt?: string };
+
+/** Calques affichés pour cette ouverture seulement (sans toucher aux réglages de la carte). */
+function tempLayersOf(params: Params): LayerKey[] {
+  return ALL_LAYER_KEYS.filter((l) => l === params.layer || (l === 'hunts' && params.hunt));
+}
 
 interface MapView {
   mapId: number;
@@ -73,7 +79,7 @@ function viewFromParams(params: Params, fallback: number): MapView {
   return {
     mapId,
     focus,
-    key: `${mapId}|${params.x ?? ''}|${params.y ?? ''}|${params.t ?? ''}`,
+    key: `${mapId}|${params.x ?? ''}|${params.y ?? ''}|${params.t ?? ''}|${params.hunt ?? ''}`,
   };
 }
 
@@ -92,7 +98,6 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
   const [underTabs, setUnderTabs] = useState(0);
   const insets = { ...safe, bottom: inTab ? underTabs : safe.bottom };
   const now = useNow(10_000);
-  const layers = useMapStore((s) => s.layers);
   const toggleLayer = useMapStore((s) => s.toggleLayer);
   const lastMap = useMapStore((s) => s.lastMap);
   const setLastMap = useMapStore((s) => s.setLastMap);
@@ -113,17 +118,32 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
   }, [headerHeight, inTab, safe.bottom]);
 
   // La carte affichée suit les paramètres (ouverture depuis l'atlas, une fiche de poisson…) puis la navigation.
-  const paramKey = `${params.map ?? ''}|${params.x ?? ''}|${params.y ?? ''}|${params.t ?? ''}`;
+  const paramKey = `${params.map ?? ''}|${params.x ?? ''}|${params.y ?? ''}|${params.t ?? ''}|${params.layer ?? ''}|${params.hunt ?? ''}`;
   const [seenParams, setSeenParams] = useState(paramKey);
   const [view, setView] = useState<MapView>(() => viewFromParams(params, lastMap));
   const [selected, setSelected] = useState<MapPoint | null>(null);
   const [pin, setPin] = useState<{ x: number; y: number; label?: string } | null>(null);
+  // Calques montrés le temps de cette ouverture (venue d'un contrat de chasse, d'un poisson…), sans changer les réglages.
+  const [tempLayers, setTempLayers] = useState<LayerKey[]>(() => tempLayersOf(params));
   if (seenParams !== paramKey) {
     setSeenParams(paramKey);
     setView(viewFromParams(params, lastMap));
     setSelected(null);
     setPin(null);
+    setTempLayers(tempLayersOf(params));
   }
+  const savedLayers = useMapStore((s) => s.layers);
+  const layers = useMemo(() => [...new Set([...savedLayers, ...tempLayers])], [savedLayers, tempLayers]);
+  const onToggleLayer = useCallback(
+    (key: LayerKey) => {
+      if (tempLayers.includes(key)) {
+        setTempLayers((t) => t.filter((l) => l !== key));
+        if (savedLayers.includes(key)) toggleLayer(key);
+      } else toggleLayer(key);
+    },
+    [savedLayers, tempLayers, toggleLayer],
+  );
+  const huntTarget = Number(params.hunt);
 
   const mapId = view.mapId;
   const map = getMap(mapId)!;
@@ -148,8 +168,9 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
   const points = useMemo(() => {
     const out = mapPoints(mapId, layers);
     if (layers.includes('quests') && quests.data) out.push(...quests.data);
+    if (huntTarget && layers.includes('hunts')) out.push(...huntTargetPoints(mapId, huntTarget));
     return out;
-  }, [layers, mapId, quests.data]);
+  }, [layers, mapId, quests.data, huntTarget]);
 
   // Point demandé à l'ouverture (poisson, point de récolte, recherche) : choisi une seule fois, pour qu'on puisse
   // ensuite fermer sa fiche ; son calque est affiché s'il était masqué.
@@ -157,7 +178,10 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
   const [neededLayer, setNeededLayer] = useState<LayerKey | null>(null);
   if (view.focus && focusHandled !== view.key) {
     setFocusHandled(view.key);
-    const found = nearestPoint(mapPoints(mapId, ALL_LAYER_KEYS), view.focus.x, view.focus.y, 6);
+    const targetPoints = huntTarget ? huntTargetPoints(mapId, huntTarget) : [];
+    const found = targetPoints.length
+      ? nearestPoint(targetPoints, view.focus.x, view.focus.y, 4096)
+      : nearestPoint(mapPoints(mapId, ALL_LAYER_KEYS), view.focus.x, view.focus.y, 6);
     if (found) {
       setSelected(found);
       setNeededLayer(found.layer);
@@ -166,13 +190,11 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
       setPin({ ...view.focus, label: params.label });
     }
   }
-  useEffect(() => {
-    if (neededLayer && !useMapStore.getState().layers.includes(neededLayer)) toggleLayer(neededLayer);
-  }, [neededLayer, toggleLayer]);
-  useEffect(() => {
-    const wanted = ALL_LAYER_KEYS.find((l) => l === params.layer);
-    if (wanted && !useMapStore.getState().layers.includes(wanted)) toggleLayer(wanted);
-  }, [params.layer, toggleLayer]);
+  // Le calque du point demandé est montré le temps de cette ouverture.
+  if (neededLayer && !layers.includes(neededLayer)) {
+    setNeededLayer(null);
+    setTempLayers((t) => [...t, neededLayer]);
+  }
   const shownSelected = selected;
 
   const openMap = useCallback(
@@ -237,7 +259,7 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
         pin={pin}
         onTap={onTap}
         onLongPress={onLongPress}
-        initialFocus={view.focus ? { ...view.focus, zoom: 4 } : null}
+        initialFocus={view.focus ? { ...view.focus, zoom: huntTarget ? 2.5 : 4 } : null}
         frame={frame}
         initialCover={map.k === 'world'}
         insets={{ top: underHeader + topHeight + Spacing.two, bottom: insets.bottom + BOTTOM_BAR }}
@@ -363,7 +385,7 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
                 // Calque masqué : grisé.
                 dimmed={!on}
                 accessibilityLabel={`Calque ${layer.label}${on ? ', affiché' : ', masqué'}`}
-                onPress={() => toggleLayer(layer.key)}
+                onPress={() => onToggleLayer(layer.key)}
               />
             );
           })}

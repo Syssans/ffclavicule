@@ -283,7 +283,9 @@ export type PointData =
   | { type: 'treasure'; itemId: number; party: number }
   | { type: 'quest'; questId: number; level: number; genre: string }
   /** Point d'apparition des marques de chasse ; rangs : 1 B, 2 A, 4 S. */
-  | { type: 'hunt'; territory: number; ranks: number };
+  | { type: 'hunt'; territory: number; ranks: number }
+  /** Position relevée d'une cible de contrat de chasse (montrée quand on vient de ce contrat). */
+  | { type: 'huntTarget'; targetId: number };
 
 export interface MapPoint {
   id: string;
@@ -467,6 +469,33 @@ export function huntPoints(id: number): MapPoint[] {
     });
   }
   return out;
+}
+
+/** Positions relevées d'une cible de contrat sur une carte, pour la montrer quand on vient du contrat. */
+export function huntTargetPoints(id: number, targetId: number): MapPoint[] {
+  const data = require('@/data/hunt.json') as {
+    targets: Record<string, { n: number; i: number; m: number; c: [number, number][] }>;
+    names: Record<string, string>;
+  };
+  const target = data.targets[String(targetId)];
+  const map = getMap(id);
+  if (!target || !map || canonicalMap(target.m) !== id) return [];
+  const raw = data.names[String(target.n)] ?? '';
+  const name = raw ? raw[0].toLocaleUpperCase('fr-FR') + raw.slice(1) : 'Cible';
+  return target.c.map(([gx, gy], i) => {
+    const [x, y] = fromGameCoords(map, gx, gy);
+    return {
+      id: `ht${targetId}-${i}`,
+      layer: 'hunts',
+      x,
+      y,
+      icon: target.i,
+      label: i === 0 ? name : '',
+      orientation: 2,
+      rank: 0,
+      data: { type: 'huntTarget', targetId },
+    };
+  });
 }
 
 /** Points des calques demandés (les quêtes, chargées à la demande, s'ajoutent à part). */

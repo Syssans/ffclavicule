@@ -96,7 +96,7 @@ export default function HuntScreen() {
               </ThemedText>
               {order.map(([id, needed], i) => {
                 const target = huntTarget(id);
-                return target ? <TargetRow key={id} target={target} kills={b.needed[i] ?? needed} progress={b.kills[i] ?? 0} /> : null;
+                return target ? <TargetRow key={id} id={id} target={target} kills={b.needed[i] ?? needed} progress={b.kills[i] ?? 0} /> : null;
               })}
             </View>
           );

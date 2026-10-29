@@ -12,6 +12,7 @@ import {
   respawnWindow,
   sRankNote,
   spawnPoints,
+  targetSpot,
   windowState,
   type HuntKill,
 } from '@/utils/hunt';
@@ -48,6 +49,11 @@ describe('données de chasse', () => {
     const targets = billTargets(elite);
     expect(targets.length).toBeGreaterThan(5);
     expect(targets.filter((t) => t.target.c.length > 0).length).toBeGreaterThan(targets.length / 2);
+    // Position sur la carte en pixels (0 à 2048), pas en coordonnées du jeu.
+    const spot = targetSpot(targets.find((t) => t.target.c.length > 0)!.target)!;
+    expect(spot.x).toBeGreaterThan(100);
+    expect(spot.x).toBeLessThan(2048);
+    expect(spot.y).toBeGreaterThan(100);
   });
 });
 
