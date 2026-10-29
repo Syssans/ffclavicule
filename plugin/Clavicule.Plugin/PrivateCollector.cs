@@ -49,7 +49,7 @@ public static unsafe class PrivateCollector
         return ItemStack.Merge(stacks);
     }
 
-    public static PrivateSnapshot? Collect(IPlayerCharacter player, PrivateMemory memory, CollectionCollector collections)
+    public static PrivateSnapshot? Collect(IPlayerCharacter player, PrivateMemory memory, CollectionCollector collections, HuntWatcher hunt)
     {
         var manager = InventoryManager.Instance();
         if (manager == null) return null;
@@ -85,7 +85,7 @@ public static unsafe class PrivateCollector
             CollectMail(memory, now),
             memory.MergeCollections(collections.Collect()),
             memory.MergeAchievements(collections.CollectAchievements(now)),
-            CollectDuties(manager, memory, now),
+            CollectDuties(manager, memory, now, hunt),
             memory.Sales.Count > 0 ? memory.Sales : null);
     }
 
@@ -97,7 +97,7 @@ public static unsafe class PrivateCollector
     }
 
     /// <summary>Tâches du jour et de la semaine : roulettes, peuples alliés, carte au trésor, commandes, Khloé, mémoquartz.</summary>
-    private static DutyProgress CollectDuties(InventoryManager* manager, PrivateMemory memory, DateTime now)
+    private static DutyProgress CollectDuties(InventoryManager* manager, PrivateMemory memory, DateTime now, HuntWatcher hunt)
     {
         var weekly = ResetCycles.Weekly(now);
         var roulettes = new List<int>();
@@ -137,7 +137,8 @@ public static unsafe class PrivateCollector
             supply == null ? null : supply->GetRemainingAllowances(),
             bingo,
             manager->GetWeeklyAcquiredTomestoneCount(),
-            InventoryManager.GetLimitedTomestoneWeeklyLimit());
+            InventoryManager.GetLimitedTomestoneWeeklyLimit(),
+            new HuntProgress(hunt.Bills(), memory.HuntKills.ToList()));
     }
 
     private static List<RetainerInfo> CollectRetainers(InventoryManager* manager, PrivateMemory memory, DateTime now)

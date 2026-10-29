@@ -251,7 +251,7 @@ export function instancesByType(): {
 
 // ——— Points affichés ———
 
-export type LayerKey = 'places' | 'aetherytes' | 'landmarks' | 'fates' | 'fishing' | 'gathering' | 'treasures' | 'quests';
+export type LayerKey = 'places' | 'aetherytes' | 'landmarks' | 'fates' | 'fishing' | 'gathering' | 'treasures' | 'quests' | 'hunts';
 
 export interface LayerInfo {
   key: LayerKey;
@@ -268,6 +268,7 @@ export const LAYERS: LayerInfo[] = [
   { key: 'gathering', label: 'Récolte', icon: 60438 },
   { key: 'fishing', label: 'Pêche', icon: 60465 },
   { key: 'treasures', label: 'Trésors', icon: 60570 },
+  { key: 'hunts', label: 'Chasse', icon: 61710 },
 ];
 
 const ALL_LAYERS: LayerKey[] = LAYERS.map((l) => l.key);
@@ -280,7 +281,9 @@ export type PointData =
   | { type: 'fishing'; spotId: number; level: number; radius: number }
   | { type: 'gathering'; node: GatheringNode }
   | { type: 'treasure'; itemId: number; party: number }
-  | { type: 'quest'; questId: number; level: number; genre: string };
+  | { type: 'quest'; questId: number; level: number; genre: string }
+  /** Point d'apparition des marques de chasse ; rangs : 1 B, 2 A, 4 S. */
+  | { type: 'hunt'; territory: number; ranks: number };
 
 export interface MapPoint {
   id: string;
@@ -439,6 +442,33 @@ export function treasurePoints(id: number): MapPoint[] {
   }));
 }
 
+/** Points d'apparition des marques de chasse (src/data/hunt.json, lu ici sans passer par utils/hunt qui dépend de ce fichier). */
+export function huntPoints(id: number): MapPoint[] {
+  const spawns = (require('@/data/hunt.json') as { spawns: Record<string, [number, number, number][]> }).spawns;
+  const map = getMap(id);
+  if (!map) return [];
+  const out: MapPoint[] = [];
+  for (const [territory, points] of Object.entries(spawns)) {
+    if (mapForTerritory(Number(territory)) !== id) continue;
+    points.forEach(([gx, gy, ranks], i) => {
+      const [x, y] = fromGameCoords(map, gx, gy);
+      const label = ['S', 'A', 'B'].filter((_, j) => ranks & (4 >> j)).join(' · ');
+      out.push({
+        id: `h${territory}-${i}`,
+        layer: 'hunts',
+        x,
+        y,
+        icon: ranks & 4 ? 61710 : ranks & 2 ? 61709 : 61707,
+        label: `Rang ${label}`,
+        orientation: 2,
+        rank: 3,
+        data: { type: 'hunt', territory: Number(territory), ranks },
+      });
+    });
+  }
+  return out;
+}
+
 /** Points des calques demandés (les quêtes, chargées à la demande, s'ajoutent à part). */
 /** Zones posées sur une carte de région assemblée, avec le centre de chacune sur la région. */
 export function assembledZones(id: number): { zone: number; cx: number; cy: number; scale: number }[] {
@@ -479,6 +509,7 @@ export function regionZonePoints(id: number, layers: readonly LayerKey[]): MapPo
     if (on.has('fishing')) extra.push(...fishingPoints(zone));
     if (on.has('gathering')) extra.push(...gatheringPoints(zone));
     if (on.has('treasures')) extra.push(...treasurePoints(zone));
+    if (on.has('hunts')) extra.push(...huntPoints(zone));
     for (const p of extra) place(p, 3, 4.5);
   }
   return out;
@@ -535,6 +566,7 @@ export function mapPoints(id: number, layers: readonly LayerKey[]): MapPoint[] {
   if (on.has('fishing')) out.push(...fishingPoints(id));
   if (on.has('gathering')) out.push(...gatheringPoints(id));
   if (on.has('treasures')) out.push(...treasurePoints(id));
+  if (on.has('hunts')) out.push(...huntPoints(id));
   return out;
 }
 
@@ -547,6 +579,7 @@ export function layerCounts(id: number): Partial<Record<LayerKey, number>> {
   add('fishing', fishingPoints(id).length);
   add('gathering', gatheringPoints(id).length);
   add('treasures', treasurePoints(id).length);
+  add('hunts', huntPoints(id).length);
   return counts;
 }
 

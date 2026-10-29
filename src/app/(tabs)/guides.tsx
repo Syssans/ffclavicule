@@ -40,6 +40,7 @@ const MODULES: { title: string; icon: number; href: Href }[] = [
   { title: 'Artisanat', icon: MenuIcons.artisanat, href: '/crafting' },
   { title: 'Pêche', icon: MenuIcons.peche, href: '/fishing' },
   { title: 'Récolte', icon: MenuIcons.recolte, href: '/gathering' },
+  { title: 'Chasse', icon: MenuIcons.bestiaire, href: '/hunt' },
 ];
 
 export default function GuidesScreen() {

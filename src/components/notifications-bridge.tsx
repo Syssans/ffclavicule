@@ -10,9 +10,13 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import { uploadAlerts, uploadRetainerAlerts, uploadToday } from '@/api/notify';
 import { getPrivate } from '@/api/private';
-import { applyReminders, configureNotifications, notificationsSupported } from '@/notifications/device';
+import { applyHuntReminders, applyReminders, configureNotifications, notificationsSupported } from '@/notifications/device';
 import type { VentureReturn } from '@/notifications/reminders';
 import { useMainCharacter } from '@/components/home';
+import { useHunt } from '@/hooks/use-hunt';
+import { useNow } from '@/hooks/use-now';
+import { useHuntStore } from '@/store/hunt-store';
+import { planHuntReminders } from '@/utils/hunt';
 import { useAppStore } from '@/store/app-store';
 import { useNotificationStore } from '@/store/notification-store';
 import { useTodayStore } from '@/store/today-store';
@@ -56,6 +60,18 @@ export function NotificationsBridge() {
   useEffect(() => {
     applyReminders({ reminders, oceanHours }, region, ventures).catch(() => undefined);
   }, [reminders, oceanHours, region, ventures]);
+
+  // Chasse : un rappel à l'ouverture de la fenêtre de chaque marque notée morte.
+  const huntNow = useNow(5 * 60_000);
+  const { kills } = useHunt(huntNow);
+  const huntNotify = useHuntStore((s) => s.notify);
+  const huntPlan = useMemo(() => (huntNotify ? planHuntReminders(kills, huntNow) : []), [huntNotify, kills, huntNow]);
+  const huntKey = huntPlan.map((p) => `${p.id}@${p.at}`).join('|');
+  useEffect(() => {
+    applyHuntReminders(huntPlan).catch(() => undefined);
+    // huntKey résume le plan : on ne reprogramme que s'il change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [huntKey]);
 
   useEffect(() => {
     if (!secret) return;

@@ -116,6 +116,9 @@ public sealed class PrivateMemory
     /// <summary>Ventes des servants annoncées dans le chat (les plus récentes).</summary>
     public List<RetainerSale> Sales { get; set; } = new();
 
+    /// <summary>Marques A et S vues mortes près du joueur.</summary>
+    public List<HuntKill> HuntKills { get; set; } = new();
+
     /// <summary>Dernière version vue des collections que le jeu ne charge qu'à certains moments (titres, armoire).</summary>
     public Dictionary<string, CollectionInfo> Collections { get; set; } = new();
 

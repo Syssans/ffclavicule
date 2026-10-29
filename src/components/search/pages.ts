@@ -4,6 +4,7 @@ import type { Href } from 'expo-router';
 import { FishingIcons } from '@/components/fishing';
 import { GameIcons } from '@/constants/game-icons';
 import { MenuIcons } from '@/constants/menu-icons';
+import { huntData, mainMarks, markName, zoneName } from '@/utils/hunt';
 import { searchKey } from '@/utils/search';
 
 export interface AppPage {
@@ -38,6 +39,9 @@ export const APP_PAGES: AppPage[] = [
   page('horaires', 'Points à horaires', 'Légendaires, immaculés et éphémères', MenuIcons.recolte, '/gathering/timed', 'legendaire immacule ephemere'),
   page('ou-recolter', 'Où récolter', 'L’emplacement de chaque objet récoltable', MenuIcons.recolte, '/gathering/items', 'recolte objets'),
   page('carnet-recolte', 'Carnet de récolte', 'Objets récoltés et manquants', MenuIcons.recolte, '/gathering/log', 'journal'),
+  page('chasse', 'Chasse', 'Rangs A et S, contrats, fenêtres de réapparition', MenuIcons.bestiaire, '/hunt', 'hunt marques elite traque'),
+  page('rangs', 'Rangs A et S', 'Marques de chaque zone et conditions d’apparition', MenuIcons.bestiaire, '/hunt/marks', 'hunt rang s spawn'),
+  page('contrats', 'Contrats de chasse', 'Quotidiens et d’élite : cibles et positions', MenuIcons.journal, '/hunt/bills', 'hunt bill elite'),
   page('artisanat', 'Artisanat', 'Recettes, sous-recettes et guide de niveau', MenuIcons.artisanat, '/crafting', 'craft recette artisan'),
   page('liste', 'Ma liste d’artisanat', 'Ce qu’il reste à fabriquer et à réunir', MenuIcons.artisanat, '/crafting/list', 'courses craft'),
   page('rentabilite', 'Rentabilité', 'Ce qui rapporte le plus à fabriquer', GameIcons.gil, '/crafting/profit', 'profit benefice gil'),
@@ -57,3 +61,23 @@ export const APP_PAGES: AppPage[] = [
   page('reglages', 'Réglages', 'Région, personnages suivis, version de l’appli', MenuIcons.configuration, '/settings', 'parametres options'),
   page('ajouter', 'Ajouter un personnage', 'Depuis le Lodestone', MenuIcons.personnage, '/character/search', 'lodestone'),
 ];
+
+let huntPages: AppPage[] | null = null;
+
+/** Chaque marque de chasse (rangs B, A, S, SS) mène à la fiche de sa zone. */
+export function huntMarkPages(): AppPage[] {
+  if (huntPages) return huntPages;
+  huntPages = huntData().zones.flatMap((zone) =>
+    mainMarks(zone).map((m) =>
+      page(
+        `marque-${zone.t}-${m.r}-${m.n}`,
+        markName(m.n),
+        `Rang ${m.r} · ${zoneName(zone.t)}`,
+        MenuIcons.bestiaire,
+        { pathname: '/hunt/zone/[territory]', params: { territory: String(zone.t) } },
+        'chasse marque',
+      ),
+    ),
+  );
+  return huntPages;
+}

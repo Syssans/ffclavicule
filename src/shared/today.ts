@@ -22,6 +22,34 @@ export interface DutyProgress {
   bingo?: { journal: boolean; stickers: number; expiresAt: number; secondChances: number; turnedIn: boolean };
   tomestones?: number;
   tomestoneLimit?: number;
+  /** Contrats de chasse en main et marques A/S vues mortes par le plugin. */
+  hunt?: HuntProgress;
+}
+
+export interface HuntBillProgress {
+  /** Type de contrat (index du jeu) et contrat tiré (ligne MobHuntOrder). */
+  k: number;
+  row: number;
+  elite: boolean;
+  /** Victimes par cible, et victimes demandées. */
+  kills: number[];
+  needed: number[];
+}
+
+export interface HuntProgress {
+  bills: HuntBillProgress[];
+  /** Marques A et S vues mortes ; `at` en secondes Unix. */
+  kills?: { territory: number; mark: number; rank: 'A' | 'S'; at: number; world: string }[];
+}
+
+export const billDone = (b: HuntBillProgress) => b.kills.length > 0 && b.kills.every((k, i) => k >= (b.needed[i] ?? 1));
+
+/** Contrats en main d'un genre : tous terminés ? (null : aucun en main, on ne sait pas). */
+function huntStatus(p: DutyProgress, elite: boolean): TaskStatus | null {
+  const bills = p.hunt?.bills.filter((b) => b.elite === elite) ?? [];
+  if (bills.length === 0) return null;
+  const done = bills.filter(billDone).length;
+  return { done: done === bills.length, detail: done === bills.length ? undefined : `${done}/${bills.length} contrat${bills.length > 1 ? 's' : ''}` };
 }
 
 /** Quand une tâche revient : chaque jour ou chaque semaine à une heure UTC, au tirage du Cactpot, ou après un délai. */
@@ -99,7 +127,7 @@ export const TASKS: TaskDef[] = [
       return at > now ? { done: true, detail: `Dans ${countdown(at - now)}` } : { done: false };
     },
   },
-  { key: 'huntDaily', label: 'Contrats de chasse', section: 'daily', reset: DAILY },
+  { key: 'huntDaily', label: 'Contrats de chasse', section: 'daily', reset: DAILY, auto: (p) => huntStatus(p, false) },
   { key: 'miniCactpot', label: 'Mini Cactpot', section: 'daily', reset: DAILY },
   { key: 'gc', label: 'Grande Compagnie', section: 'daily', reset: { hour: 20 } },
   {
@@ -136,7 +164,7 @@ export const TASKS: TaskDef[] = [
         : { done: p.tomestones >= p.tomestoneLimit, detail: p.tomestones >= p.tomestoneLimit ? undefined : `${p.tomestones}/${p.tomestoneLimit}` },
   },
   { key: 'raids', label: 'Butin des raids', section: 'weekly', reset: WEEKLY },
-  { key: 'huntElite', label: 'Contrats d’élite', section: 'weekly', reset: WEEKLY },
+  { key: 'huntElite', label: 'Contrats d’élite', section: 'weekly', reset: WEEKLY, auto: (p) => huntStatus(p, true) },
   { key: 'fashion', label: 'Défilé de mode', section: 'weekly', reset: WEEKLY },
   { key: 'jumbo', label: 'Jumbo Cactpot', section: 'weekly', reset: { cactpot: true } },
 ];

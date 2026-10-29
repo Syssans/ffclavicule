@@ -54,7 +54,8 @@ const ATLAS_ICON = require('../../../assets/images/atlas.png');
 const BOTTOM_BAR = 56;
 
 /** `label` : nom du repère posé au point demandé quand aucun marqueur de la carte ne s'y trouve. */
-type Params = { map?: string; x?: string; y?: string; t?: string; label?: string };
+/** `layer` : calque à afficher à l'ouverture (les points d'apparition de la chasse…). */
+type Params = { map?: string; x?: string; y?: string; t?: string; label?: string; layer?: string };
 
 interface MapView {
   mapId: number;
@@ -168,6 +169,10 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
   useEffect(() => {
     if (neededLayer && !useMapStore.getState().layers.includes(neededLayer)) toggleLayer(neededLayer);
   }, [neededLayer, toggleLayer]);
+  useEffect(() => {
+    const wanted = ALL_LAYER_KEYS.find((l) => l === params.layer);
+    if (wanted && !useMapStore.getState().layers.includes(wanted)) toggleLayer(wanted);
+  }, [params.layer, toggleLayer]);
   const shownSelected = selected;
 
   const openMap = useCallback(

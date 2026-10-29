@@ -62,6 +62,11 @@ export default function RootLayout() {
             <Stack.Screen name="crafting/index" options={{ title: 'Artisanat' }} />
             <Stack.Screen name="fishing/index" options={{ title: 'Pêche' }} />
             <Stack.Screen name="gathering/index" options={{ title: 'Récolte' }} />
+            <Stack.Screen name="hunt/index" options={{ title: 'Chasse' }} />
+            <Stack.Screen name="hunt/marks" options={{ title: 'Rangs A et S' }} />
+            <Stack.Screen name="hunt/bills" options={{ title: 'Contrats de chasse' }} />
+            <Stack.Screen name="hunt/bill/[index]" options={{ title: 'Contrat' }} />
+            <Stack.Screen name="hunt/zone/[territory]" options={{ title: 'Zone de chasse' }} />
             <Stack.Screen name="map/index" options={{ title: 'Carte' }} />
             <Stack.Screen name="map/browse" options={{ title: 'Atlas' }} />
             <Stack.Screen name="lore/index" options={{ title: 'Légende' }} />

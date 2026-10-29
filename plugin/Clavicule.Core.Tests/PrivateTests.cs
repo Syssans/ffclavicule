@@ -229,3 +229,39 @@ public class SaleTests
         Assert.Equal(2, PrivateMemory.FromJson(memory.ToJson()).Sales.Count);
     }
 }
+
+public class HuntTests
+{
+    private const long Now = 1_800_000_000;
+
+    [Fact]
+    public void UnCorpsReVuNeCompteQuUneFois()
+    {
+        var kills = new List<HuntKill>();
+        Assert.True(HuntKills.Record(kills, new HuntKill(1187, 13360, "S", Now, "Omega"), Now));
+        Assert.False(HuntKills.Record(kills, new HuntKill(1187, 13360, "S", Now + 4, "Omega"), Now + 4));
+        // Même marque sur un autre monde, ou bien plus tard : une autre mort.
+        Assert.True(HuntKills.Record(kills, new HuntKill(1187, 13360, "S", Now + 10, "Moogle"), Now + 10));
+        Assert.True(HuntKills.Record(kills, new HuntKill(1187, 13360, "S", Now + 5 * 3600, "Omega"), Now + 5 * 3600));
+        Assert.Equal(3, kills.Count);
+    }
+
+    [Fact]
+    public void LesMortsAnciennesSontOubliees()
+    {
+        var kills = new List<HuntKill> { new(138, 1, "A", Now - 20 * 86400, "Omega") };
+        HuntKills.Record(kills, new HuntKill(138, 2, "A", Now, "Omega"), Now);
+        Assert.Single(kills);
+        Assert.Equal(2, kills[0].Mark);
+    }
+
+    [Fact]
+    public void ContratsEtMortsPartentAvecLesTaches()
+    {
+        var hunt = new HuntProgress([new HuntBill(21, 306, true, [1], [1])], [new HuntKill(1187, 13360, "S", Now, "Omega")]);
+        var duties = new DutyProgress(DateTime.UtcNow, 1, 2, [], null, null, null, null, null, null, hunt);
+        var json = JsonSerializer.Serialize(duties, PrivateSnapshot.Json);
+        Assert.Contains("\"hunt\":{\"bills\":[{\"k\":21,\"row\":306,\"elite\":true,\"kills\":[1],\"needed\":[1]}]", json);
+        Assert.Contains("\"kills\":[{\"territory\":1187,\"mark\":13360,\"rank\":\"S\",\"at\":1800000000,\"world\":\"Omega\"}]", json);
+    }
+}

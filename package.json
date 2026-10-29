@@ -72,7 +72,8 @@
     "donnees:recolte": "node scripts/update-gathering-data.mjs",
     "donnees:carte": "node scripts/update-map-data.mjs",
     "donnees:objets": "node scripts/update-items-index.mjs",
-    "donnees:legende": "node scripts/update-lore-data.mjs"
+    "donnees:legende": "node scripts/update-lore-data.mjs",
+    "donnees:chasse": "node scripts/update-hunt-data.mjs"
   },
   "private": true,
   "jest": {

@@ -57,6 +57,24 @@ export async function applyReminders(settings: ReminderSettings, region: 'eu' | 
   return planned.length;
 }
 
+/** Remplace les rappels de la chasse (ouverture des fenêtres de réapparition) ; sans demander l'autorisation. */
+export async function applyHuntReminders(planned: { id: string; title: string; body: string; at: number; url: string; icon: number }[]): Promise<void> {
+  if (!notificationsSupported) return;
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  await Promise.all(
+    scheduled.filter((n) => n.identifier.startsWith('chasse-')).map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
+  );
+  if (planned.length === 0 || !(await Notifications.getPermissionsAsync()).granted) return;
+  for (const p of planned) {
+    const attachment = await attachmentFor(p.icon, p.id);
+    await Notifications.scheduleNotificationAsync({
+      identifier: p.id,
+      content: { title: p.title, body: p.body, sound: 'default', data: { url: p.url }, ...(attachment ? { attachments: [attachment] } : {}) },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: p.at },
+    });
+  }
+}
+
 /**
  * Image d'un rappel, à droite de la notification : l'icône du jeu, téléchargée une fois et gardée sur le téléphone,
  * puis copiée pour chaque notification (iOS range la pièce jointe à part et la retire du dossier). Sans réseau la

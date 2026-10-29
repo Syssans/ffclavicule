@@ -17,6 +17,8 @@ public sealed class PrivateSync : IDisposable
 {
     private static readonly TimeSpan CheckEvery = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan MinInterval = TimeSpan.FromSeconds(60);
+    /// <summary>Un corps de marque reste quelques secondes : on regarde autour du joueur assez souvent pour le voir.</summary>
+    private static readonly TimeSpan HuntScanEvery = TimeSpan.FromSeconds(2);
 
     private readonly IDalamudPluginInterface pluginInterface;
     private readonly Configuration config;
@@ -30,6 +32,9 @@ public sealed class PrivateSync : IDisposable
     private readonly CollectionCollector collections;
     private readonly ICondition condition;
     private readonly IChatGui chat;
+    private readonly IClientState clientState;
+    private readonly HuntWatcher hunt;
+    private DateTime nextHuntScan = DateTime.MinValue;
     /// <summary>Personnages pour lesquels les hauts faits ont déjà été demandés au serveur pendant cette session.</summary>
     private readonly HashSet<string> achievementsRequested = new();
 
@@ -43,9 +48,11 @@ public sealed class PrivateSync : IDisposable
     public string Status { get; private set; } = "Pas encore envoyées.";
 
     public PrivateSync(IDalamudPluginInterface pluginInterface, Configuration config, IFramework framework, IObjectTable objects,
-                       IPluginLog log, Exporter exporter, IDataManager data, ICondition condition, IChatGui chat)
+                       IPluginLog log, Exporter exporter, IDataManager data, ICondition condition, IChatGui chat, IClientState clientState)
     {
         this.chat = chat;
+        this.clientState = clientState;
+        hunt = new HuntWatcher(data, log);
         chat.ChatMessageUnhandled += OnChat;
         collections = new CollectionCollector(data, log);
         this.condition = condition;
@@ -78,6 +85,7 @@ public sealed class PrivateSync : IDisposable
 
     private void OnUpdate(IFramework _)
     {
+        ScanHunts();
         if (!config.PrivateSync || !config.IsReady || uploading || DateTime.UtcNow < nextCheck) return;
         nextCheck = DateTime.UtcNow + CheckEvery;
         if (objects.LocalPlayer is not IPlayerCharacter player) return;
@@ -105,7 +113,7 @@ public sealed class PrivateSync : IDisposable
         var memory = MemoryFor(c.key);
         try
         {
-            snapshot = PrivateCollector.Collect(player, memory, collections);
+            snapshot = PrivateCollector.Collect(player, memory, collections, hunt);
         }
         catch (Exception e)
         {
@@ -183,6 +191,28 @@ public sealed class PrivateSync : IDisposable
                 log.Warning("Envoi du catalogue : {Message}", result.Message);
             }
         }).ContinueWith(_ => catalogUploading = false);
+    }
+
+    /// <summary>Marques A/S mortes autour du joueur : notées tout de suite, envoyées au prochain relevé.</summary>
+    private void ScanHunts()
+    {
+        if (!config.PrivateSync || !config.IsReady || DateTime.UtcNow < nextHuntScan) return;
+        nextHuntScan = DateTime.UtcNow + HuntScanEvery;
+        if (objects.LocalPlayer is not IPlayerCharacter player) return;
+        try
+        {
+            if (exporter.CurrentCharacter() is not { } c || !IsLinked(c.state)) return;
+            var world = player.CurrentWorld.Value.Name.ToString();
+            if (hunt.Scan(objects, clientState.TerritoryType, world, MemoryFor(c.key).HuntKills, DateTimeOffset.UtcNow.ToUnixTimeSeconds()))
+            {
+                log.Debug("Marque de chasse vue morte");
+                nextCheck = DateTime.MinValue;
+            }
+        }
+        catch (Exception e)
+        {
+            log.Warning(e, "Lecture des marques de chasse impossible");
+        }
     }
 
     /// <summary>

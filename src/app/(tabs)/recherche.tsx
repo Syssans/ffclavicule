@@ -12,7 +12,7 @@ import { CharacterTag, SettingsButton, useMainCharacter } from '@/components/hom
 import { isFish } from '@/components/item/fish-section';
 import { isGatherable } from '@/components/item/gathering-section';
 import { Highlighted } from '@/components/search/highlighted';
-import { APP_PAGES, type AppPage } from '@/components/search/pages';
+import { APP_PAGES, huntMarkPages, type AppPage } from '@/components/search/pages';
 import { ThemedText } from '@/components/themed-text';
 import { Badge, Chip, Empty, GameIcon, Input, Screen } from '@/components/ui';
 import { GameIcons } from '@/constants/game-icons';
@@ -160,7 +160,7 @@ export default function SearchScreen() {
   const linked = useAppStore((s) => Boolean(main && s.privateLinks[main.id]));
   const characters = useAppStore((s) => s.characters);
   const remember = useSearchStore((s) => s.remember);
-  const pages = useMemo(() => [...APP_PAGES, ...characterPages(main, linked)], [main, linked]);
+  const pages = useMemo(() => [...APP_PAGES, ...characterPages(main, linked), ...huntMarkPages()], [main, linked]);
 
   // Les index (objets, carte) se préparent dès l'ouverture de l'onglet, pour que la première recherche soit immédiate.
   useEffect(() => {

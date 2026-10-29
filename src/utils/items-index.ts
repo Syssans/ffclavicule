@@ -87,3 +87,12 @@ export function searchItemIndex(text: string, { marketableOnly = false, limit = 
   const unique = ranked.filter((e) => byName.get(e.name) === e);
   return { items: unique.slice(0, limit).map(toHit), total: unique.length };
 }
+
+let byId: Map<number, Entry> | null = null;
+
+/** Un objet de l'index par son numéro. */
+export function itemById(id: number): ItemHit | null {
+  byId ??= new Map(load().map((e) => [e.id, e]));
+  const e = byId.get(id);
+  return e ? toHit(e) : null;
+}

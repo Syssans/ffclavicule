@@ -5,8 +5,10 @@ import { View } from 'react-native';
 import { gameIconUrl } from '@/api/xivapi';
 import { itemIcon, itemName } from '@/components/fishing';
 import { nodeStatusLabel } from '@/components/gathering';
+import { RankBadge } from '@/components/hunt';
 import { CardButton, CardRow, CardText, PointCard } from '@/components/map/map-overlays';
 import { fishingData } from '@/utils/fishing';
+import { flagRanks, huntZone, mainMarks, markName, sRankNote } from '@/utils/hunt';
 import { KIND_LABEL, kindOf, nodeItems, nodeKey, nodeStatus, scheduleText, GATHERER_NAME, jobOf } from '@/utils/gathering';
 import { dutyName, formatCoords, getMap, mapData, toGameCoords, type MapInfo, type MapPoint } from '@/utils/map';
 
@@ -165,6 +167,27 @@ export function PointDetails({
           {zoneButton}
         </PointCard>
       );
+    case 'hunt': {
+      const ranks = flagRanks(data.ranks);
+      const marks = mainMarks(huntZone(data.territory) ?? { t: 0, x: 0, marks: [] }).filter((m) => (ranks as string[]).includes(m.r));
+      const note = ranks.includes('S') ? sRankNote(data.territory) : undefined;
+      return (
+        <PointCard icon={point.icon} title="Point d’apparition" subtitle={`${ranks.map((r) => `Rang ${r}`).join(', ')} · ${where}`} onClose={onClose}>
+          {marks.map((m) => (
+            <View key={`${m.r}-${m.n}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <RankBadge rank={m.r} size={24} />
+              <CardText>{markName(m.n)}</CardText>
+            </View>
+          ))}
+          {note ? <CardText muted>Rang S : {note.how}</CardText> : null}
+          <CardButton
+            label="Fiche de la zone de chasse"
+            onPress={() => router.push({ pathname: '/hunt/zone/[territory]', params: { territory: String(data.territory) } })}
+          />
+          {zoneButton}
+        </PointCard>
+      );
+    }
     default:
       return <View />;
   }

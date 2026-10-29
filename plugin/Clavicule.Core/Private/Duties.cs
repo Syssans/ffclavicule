@@ -47,7 +47,9 @@ public sealed record DutyProgress(
     WondrousTails? Bingo,
     /// <summary>Mémoquartz limités gagnés cette semaine et plafond.</summary>
     int? Tomestones,
-    int? TomestoneLimit)
+    int? TomestoneLimit,
+    /// <summary>Contrats de chasse en main et marques A/S vues mortes.</summary>
+    HuntProgress? Hunt = null)
 {
     /// <summary>Missions aléatoires suivies : celles de l'outil de mission qui donnent un bonus quotidien.</summary>
     public static readonly int[] TrackedRoulettes = [1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 17];
