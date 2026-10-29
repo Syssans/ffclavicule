@@ -43,6 +43,8 @@ Le plugin relève aussi tes **tâches du jour et de la semaine** pour la liste �
 - le carnet de Khloé (vignettes, carnet rendu) ;
 - les mémoquartz de la semaine.
 
+Pendant que tu joues, le plugin lit aussi les **ventes de tes servants** annoncées dans le chat. L’annonce vendue quitte la liste de l’appli sans repasser à la sonnette, et l’appli garde l’historique des ventes récentes.
+
 Ces données ne sont visibles que sur les téléphones connectés, et tu peux les retirer depuis la même section. Quelques données ne sont lisibles qu’à certains moments, et le plugin garde la dernière version vue :
 
 - l’inventaire d’un servant : ouvre-le à la sonnette ;

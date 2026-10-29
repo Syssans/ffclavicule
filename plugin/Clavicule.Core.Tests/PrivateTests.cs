@@ -199,3 +199,33 @@ public class DutyTests
         Assert.Equal(450, duties.GetProperty("tomestoneLimit").GetInt32());
     }
 }
+
+public class SaleTests
+{
+    [Theory]
+    [InlineData("The Iron Ingot you put up for sale in the Limsa Lominsa markets has sold for 1,234 gil (after fees).", 1234u)]
+    [InlineData("Votre lingot de fer mis en vente à Limsa Lominsa a été vendu pour 1 234 gils (taxes déduites).", 1234u)]
+    [InlineData("Eisenbarren wurde für 1.234 Gil verkauft.", 1234u)]
+    [InlineData("Aucun montant.", 0u)]
+    public void Lit_les_gils_du_message(string text, uint gil) => Assert.Equal(gil, SaleText.Gil(text));
+
+    [Fact]
+    public void Une_vente_retire_l_annonce_la_plus_proche()
+    {
+        var memory = new PrivateMemory();
+        memory.Retainers["1"] = new RetainerInfo("1", "Alpha", 18, 100, 0, 10, 3, 1, 0, 0, DateTime.UtcNow, [], null,
+            [new MarketListing(5057, 10, false, 1000), new MarketListing(5057, 2, false, 990), new MarketListing(5057, 5, true, 3000)]);
+
+        // 10 × 1 000, taxes de 5 % déduites.
+        var sale = SaleMatcher.Record(memory, 5057, false, 9500, DateTime.UtcNow);
+        Assert.Equal(("1", "Alpha", 10, 1000ul), (sale.RetainerId, sale.Retainer, sale.Qty, sale.Price));
+        Assert.Equal([new MarketListing(5057, 2, false, 990), new MarketListing(5057, 5, true, 3000)], memory.Retainers["1"].Market);
+        Assert.Single(memory.Sales);
+
+        // Objet inconnu des annonces : la vente est gardée, sans annonce.
+        var unknown = SaleMatcher.Record(memory, 4, false, 100, DateTime.UtcNow);
+        Assert.Equal(0, unknown.Qty);
+        Assert.Equal(2, memory.Sales.Count);
+        Assert.Equal(2, PrivateMemory.FromJson(memory.ToJson()).Sales.Count);
+    }
+}

@@ -127,6 +127,22 @@ export interface PrivateSnapshot {
   achievements?: AchievementSummary;
   /** Tâches du jour et de la semaine (absent avec un plugin plus ancien). */
   duties?: DutyProgress;
+  /** Ventes des servants vues en direct par le plugin (messages du jeu), les plus récentes en dernier. */
+  sales?: RetainerSale[];
+}
+
+export interface RetainerSale {
+  id: number;
+  hq: boolean;
+  /** 0 si l'annonce vendue n'était pas connue. */
+  qty: number;
+  price: number;
+  /** Gils reçus, taxes déduites (0 si illisibles). */
+  gil: number;
+  retainerId: string;
+  retainer: string;
+  /** Secondes Unix. */
+  at: number;
 }
 
 export interface PrivateLink {

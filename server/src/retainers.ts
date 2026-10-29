@@ -31,6 +31,8 @@ export interface RetainerWatch extends RetainerAlertSettings {
   tokenHash: string;
   listings: Record<string, ListingMemory>;
   checkedAt?: number;
+  /** Dernière vente annoncée par le plugin déjà traitée (secondes Unix). */
+  salesSeen?: number;
 }
 
 export interface RetainerPush {
@@ -41,9 +43,22 @@ export interface RetainerPush {
   data: Record<string, unknown>;
 }
 
+/** Vente vue en direct par le plugin (message du jeu) : `qty` et `price` à 0 si l'annonce n'était pas connue. */
+interface Sale {
+  id: number;
+  hq: boolean;
+  qty: number;
+  price: number;
+  gil: number;
+  retainerId: string;
+  retainer: string;
+  at: number;
+}
+
 interface Snapshot {
   world?: string;
   retainers?: { id: string; name: string; market?: { id: number; qty: number; hq: boolean; price: number }[] }[];
+  sales?: Sale[];
 }
 
 export async function parseRetainerWatch(
@@ -65,7 +80,17 @@ export async function parseRetainerWatch(
   if (!(await isPaired(env, characterId, tokenHash))) return { error: error(403, 'Ce téléphone n’est plus connecté à ce personnage.', 'not-paired') };
   const same = before && before.characterId === characterId;
   return {
-    watch: { characterId, tokenHash, sold, undercut, stale, listings: same ? before.listings : {}, checkedAt: same ? before.checkedAt : undefined },
+    watch: {
+      characterId,
+      tokenHash,
+      sold,
+      undercut,
+      stale,
+      listings: same ? before.listings : {},
+      checkedAt: same ? before.checkedAt : undefined,
+      // Les ventes d'avant l'activation ne sont pas annoncées.
+      salesSeen: same ? before.salesSeen : Math.floor(Date.now() / 1000),
+    },
   };
 }
 
@@ -136,11 +161,12 @@ export function retainerMessages(
       data,
     });
   } else {
-    for (const { listing: l } of sold) {
+    for (const { listing: l, event } of sold) {
+      const received = event.kind === 'sold' && event.gil ? event.gil : l.price * l.qty;
       out.push({
         to,
         title: 'Vendu !',
-        body: `${name(l)}${l.qty > 1 ? ` × ${l.qty}` : ''} : ${gil(l.price * l.qty)} (${l.retainer}).`,
+        body: `${name(l)}${l.qty > 1 ? ` × ${l.qty}` : ''} : ${gil(received)}${l.retainer ? ` (${l.retainer})` : ''}.`,
         sound: 'default',
         data,
       });
@@ -199,7 +225,7 @@ export async function retainerAlerts(
   if (!due.length) return { messages, changed };
 
   // Annonces de chaque personnage concerné, puis une requête Universalis par monde et par paquet de 100 objets.
-  const snapshots = new Map<number, { world: string; listings: MyListing[] } | null>();
+  const snapshots = new Map<number, { world: string; listings: MyListing[]; sales: Sale[] } | null>();
   for (const index of due) {
     const watch = devices[index].record.retainers!;
     changed.add(index);
@@ -211,7 +237,7 @@ export async function retainerAlerts(
     if (snapshots.has(watch.characterId)) continue;
     const snap = await readPrivate<Snapshot>(env, watch.characterId);
     const listings = (snap?.retainers ?? []).flatMap((r) => (r.market ?? []).map((m) => ({ retainerId: r.id, retainer: r.name, ...m })));
-    snapshots.set(watch.characterId, snap?.world ? { world: snap.world, listings } : null);
+    snapshots.set(watch.characterId, snap?.world ? { world: snap.world, listings, sales: snap.sales ?? [] } : null);
   }
   const byWorld = new Map<string, Set<number>>();
   for (const s of snapshots.values())
@@ -227,6 +253,16 @@ export async function retainerAlerts(
     const mine = new Set(snap.listings.map((l) => l.retainer));
     const kept: Record<string, ListingMemory> = {};
     const events: { listing: MyListing; event: ListingEvent }[] = [];
+    // Ventes vues en direct par le plugin (le joueur était en jeu) : annoncées sans attendre Universalis.
+    for (const sale of snap.sales) {
+      if (sale.at <= (watch.salesSeen ?? 0)) continue;
+      watch.salesSeen = Math.max(watch.salesSeen ?? 0, sale.at);
+      const listing: MyListing = { retainerId: sale.retainerId, retainer: sale.retainer, id: sale.id, qty: sale.qty, hq: sale.hq, price: sale.price };
+      const known = sale.qty > 0 ? watch.listings[listingKey(listing)] : undefined;
+      if (known?.gone || !watch.sold) continue;
+      if (known) known.gone = true;
+      events.push({ listing, event: { kind: 'sold', gil: sale.gil || undefined } });
+    }
     for (const l of snap.listings) {
       const key = listingKey(l);
       const result = checkListing(l, boards.get(snap.world)?.get(l.id), watch.listings[key], mine, watch, now);

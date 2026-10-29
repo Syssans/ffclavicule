@@ -58,7 +58,8 @@ export interface ListingMemory {
   staleNotified?: boolean;
 }
 
-export type ListingEvent = { kind: 'sold' } | { kind: 'undercut'; cheapest: number; percent: number } | { kind: 'stale'; days: number };
+/** `gil` : gils reçus, quand le jeu les a annoncés (vente vue en direct par le plugin). */
+export type ListingEvent = { kind: 'sold'; gil?: number } | { kind: 'undercut'; cheapest: number; percent: number } | { kind: 'stale'; days: number };
 
 const DAY = 86_400_000;
 

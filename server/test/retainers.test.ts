@@ -155,6 +155,14 @@ describe('alertes des servants', () => {
     expect(pushed[2]).toMatchObject({ title: 'Toujours en vente', body: 'Lingot de fer attend un acheteur depuis 6 jours.' });
     expect((await run(T0 + 6 * 86_400_000 + 30 * MIN)).retainers).toBe(0);
 
+    // En jeu, le plugin voit la vente du lingot dans le chat : annoncée avec les gils reçus.
+    const sold = { ...snapshot, retainers: [{ ...snapshot.retainers[0], market: [] }] };
+    const sale = { id: 5057, hq: false, qty: 10, price: 1000, gil: 9500, retainerId: '1', retainer: 'Alpha', at: Math.floor(Date.now() / 1000) + 60 };
+    await worker.fetch(`/v1/characters/${ID}/private`, { method: 'PUT', body: JSON.stringify({ ...sold, sales: [sale] }), headers: auth(OWNER) });
+    expect((await run(T0 + 6 * 86_400_000 + 60 * MIN)).retainers).toBe(1);
+    expect(pushed[3]).toMatchObject({ title: 'Vendu !', body: 'Lingot de fer × 10 : 9 500 gils (Alpha).' });
+    expect((await run(T0 + 6 * 86_400_000 + 90 * MIN)).retainers).toBe(0);
+
     expect(((await (await put({ sold: false })).json()) as { enabled: boolean }).enabled).toBe(false);
   });
 });

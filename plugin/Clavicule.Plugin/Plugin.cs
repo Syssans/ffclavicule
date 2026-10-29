@@ -29,6 +29,7 @@ public sealed class Plugin : IDalamudPlugin
         ISigScanner sigScanner,
         IGameInteropProvider gameInterop,
         IDataManager dataManager,
+        IChatGui chat,
         IPluginLog log)
     {
         this.pluginInterface = pluginInterface;
@@ -37,7 +38,7 @@ public sealed class Plugin : IDalamudPlugin
 
         meddle = new MeddleBridge(pluginInterface, log, sigScanner, gameInterop, dataManager);
         exporter = new Exporter(pluginInterface, config, framework, objects, condition, clientState, notifications, log, meddle);
-        privateSync = new PrivateSync(pluginInterface, config, framework, objects, log, exporter, dataManager, condition);
+        privateSync = new PrivateSync(pluginInterface, config, framework, objects, log, exporter, dataManager, condition, chat);
         hudSync = new HudSync(config, framework, condition, objects, log, exporter, dataManager);
         configWindow = new ConfigWindow(pluginInterface, config, exporter, privateSync, hudSync);
         windows.AddWindow(configWindow);

@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { registerDevice } from '@/api/notify';
-import { ventureStatus, type MarketListing, type RetainerInfo } from '@/api/private';
+import { ventureStatus, type MarketListing, type RetainerInfo, type RetainerSale } from '@/api/private';
 import { getBoards, type MarketData } from '@/api/universalis';
 import { gameIconUrl } from '@/api/xivapi';
 import { GameWindow, MenuIcon } from '@/components/game-ui';
@@ -33,7 +33,7 @@ export default function RetainersScreen() {
         snapshot.retainers.length === 0 ? (
           <Empty>Aucun servant connu. Passe près d’une sonnette d’invocation pour les relever.</Empty>
         ) : (
-          <Retainers characterId={id} world={snapshot.world} retainers={snapshot.retainers} names={names} />
+          <Retainers characterId={id} world={snapshot.world} retainers={snapshot.retainers} sales={snapshot.sales ?? []} names={names} />
         )
       }
     </PrivateScreen>
@@ -66,7 +66,19 @@ function useStandings(world: string, retainers: RetainerInfo[]) {
   }, [boards.data, retainers]);
 }
 
-function Retainers({ characterId, world, retainers, names }: { characterId: number; world: string; retainers: RetainerInfo[]; names?: Names }) {
+function Retainers({
+  characterId,
+  world,
+  retainers,
+  sales,
+  names,
+}: {
+  characterId: number;
+  world: string;
+  retainers: RetainerInfo[];
+  sales: RetainerSale[];
+  names?: Names;
+}) {
   const now = useNow(30_000);
   const theme = useTheme();
   const standing = useStandings(world, retainers);
@@ -95,11 +107,34 @@ function Retainers({ characterId, world, retainers, names }: { characterId: numb
           </View>
         ) : null}
       </GameWindow>
+      <RecentSales sales={sales} names={names} now={now} />
       <SaleAlerts characterId={characterId} />
       {retainers.map((r) => (
         <RetainerWindow key={r.id} retainer={r} names={names} now={now} standing={standing} />
       ))}
     </>
+  );
+}
+
+/** Ventes vues en direct par le plugin pendant qu'on joue (sept derniers jours). */
+function RecentSales({ sales, names, now }: { sales: RetainerSale[]; names?: Names; now: number }) {
+  const recent = sales
+    .filter((s) => s.at * 1000 > now - 7 * 86_400_000)
+    .slice(-10)
+    .reverse();
+  if (!recent.length) return null;
+  return (
+    <GameWindow icon={PrivateIcons.gil} title="Ventes récentes">
+      {recent.map((s, i) => (
+        <ItemRow
+          key={`${s.at}-${s.id}-${i}`}
+          stack={{ id: s.id, qty: s.qty || 1, hq: s.hq }}
+          names={names}
+          detail={[s.gil ? formatGil(s.gil) : s.qty ? formatGil(s.price * s.qty) : null, s.retainer || null, formatAgo(s.at * 1000, now)].filter(Boolean).join(' · ')}
+          first={i === 0}
+        />
+      ))}
+    </GameWindow>
   );
 }
 

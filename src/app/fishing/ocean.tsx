@@ -7,14 +7,31 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { FishingIcons, itemIcon, itemName, localTime } from '@/components/fishing';
-import { GameWindow } from '@/components/game-ui';
+import { GameWindow, ModuleTile, TileRow } from '@/components/game-ui';
 import { ThemedText } from '@/components/themed-text';
 import { Badge, GameIcon, Screen, Segmented } from '@/components/ui';
+import { GameIcons } from '@/constants/game-icons';
+import { MenuIcons } from '@/constants/menu-icons';
 import { Spacing } from '@/constants/theme';
 import { useNow } from '@/hooks/use-now';
 import { useTheme } from '@/hooks/use-theme';
 import { fishingData, stopFish, TIME_OF_DAY, upcomingVoyages, type OceanLine, type OceanStop } from '@/utils/fishing';
+import { useNotificationStore } from '@/store/notification-store';
+import { fromWorld, getMap } from '@/utils/map';
 import { formatCountdown } from '@/utils/timers';
+
+/** Où l'on s'inscrit pour embarquer : Dryskthota, à l'Entrepont de Limsa Lominsa (carte et position du jeu). */
+const BOARDING = { name: 'Dryskthota', map: 12, x: -409.908, z: 76.0126 };
+
+function openBoarding() {
+  const map = getMap(BOARDING.map);
+  if (!map) return;
+  const [x, y] = fromWorld(map, BOARDING.x, BOARDING.z);
+  router.push({
+    pathname: '/map',
+    params: { map: String(BOARDING.map), x: String(Math.round(x)), y: String(Math.round(y)), label: `Embarquement : ${BOARDING.name}` },
+  });
+}
 
 const TIME_SHORT: Record<number, string> = { 1: 'jour', 2: 'crépuscule', 3: 'nuit' };
 
@@ -28,8 +45,19 @@ export default function OceanScreen() {
   const voyage = voyages[Math.min(selected, voyages.length - 1)];
   const route = data.routes[String(voyage.route)];
 
+  const reminderOn = useNotificationStore((s) => s.reminders.ocean?.enabled ?? false);
+
   return (
     <Screen>
+      <TileRow>
+        <ModuleTile icon={MenuIcons.carte} title="Embarquement" detail="L’Entrepont" onPress={openBoarding} />
+        <ModuleTile
+          icon={GameIcons.calendar}
+          title="Rappels"
+          detail={reminderOn ? 'Activés' : null}
+          onPress={() => router.push({ pathname: '/notifications', params: { tab: 'jeu' } })}
+        />
+      </TileRow>
       <Segmented
         options={[
           { value: 'indigo', label: 'Limsa Lominsa' },

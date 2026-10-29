@@ -68,7 +68,8 @@ public sealed record PrivateSnapshot(
     Mailbox? Mail,
     List<CollectionInfo>? Collections = null,
     AchievementSummary? Achievements = null,
-    DutyProgress? Duties = null)
+    DutyProgress? Duties = null,
+    List<RetainerSale>? Sales = null)
 {
     public const int CurrentSchema = 1;
 
@@ -111,6 +112,9 @@ public sealed class PrivateMemory
 
     /// <summary>Carnet de Khloé vu cette semaine (pour savoir s'il a été rendu).</summary>
     public BingoMemory? Bingo { get; set; }
+
+    /// <summary>Ventes des servants annoncées dans le chat (les plus récentes).</summary>
+    public List<RetainerSale> Sales { get; set; } = new();
 
     /// <summary>Dernière version vue des collections que le jeu ne charge qu'à certains moments (titres, armoire).</summary>
     public Dictionary<string, CollectionInfo> Collections { get; set; } = new();

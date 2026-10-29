@@ -50,7 +50,8 @@ const ATLAS_ICON = require('../../../assets/images/atlas.png');
 /** Hauteur de la barre des calques, en bas. */
 const BOTTOM_BAR = 56;
 
-type Params = { map?: string; x?: string; y?: string; t?: string };
+/** `label` : nom du repère posé au point demandé quand aucun marqueur de la carte ne s'y trouve. */
+type Params = { map?: string; x?: string; y?: string; t?: string; label?: string };
 
 interface MapView {
   mapId: number;
@@ -112,7 +113,7 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
   const [seenParams, setSeenParams] = useState(paramKey);
   const [view, setView] = useState<MapView>(() => viewFromParams(params, lastMap));
   const [selected, setSelected] = useState<MapPoint | null>(null);
-  const [pin, setPin] = useState<{ x: number; y: number } | null>(null);
+  const [pin, setPin] = useState<{ x: number; y: number; label?: string } | null>(null);
   if (seenParams !== paramKey) {
     setSeenParams(paramKey);
     setView(viewFromParams(params, lastMap));
@@ -153,6 +154,9 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
     if (found) {
       setSelected(found);
       setNeededLayer(found.layer);
+    } else if (params.label) {
+      // Lieu sans marqueur sur la carte (un PNJ…) : un repère nommé.
+      setPin({ ...view.focus, label: params.label });
     }
   }
   useEffect(() => {
@@ -283,8 +287,12 @@ export function MapScreen({ atlas, inTab = false }: MapScreenProps) {
           </View>
         ) : pin ? (
           <View style={styles.cardWrap}>
-            <PointCard icon={60442} title="Repère" subtitle={formatCoords(toGameCoords(map, pin.x, pin.y))} onClose={() => setPin(null)}>
-              <CardText muted>Les coordonnées s’affichent comme dans le jeu (commande /coord ou drapeau sur la carte).</CardText>
+            <PointCard
+              icon={60442}
+              title={pin.label ?? 'Repère'}
+              subtitle={formatCoords(toGameCoords(map, pin.x, pin.y))}
+              onClose={() => setPin(null)}>
+              {pin.label ? null : <CardText muted>Les coordonnées s’affichent comme dans le jeu (commande /coord ou drapeau sur la carte).</CardText>}
               <CardButton label="Centrer ici" onPress={() => viewer.current?.focus(pin.x, pin.y, 4)} />
             </PointCard>
           </View>

@@ -85,7 +85,8 @@ public static unsafe class PrivateCollector
             CollectMail(memory, now),
             memory.MergeCollections(collections.Collect()),
             memory.MergeAchievements(collections.CollectAchievements(now)),
-            CollectDuties(manager, memory, now));
+            CollectDuties(manager, memory, now),
+            memory.Sales.Count > 0 ? memory.Sales : null);
     }
 
     /// <summary>Demande au serveur les minuteurs du jeu (carte au trésor), comme la fenêtre des minuteurs.</summary>

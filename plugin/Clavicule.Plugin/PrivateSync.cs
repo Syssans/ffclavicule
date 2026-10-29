@@ -1,5 +1,8 @@
 using Clavicule.Private;
 using Clavicule.Sync;
+using Dalamud.Game.Chat;
+using Dalamud.Game.Text;
+using Dalamud.Game.Text.SeStringHandling.Payloads;
 using Dalamud.Game.ClientState.Objects.SubKinds;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
@@ -26,6 +29,7 @@ public sealed class PrivateSync : IDisposable
     private readonly Dictionary<string, PrivateMemory> memories = new();
     private readonly CollectionCollector collections;
     private readonly ICondition condition;
+    private readonly IChatGui chat;
     /// <summary>Personnages pour lesquels les hauts faits ont déjà été demandés au serveur pendant cette session.</summary>
     private readonly HashSet<string> achievementsRequested = new();
 
@@ -39,8 +43,10 @@ public sealed class PrivateSync : IDisposable
     public string Status { get; private set; } = "Pas encore envoyées.";
 
     public PrivateSync(IDalamudPluginInterface pluginInterface, Configuration config, IFramework framework, IObjectTable objects,
-                       IPluginLog log, Exporter exporter, IDataManager data, ICondition condition)
+                       IPluginLog log, Exporter exporter, IDataManager data, ICondition condition, IChatGui chat)
     {
+        this.chat = chat;
+        chat.ChatMessageUnhandled += OnChat;
         collections = new CollectionCollector(data, log);
         this.condition = condition;
         this.pluginInterface = pluginInterface;
@@ -179,6 +185,28 @@ public sealed class PrivateSync : IDisposable
         }).ContinueWith(_ => catalogUploading = false);
     }
 
+    /// <summary>
+    /// Vente d'un servant annoncée par le jeu pendant qu'on joue : l'annonce quitte la liste connue et la vente part
+    /// au prochain envoi, sans repasser à la sonnette.
+    /// </summary>
+    private void OnChat(IChatMessage message)
+    {
+        if (message.LogKind != XivChatType.RetainerSale || !config.PrivateSync) return;
+        try
+        {
+            var item = message.Message.Payloads.OfType<ItemPayload>().FirstOrDefault();
+            if (item == null || item.ItemId == 0) return;
+            if (exporter.CurrentCharacter() is not { } c || !IsLinked(c.state)) return;
+            var sale = SaleMatcher.Record(MemoryFor(c.key), item.ItemId, item.IsHQ, SaleText.Gil(message.Message.TextValue), DateTime.UtcNow);
+            log.Debug("Vente relevée : objet {Item} ({Qty}) pour {Gil} gils", sale.Id, sale.Qty, sale.Gil);
+            nextCheck = DateTime.MinValue;
+        }
+        catch (Exception e)
+        {
+            log.Warning(e, "Lecture d'une vente impossible");
+        }
+    }
+
     /// <summary>Renvoie tout au prochain passage (après association d'un téléphone, par exemple).</summary>
     public void SendSoon()
     {
@@ -199,6 +227,7 @@ public sealed class PrivateSync : IDisposable
     public void Dispose()
     {
         framework.Update -= OnUpdate;
+        chat.ChatMessageUnhandled -= OnChat;
         http.Dispose();
     }
 }
