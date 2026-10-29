@@ -225,38 +225,60 @@ function Results({ query, progress }: { query: string; progress: number }) {
   const theme = useTheme();
   const hits = useMemo(() => searchLore(query), [query]);
   const parsed = useMemo(() => parseQuery(query), [query]);
-  if (!hits.length) return <Empty>Rien dans la Légende pour « {query.trim()} ».</Empty>;
+  const everywhere = (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => router.push({ pathname: '/recherche', params: { q: query.trim() } })}
+      style={({ pressed }) => [styles.everywhere, pressed && { opacity: 0.7 }]}>
+      <ThemedText type="smallBold" style={{ color: theme.ornament }}>
+        Chercher « {query.trim()} » dans tout Clavicule ›
+      </ThemedText>
+      <ThemedText type="small" themeColor="textSecondary">
+        Objets, lieux, donjons, marques de chasse…
+      </ThemedText>
+    </Pressable>
+  );
+  if (!hits.length)
+    return (
+      <>
+        <Empty>Rien dans la Légende pour « {query.trim()} ».</Empty>
+        {everywhere}
+      </>
+    );
   return (
-    <View style={[styles.results, { borderColor: theme.frame, backgroundColor: theme.backgroundElement }]}>
-      {hits.map(({ entry, byName, snippet }, i) => {
-        const hidden = isSpoiler(entry, progress);
-        return (
-          <Pressable
-            key={entry.k}
-            accessibilityRole="button"
-            onPress={() => openLoreEntry(entry)}
-            style={({ pressed }) => [
-              styles.result,
-              i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
-              pressed && { opacity: 0.7 },
-            ]}>
-            <GameIcon uri={hidden ? null : loreImage(entry)} size={44} />
-            <View style={styles.flex}>
-              {hidden ? <ThemedText>Spoiler · {EXPANSIONS[entry.v ?? 0]}</ThemedText> : <Highlighted text={entry.n} query={parsed} />}
-              <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
-                {LORE_TYPES[entry.t].label}
-                {entry.s ? ` · ${entry.s}` : ''}
-              </ThemedText>
-              {!byName && snippet && !hidden ? (
-                <ThemedText type="small" themeColor="textSecondary" numberOfLines={2} style={styles.snippet}>
-                  {snippet}
+    <>
+      <View style={[styles.results, { borderColor: theme.frame, backgroundColor: theme.backgroundElement }]}>
+        {hits.map(({ entry, byName, snippet }, i) => {
+          const hidden = isSpoiler(entry, progress);
+          return (
+            <Pressable
+              key={entry.k}
+              accessibilityRole="button"
+              onPress={() => openLoreEntry(entry)}
+              style={({ pressed }) => [
+                styles.result,
+                i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+                pressed && { opacity: 0.7 },
+              ]}>
+              <GameIcon uri={hidden ? null : loreImage(entry)} size={44} />
+              <View style={styles.flex}>
+                {hidden ? <ThemedText>Spoiler · {EXPANSIONS[entry.v ?? 0]}</ThemedText> : <Highlighted text={entry.n} query={parsed} />}
+                <ThemedText type="small" themeColor="textSecondary" numberOfLines={1}>
+                  {LORE_TYPES[entry.t].label}
+                  {entry.s ? ` · ${entry.s}` : ''}
                 </ThemedText>
-              ) : null}
-            </View>
-          </Pressable>
-        );
-      })}
-    </View>
+                {!byName && snippet && !hidden ? (
+                  <ThemedText type="small" themeColor="textSecondary" numberOfLines={2} style={styles.snippet}>
+                    {snippet}
+                  </ThemedText>
+                ) : null}
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+      {everywhere}
+    </>
   );
 }
 
@@ -292,4 +314,5 @@ const styles = StyleSheet.create({
   results: { borderWidth: 1, borderRadius: 14, paddingHorizontal: Spacing.three },
   result: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three, paddingVertical: Spacing.two },
   snippet: { fontStyle: 'italic' },
+  everywhere: { paddingVertical: Spacing.two, gap: 2 },
 });

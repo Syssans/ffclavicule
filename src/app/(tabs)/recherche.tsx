@@ -1,9 +1,9 @@
 /**
- * Onglet Recherche : un seul champ pour tout Clavicule. Objets, donjons et autres instances, lieux et éthérites,
+ * Onglet Recherche : un seul champ pour tout Clavicule. Objets, fiches de la Légende, marques de chasse, donjons et autres instances, lieux et éthérites,
  * aléas, coins de pêche, personnages suivis et pages de l'appli. Les majuscules, les accents et la ponctuation ne
  * comptent pas, l'ordre des mots non plus, et les résultats les plus proches passent devant.
  */
-import { router, type Href } from 'expo-router';
+import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
@@ -22,17 +22,21 @@ import { useDebounced } from '@/hooks/use-debounced';
 import { useTheme } from '@/hooks/use-theme';
 import { gameIconUrl } from '@/api/xivapi';
 import { useAppStore, type SavedCharacter } from '@/store/app-store';
+import { useLoreStore } from '@/store/lore-store';
 import { useSearchStore } from '@/store/search-store';
 import { searchItemIndex, type ItemHit } from '@/utils/items-index';
+import { EXPANSIONS, isSpoiler, LORE_TYPES, loreImage, searchLore, type LoreHit } from '@/utils/lore';
 import { searchMap, type SearchResult } from '@/utils/map';
 import { matchScore, parseQuery, rankMatches, searchKey, type SearchQuery } from '@/utils/search';
 
-type Group = 'pages' | 'characters' | 'items' | 'instances' | 'places' | 'fates' | 'fishing';
+type Group = 'pages' | 'characters' | 'items' | 'lore' | 'hunts' | 'instances' | 'places' | 'fates' | 'fishing';
 
 const GROUPS: { key: Group; label: string; icon: number }[] = [
   { key: 'pages', label: 'Pages de l’appli', icon: MenuIcons.guides },
   { key: 'characters', label: 'Personnages', icon: MenuIcons.personnage },
   { key: 'items', label: 'Objets', icon: MenuIcons.objets },
+  { key: 'lore', label: 'Légende', icon: MenuIcons.journal },
+  { key: 'hunts', label: 'Chasse', icon: MenuIcons.bestiaire },
   { key: 'instances', label: 'Donjons, défis et raids', icon: GameIcons.raids },
   { key: 'places', label: 'Lieux', icon: MenuIcons.carte },
   { key: 'fates', label: 'Aléas', icon: MenuIcons.alea },
@@ -49,6 +53,10 @@ interface Results {
   characters: SavedCharacter[];
   items: ItemHit[];
   itemTotal: number;
+  /** Fiches de la Légende : par leur nom d'abord, puis celles qui en parlent. */
+  lore: LoreHit[];
+  /** Marques de chasse (rangs B, A, S, SS). */
+  hunts: AppPage[];
   instances: SearchResult[];
   places: SearchResult[];
   fates: SearchResult[];
@@ -63,6 +71,8 @@ function search(query: SearchQuery, text: string, pages: AppPage[], characters: 
     characters: rankMatches(characters, (c) => searchKey(`${c.name} ${c.world ?? ''}`), query),
     items: items.items,
     itemTotal: items.total,
+    lore: searchLore(text, 200),
+    hunts: rankMatches(huntMarkPages(), (p) => p.search, query),
     instances: map.filter((r) => r.kind === 'instance'),
     places: map.filter((r) => r.kind === 'map' || r.kind === 'place'),
     fates: map.filter((r) => r.kind === 'fate'),
@@ -77,11 +87,17 @@ function countOf(results: Results, group: Group): number {
 /** Proximité du meilleur résultat d'un groupe (plus petit = plus proche), pour ranger les groupes. */
 function bestScore(results: Results, group: Group, query: SearchQuery): number {
   const titles: string[] =
-    group === 'pages'
-      ? results.pages.slice(0, 3).map((p) => p.title)
+    group === 'pages' || group === 'hunts'
+      ? results[group].slice(0, 3).map((p) => p.title)
       : group === 'characters'
         ? results.characters.slice(0, 3).map((c) => c.name)
-        : results[group].slice(0, 3).map((r) => (group === 'items' ? (r as ItemHit).name : (r as SearchResult).title));
+        : group === 'lore'
+          ? // Une fiche qui en parle seulement dans son texte ne fait pas passer la Légende devant.
+            results.lore
+              .filter((h) => h.byName)
+              .slice(0, 3)
+              .flatMap((h) => [h.entry.n, ...(h.entry.aka ?? [])])
+          : results[group].slice(0, 3).map((r) => (group === 'items' ? (r as ItemHit).name : (r as SearchResult).title));
   // Une page trouvée par un synonyme (« craft » pour Artisanat) reste bien placée.
   const fallback = group === 'pages' && results.pages.length ? 2500 : 9999;
   return Math.min(fallback, ...titles.map((t) => matchScore(searchKey(t), query) ?? 9999));
@@ -149,7 +165,14 @@ function characterPages(main: SavedCharacter | null, linked: boolean): AppPage[]
 }
 
 export default function SearchScreen() {
-  const [text, setText] = useState('');
+  // « Chercher partout » depuis la Légende : la recherche arrive déjà tapée.
+  const { q } = useLocalSearchParams<{ q?: string }>();
+  const [text, setText] = useState(q ?? '');
+  const [seenQ, setSeenQ] = useState(q);
+  if (q !== seenQ) {
+    setSeenQ(q);
+    if (q) setText(q);
+  }
   const [group, setGroup] = useState<Group | 'all'>('all');
   const [shown, setShown] = useState(PAGE);
   const debounced = useDebounced(text, 120);
@@ -160,7 +183,7 @@ export default function SearchScreen() {
   const linked = useAppStore((s) => Boolean(main && s.privateLinks[main.id]));
   const characters = useAppStore((s) => s.characters);
   const remember = useSearchStore((s) => s.remember);
-  const pages = useMemo(() => [...APP_PAGES, ...characterPages(main, linked), ...huntMarkPages()], [main, linked]);
+  const pages = useMemo(() => [...APP_PAGES, ...characterPages(main, linked)], [main, linked]);
 
   // Les index (objets, carte) se préparent dès l'ouverture de l'onglet, pour que la première recherche soit immédiate.
   useEffect(() => {
@@ -201,7 +224,7 @@ export default function SearchScreen() {
       <Input
         value={text}
         onChangeText={onType}
-        placeholder="Objet, lieu, donjon, aléa, page…"
+        placeholder="Objet, lieu, personnage, donjon, page…"
         returnKeyType="search"
         clearButtonMode="while-editing"
         autoCapitalize="none"
@@ -264,8 +287,9 @@ function GroupRows({
   limit: number;
   open: (href: Href) => void;
 }) {
-  if (group === 'pages') {
-    return results.pages
+  if (group === 'lore') return <LoreRows hits={results.lore.slice(0, limit)} query={query} open={open} />;
+  if (group === 'pages' || group === 'hunts') {
+    return results[group]
       .slice(0, limit)
       .map((p, i) => (
         <ResultRow
@@ -326,6 +350,26 @@ function GroupRows({
       }
     />
   ));
+}
+
+/** Fiches de la Légende ; celles au-delà de la progression du joueur restent voilées, comme dans la Légende. */
+function LoreRows({ hits, query, open }: { hits: LoreHit[]; query: SearchQuery; open: (href: Href) => void }) {
+  const progress = useLoreStore((s) => s.progress);
+  return hits.map(({ entry, byName, snippet }, i) => {
+    const hidden = isSpoiler(entry, progress);
+    const kind = `${LORE_TYPES[entry.t].label}${entry.s ? ` · ${entry.s}` : ''}`;
+    return (
+      <ResultRow
+        key={entry.k}
+        first={i === 0}
+        leading={<GameIcon uri={hidden ? null : loreImage(entry)} size={40} />}
+        title={hidden ? `Spoiler · ${EXPANSIONS[entry.v ?? 0]}` : entry.n}
+        subtitle={!byName && snippet && !hidden ? snippet : kind}
+        query={query}
+        onPress={() => open({ pathname: '/lore/entry/[key]', params: { key: entry.k } })}
+      />
+    );
+  });
 }
 
 /** D'où vient l'objet : pêche, récolte, marché. */
