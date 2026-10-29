@@ -110,3 +110,45 @@ export function matchLodestone(key: 'mounts' | 'minions', items: { name: string;
 export function referenceTotal(key: string): number {
   return loadReference().collections[key]?.length ?? 0;
 }
+
+/** Nom de chaque collection de la référence, au singulier (« Monture »). */
+export const COLLECTION_LABELS: Record<string, string> = {
+  mounts: 'Monture',
+  minions: 'Mascotte',
+  orchestrions: 'Rouleau d’orchestrion',
+  emotes: 'Emote',
+  hairstyles: 'Coiffure',
+  bardings: 'Barde de chocobo',
+  fashions: 'Accessoire de mode',
+  facewear: 'Accessoire de visage',
+  cards: 'Carte de Triple Triade',
+  spells: 'Sort de mage bleu',
+  titles: 'Titre',
+  armoire: 'Armoire',
+};
+
+let byItem: Map<number, { collection: string; entry: ReferenceEntry }> | null = null;
+
+/** Élément de collection que débloque un objet (monture, mascotte, rouleau…), s'il y en a un. */
+export function referenceForItem(itemId: number): { collection: string; entry: ReferenceEntry } | undefined {
+  if (!byItem) {
+    byItem = new Map();
+    for (const [collection, entries] of Object.entries(loadReference().collections)) {
+      for (const entry of entries) if (entry.t && !byItem.has(entry.t)) byItem.set(entry.t, { collection, entry });
+    }
+  }
+  return byItem.get(itemId);
+}
+
+/** Élément d'une collection par son numéro dans le jeu (montures, mascottes, cartes : mêmes numéros que le jeu). */
+export function referenceFor(collection: string, id: number): ReferenceEntry | undefined {
+  return loadReference().collections[collection]?.find((e) => e.i === id);
+}
+
+/** Degré de rareté, d'après la part des joueurs qui possèdent l'élément. */
+export function rarityTier(rarity: number): { label: string; tone: 'down' | 'accent' | 'up' | 'neutral' } {
+  if (rarity < 5) return { label: 'Très rare', tone: 'down' };
+  if (rarity < 15) return { label: 'Rare', tone: 'accent' };
+  if (rarity < 40) return { label: 'Peu commun', tone: 'neutral' };
+  return { label: 'Commun', tone: 'up' };
+}

@@ -8,6 +8,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { CollectInfo } from '@/components/collect-info';
 import { LORE_ASPECT, LoreCard, NIGHT } from '@/components/lore/lore-card';
 import { LoreText } from '@/components/lore/lore-text';
 import { ThemedText } from '@/components/themed-text';
@@ -29,6 +30,7 @@ import {
   lorePick,
   type LoreEntry,
 } from '@/utils/lore';
+import { formatRarity, referenceFor, type ReferenceEntry } from '@/utils/collect-reference';
 import { fromWorld, getMap } from '@/utils/map';
 
 export default function LoreEntryScreen() {
@@ -73,6 +75,7 @@ export default function LoreEntryScreen() {
   const paragraphs = articleParagraphs(entry, revealedBody === entry.k ? Number.MAX_SAFE_INTEGER : progress);
   const veiled = paragraphs.filter((p) => p.hidden);
   const cards = loreCardsOf(entry);
+  const collect = collectReference(entry, cards);
   // Les autres noms peuvent dévoiler l'histoire (l'Exarque de Cristal) : seulement une fois l'article entier visible.
   const aka = entry.aka?.length && !veiled.length ? entry.aka : null;
   // Pour un lieu, le texte du carnet décrit, l'impression se lit comme une citation ; ailleurs, la réplique cite.
@@ -159,6 +162,8 @@ export default function LoreEntryScreen() {
         </>
       )}
 
+      {collect && !hidden ? <CollectInfo entry={collect.entry} title={collect.title} /> : null}
+
       {cards.length > 1 && !hidden ? (
         <Section title="Ses cartes">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelf}>
@@ -172,6 +177,7 @@ export default function LoreEntryScreen() {
                     {c.e}
                   </ThemedText>
                 ) : null}
+                <CardRarity card={c} />
               </View>
             ))}
           </ScrollView>
@@ -262,6 +268,35 @@ function PageButton({ entry, label, align }: { entry?: LoreEntry; label: string;
   );
 }
 
+/** Monture, mascotte ou carte : comment l'obtenir et sa rareté (une fiche rédigée : sa carte, si elle n'en a qu'une). */
+function collectReference(entry: LoreEntry, cards: LoreEntry[]): { entry: ReferenceEntry; title: string } | null {
+  const id = Number(entry.k.slice(1));
+  const found =
+    entry.t === 'monture'
+      ? referenceFor('mounts', id)
+      : entry.t === 'mascotte'
+        ? referenceFor('minions', id)
+        : entry.k.startsWith('p') && !entry.b
+          ? referenceFor('cards', id)
+          : cards.length === 1
+            ? referenceFor('cards', Number(cards[0].k.slice(1)))
+            : undefined;
+  if (!found) return null;
+  return { entry: found, title: entry.t === 'perso' ? (entry.b ? 'Sa carte de Triple Triade' : 'Obtenir la carte') : 'Obtention' };
+}
+
+/** Rareté et première provenance d'une carte regroupée dans une fiche rédigée. */
+function CardRarity({ card }: { card: LoreEntry }) {
+  const ref = referenceFor('cards', Number(card.k.slice(1)));
+  if (!ref) return null;
+  const line = [ref.s?.[0]?.[1], ref.o !== undefined ? `${formatRarity(ref.o)} des joueurs` : null].filter(Boolean).join(' · ');
+  return line ? (
+    <ThemedText type="small" numberOfLines={3} style={styles.cardSource}>
+      {line}
+    </ThemedText>
+  ) : null;
+}
+
 function shelfWidth(entry: LoreEntry): number {
   return entry.t === 'recit' ? 260 : entry.t === 'lieu' || entry.t === 'notion' ? 220 : entry.t === 'perso' ? 112 : 130;
 }
@@ -299,4 +334,5 @@ const styles = StyleSheet.create({
   cardTile: { width: 150, gap: Spacing.one },
   cardTileArt: { width: 150, aspectRatio: LORE_ASPECT.perso, borderRadius: 8, overflow: 'hidden' },
   cardQuote: { fontStyle: 'italic', fontSize: 13, lineHeight: 18 },
+  cardSource: { fontSize: 12, lineHeight: 16, color: '#C9A964' },
 });
